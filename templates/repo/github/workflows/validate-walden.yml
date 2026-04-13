@@ -1,0 +1,48 @@
+name: Validate Walden
+
+on:
+  pull_request:
+    paths:
+      - ".walden/**"
+      - "scripts/*.py"
+      - ".github/workflows/validate-walden.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".walden/**"
+      - "scripts/*.py"
+      - ".github/workflows/validate-walden.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Walden specs
+        run: |
+          set -euo pipefail
+          if [ ! -d .walden/specs ]; then
+            echo "No Walden specs directory found"
+            exit 0
+          fi
+
+          found=0
+          for dir in .walden/specs/*; do
+            if [ ! -d "$dir" ]; then
+              continue
+            fi
+            found=1
+            python3 scripts/validate_walden_spec.py "$(basename "$dir")"
+          done
+
+          if [ "$found" -eq 0 ]; then
+            echo "No Walden features to validate"
+          fi

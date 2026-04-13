@@ -1,0 +1,23 @@
+# Compiled binaries
+walden-test
+walden-*-linux-amd64
+walden-*-linux-arm64
+walden-*-darwin-amd64
+walden-*-darwin-arm64
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+
+# Claude Code local config
+.claude/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
