@@ -8,6 +8,10 @@
 
 Walden is an open-source, spec-driven delivery kernel. It turns ideas into reviewed feature specifications and executes approved work through a deterministic, gated workflow.
 
+<p align="center">
+  <img src="walden.png" alt="Walden" width="600" />
+</p>
+
 The core is a Go CLI that enforces phase order, freshness rules, verification proofs, and approval gates. An optional AI skill handles the non-deterministic half: drafting requirements, designing architecture, and reasoning about tradeoffs.
 
 ## What Walden Is
