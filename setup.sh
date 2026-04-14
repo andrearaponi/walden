@@ -12,6 +12,8 @@ CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 CODEX_TARGET="$CODEX_HOME/AGENTS.md"
 CODEX_BEGIN="# --- BEGIN WALDEN SKILL ---"
 CODEX_END="# --- END WALDEN SKILL ---"
+COPILOT_HOME="${COPILOT_HOME:-$HOME/.copilot}"
+COPILOT_TARGET="$COPILOT_HOME/skills/walden/SKILL.md"
 
 # --- Colors (degrade gracefully) ---
 
@@ -140,6 +142,14 @@ install_skill_codex() {
   ok "Skill installed for Codex at ${CODEX_TARGET}"
 }
 
+# --- Skill install: Copilot ---
+
+install_skill_copilot() {
+  mkdir -p "$(dirname "$COPILOT_TARGET")"
+  cp "$SKILL_SOURCE" "$COPILOT_TARGET"
+  ok "Skill installed for Copilot at ${COPILOT_TARGET}"
+}
+
 # --- Skill verify ---
 
 verify_skill() {
@@ -150,6 +160,10 @@ verify_skill() {
   fi
   if grep -q "$CODEX_BEGIN" "$CODEX_TARGET" 2>/dev/null; then
     ok "Codex skill present at ${CODEX_TARGET}"
+    verified=1
+  fi
+  if [ -f "$COPILOT_TARGET" ]; then
+    ok "Copilot skill present at ${COPILOT_TARGET}"
     verified=1
   fi
   if [ "$verified" -eq 0 ]; then
@@ -169,17 +183,19 @@ prompt_skill_install() {
   printf "\n${BOLD}Install Walden skill for:${NC}\n"
   printf "  1) Claude Code\n"
   printf "  2) Codex\n"
-  printf "  3) Both\n"
-  printf "  4) Skip\n"
-  printf "\n${BOLD}Choice [1-4]:${NC} "
+  printf "  3) Copilot\n"
+  printf "  4) All\n"
+  printf "  5) Skip\n"
+  printf "\n${BOLD}Choice [1-5]:${NC} "
 
   read -r choice < /dev/tty
 
   case "$choice" in
     1) install_skill_claude ;;
     2) install_skill_codex ;;
-    3) install_skill_claude; install_skill_codex ;;
-    4) info "Skill install skipped" ;;
+    3) install_skill_copilot ;;
+    4) install_skill_claude; install_skill_codex; install_skill_copilot ;;
+    5) info "Skill install skipped" ;;
     *) warn "Invalid choice: ${choice}. Skipping skill install." ;;
   esac
 }
@@ -231,6 +247,15 @@ uninstall_skill_codex() {
   ok "Removed Walden block from ${CODEX_TARGET}"
 }
 
+uninstall_skill_copilot() {
+  if [ -f "$COPILOT_TARGET" ]; then
+    rm -rf "$(dirname "$COPILOT_TARGET")"
+    ok "Removed ${COPILOT_TARGET}"
+  else
+    info "Copilot skill not found (skipping)"
+  fi
+}
+
 # --- Usage ---
 
 usage() {
@@ -263,6 +288,7 @@ main() {
       uninstall_binary
       uninstall_skill_claude
       uninstall_skill_codex
+      uninstall_skill_copilot
       printf "\n${BOLD}=== Done ===${NC}\n"
       ;;
     --help|-h)

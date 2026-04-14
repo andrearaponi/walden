@@ -59,7 +59,7 @@ cd walden
 ./setup.sh
 ```
 
-The setup script builds the binary, installs it to `~/.local/bin/walden`, and optionally installs the AI skill for Claude Code or Codex.
+The setup script builds the binary, installs it to `~/.local/bin/walden`, and optionally installs the AI skill for Claude Code, Codex, or Copilot.
 
 ### From Source
 
@@ -99,7 +99,7 @@ cd walden
 ./setup.sh
 ```
 
-The setup script builds the binary, installs it to `~/.local/bin/walden`, and asks whether to install the AI skill for Claude Code or Codex.
+The setup script builds the binary, installs it to `~/.local/bin/walden`, and asks whether to install the AI skill for Claude Code, Codex, or Copilot.
 
 ### 2. Open Claude Code and start building
 
@@ -375,6 +375,15 @@ Then invoke with `/walden` inside Claude Code.
 **For Codex:**
 
 See `skill/walden/install-codex.md` for Codex-specific instructions.
+
+**For Copilot:**
+
+```bash
+mkdir -p ~/.copilot/skills/walden
+cp skill/walden/SKILL.md ~/.copilot/skills/walden/SKILL.md
+```
+
+See `skill/walden/install-copilot.md` for Copilot-specific instructions.
 
 ### Prerequisite
 
