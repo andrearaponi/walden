@@ -141,12 +141,27 @@ Before doing any work:
 8. Honor the user's requested entry point only if all prerequisites are approved and fresh.
 9. For a new feature, always start at Requirements.
 
+## Decision Checkpoint Protocol
+
+Apply this protocol during Phase 1, 2, and 3 drafting. Do not apply during Phase 4.
+
+**Bifurcation Test:** a decision merits a `[decision: <question>]` checkpoint if and only if choosing differently would require discarding or substantially rewriting document content produced after the choice. When in doubt, default to autonomous resolution.
+
+**On TRUE — checkpoint detected:** emit `[decision: <question>]` in the document, explain the fork in plain language, and stop generating further content. Wait for the user's response. On receiving a response, state how the answer will be applied to the document before resuming content generation in the same conversation turn. If the user's response surfaces a previously unidentified bifurcation-significant decision, emit a new `[decision: <question>]` marker for the newly identified fork before generating content that depends on it.
+
+**On FALSE — autonomous resolution:** record the chosen assumption as `<!-- assumed: <choice> -->` inline in the document and continue drafting without interruption.
+
+**Autonomous-at-checkpoint:** if the user asks the skill to decide autonomously at a checkpoint, record the resolution as `<!-- assumed: <choice> -->` in the document and continue drafting without emitting further checkpoints for decisions within the same scope.
+
+**Constraints:** emit no more than five `[decision:]` checkpoints across a single phase drafting session. If a `[decision:]` checkpoint is left unresolved at the end of a conversation turn, the document remains in `draft` status and the skill shall not present it for phase-transition review.
+
 ## Phase 1: Requirements
 
 Generate a first draft before asking clarifying questions. Then iterate with the user.
 
 ### Requirements Standard
 
+- Apply the Decision Checkpoint Protocol during drafting.
 - Give every requirement a stable ID: `R1`, `R2`, `R3`.
 - Give every acceptance criterion a stable ID: `R1.AC1`, `R1.AC2`, `R2.AC1`.
 - Use EARS syntax for every acceptance criterion. The CLI validates keyword-level structure: single SHALL, form classification (WHEN, WHILE/DURING, WHERE, IF/THEN before SHALL), IF/THEN pairing, non-empty template slots, and warns on likely inverted forms. It does not validate semantic quality of slot content. The skill guides content quality; the CLI enforces structural conformance.
@@ -258,6 +273,7 @@ Design starts only from approved and non-stale requirements.
 
 ### Design Standard
 
+- Apply the Decision Checkpoint Protocol during drafting.
 - Read the approved requirements first.
 - Research only when a design decision depends on current external facts, library behavior, or official documentation.
 - Keep the design traceable to requirement IDs.
@@ -372,6 +388,7 @@ Task generation starts only from approved and non-stale design.
 
 ### Task Standard
 
+- Apply the Decision Checkpoint Protocol during drafting.
 - Produce only implementation tasks that write, modify, or test code.
 - Use a maximum two-level hierarchy.
 - Keep tasks incremental and testable.
