@@ -476,3 +476,4 @@ My grandfather taught me that principle before I had words for it: do fewer thin
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+Archon Copilot auto smoke test: hello world.
