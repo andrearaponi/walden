@@ -1,4 +1,4 @@
-# Install Walden Skill for Claude
+# Install Walden Skill for Claude Code
 
 ## Prerequisites
 
@@ -14,42 +14,40 @@
    walden version
    ```
 
-2. Claude Code or a Claude-compatible agent environment.
+2. Claude Code or a Claude-compatible agent environment with Agent Skills support.
 
-## Install as a Claude Code Custom Slash Command
+## Install the Skill
 
-1. In your project, create the directory `.claude/commands/` if it does not exist.
+Claude Code loads Agent Skills from a `skills/<name>/SKILL.md` layout and activates them automatically based on their `description`. Copy `SKILL.md` into the Walden skill directory.
 
-2. Copy `SKILL.md` into `.claude/commands/walden.md`:
-
-   ```bash
-   mkdir -p .claude/commands
-   cp skill/walden/SKILL.md .claude/commands/walden.md
-   ```
-
-3. You can now invoke the skill with `/walden` inside Claude Code.
-
-## Install as a User-Level Slash Command
-
-To make the skill available across all projects:
+**User-level** (available across all projects):
 
 ```bash
-mkdir -p ~/.claude/commands
-cp skill/walden/SKILL.md ~/.claude/commands/walden.md
+mkdir -p ~/.claude/skills/walden
+cp skill/walden/SKILL.md ~/.claude/skills/walden/SKILL.md
 ```
+
+**Project-level** (scoped to a single repository):
+
+```bash
+mkdir -p .claude/skills/walden
+cp skill/walden/SKILL.md .claude/skills/walden/SKILL.md
+```
+
+`SKILL.md` is used as-is: its `name` and `description` frontmatter is what Claude Code reads to decide when to apply the skill.
 
 ## Usage
 
-Once installed, use the `/walden` command to define requirements, create designs, generate implementation plans, or execute approved tasks.
-
-Examples:
+Once installed, Claude Code activates the skill automatically when your request matches its description — there is no slash command to remember. Just describe the spec work:
 
 ```
-/walden Define the requirements for a user authentication feature
-/walden Create the design for user-authentication
-/walden Generate the implementation plan for user-authentication
-/walden Execute task 1.1 for user-authentication
+Let's define the requirements for a user authentication feature with Walden.
+Create the design for user-authentication.
+Generate the implementation plan for user-authentication.
+Execute task 1.1 for user-authentication.
 ```
+
+Claude detects the intent, loads the skill, and follows the Walden workflow, calling the `walden` CLI for all deterministic operations.
 
 ## If the CLI Is Missing
 

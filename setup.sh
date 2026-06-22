@@ -7,7 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
 BINARY_NAME="walden"
 SKILL_SOURCE="$SCRIPT_DIR/skill/walden/SKILL.md"
-CLAUDE_TARGET="$HOME/.claude/commands/walden.md"
+CLAUDE_TARGET="$HOME/.claude/skills/walden/SKILL.md"
+CLAUDE_COMMAND_LEGACY="$HOME/.claude/commands/walden.md"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 CODEX_TARGET="$CODEX_HOME/AGENTS.md"
 CODEX_BEGIN="# --- BEGIN WALDEN SKILL ---"
@@ -125,6 +126,10 @@ install_skill_claude() {
   mkdir -p "$(dirname "$CLAUDE_TARGET")"
   cp "$SKILL_SOURCE" "$CLAUDE_TARGET"
   ok "Skill installed for Claude Code at ${CLAUDE_TARGET}"
+  if [ -f "$CLAUDE_COMMAND_LEGACY" ]; then
+    rm -f "$CLAUDE_COMMAND_LEGACY"
+    info "Removed legacy /walden command at ${CLAUDE_COMMAND_LEGACY}"
+  fi
 }
 
 # --- Skill install: Codex ---
@@ -229,10 +234,14 @@ uninstall_binary() {
 
 uninstall_skill_claude() {
   if [ -f "$CLAUDE_TARGET" ]; then
-    rm -f "$CLAUDE_TARGET"
+    rm -rf "$(dirname "$CLAUDE_TARGET")"
     ok "Removed ${CLAUDE_TARGET}"
   else
     info "Claude skill not found (skipping)"
+  fi
+  if [ -f "$CLAUDE_COMMAND_LEGACY" ]; then
+    rm -f "$CLAUDE_COMMAND_LEGACY"
+    ok "Removed legacy /walden command at ${CLAUDE_COMMAND_LEGACY}"
   fi
 }
 
