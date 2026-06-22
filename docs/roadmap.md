@@ -8,7 +8,7 @@ The first public release includes:
 
 - Deterministic CLI with all core commands
 - Versioned JSON output contract (`v0alpha1`)
-- Public skill bundle for Claude and Codex
+- Public skill bundle for Claude, Codex, Copilot, and OpenCode
 - Documentation pack (concepts, workflow, boundaries)
 - Example project with shell-safe verification
 - Repository bootstrap and feature scaffolding templates

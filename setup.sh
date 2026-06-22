@@ -14,6 +14,8 @@ CODEX_BEGIN="# --- BEGIN WALDEN SKILL ---"
 CODEX_END="# --- END WALDEN SKILL ---"
 COPILOT_HOME="${COPILOT_HOME:-$HOME/.copilot}"
 COPILOT_TARGET="$COPILOT_HOME/skills/walden/SKILL.md"
+OPENCODE_HOME="${OPENCODE_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
+OPENCODE_TARGET="$OPENCODE_HOME/skills/walden/SKILL.md"
 
 # --- Colors (degrade gracefully) ---
 
@@ -150,6 +152,14 @@ install_skill_copilot() {
   ok "Skill installed for Copilot at ${COPILOT_TARGET}"
 }
 
+# --- Skill install: OpenCode ---
+
+install_skill_opencode() {
+  mkdir -p "$(dirname "$OPENCODE_TARGET")"
+  cp "$SKILL_SOURCE" "$OPENCODE_TARGET"
+  ok "Skill installed for OpenCode at ${OPENCODE_TARGET}"
+}
+
 # --- Skill verify ---
 
 verify_skill() {
@@ -164,6 +174,10 @@ verify_skill() {
   fi
   if [ -f "$COPILOT_TARGET" ]; then
     ok "Copilot skill present at ${COPILOT_TARGET}"
+    verified=1
+  fi
+  if [ -f "$OPENCODE_TARGET" ]; then
+    ok "OpenCode skill present at ${OPENCODE_TARGET}"
     verified=1
   fi
   if [ "$verified" -eq 0 ]; then
@@ -184,9 +198,10 @@ prompt_skill_install() {
   printf "  1) Claude Code\n"
   printf "  2) Codex\n"
   printf "  3) Copilot\n"
-  printf "  4) All\n"
-  printf "  5) Skip\n"
-  printf "\n${BOLD}Choice [1-5]:${NC} "
+  printf "  4) OpenCode\n"
+  printf "  5) All\n"
+  printf "  6) Skip\n"
+  printf "\n${BOLD}Choice [1-6]:${NC} "
 
   read -r choice < /dev/tty
 
@@ -194,8 +209,9 @@ prompt_skill_install() {
     1) install_skill_claude ;;
     2) install_skill_codex ;;
     3) install_skill_copilot ;;
-    4) install_skill_claude; install_skill_codex; install_skill_copilot ;;
-    5) info "Skill install skipped" ;;
+    4) install_skill_opencode ;;
+    5) install_skill_claude; install_skill_codex; install_skill_copilot; install_skill_opencode ;;
+    6) info "Skill install skipped" ;;
     *) warn "Invalid choice: ${choice}. Skipping skill install." ;;
   esac
 }
@@ -256,6 +272,15 @@ uninstall_skill_copilot() {
   fi
 }
 
+uninstall_skill_opencode() {
+  if [ -f "$OPENCODE_TARGET" ]; then
+    rm -rf "$(dirname "$OPENCODE_TARGET")"
+    ok "Removed ${OPENCODE_TARGET}"
+  else
+    info "OpenCode skill not found (skipping)"
+  fi
+}
+
 # --- Usage ---
 
 usage() {
@@ -289,6 +314,7 @@ main() {
       uninstall_skill_claude
       uninstall_skill_codex
       uninstall_skill_copilot
+      uninstall_skill_opencode
       printf "\n${BOLD}=== Done ===${NC}\n"
       ;;
     --help|-h)
