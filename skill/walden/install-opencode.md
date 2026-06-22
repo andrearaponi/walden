@@ -33,6 +33,8 @@ OpenCode discovers skills from several locations. Pick the one that matches your
 | Global (shared with Claude) | `~/.claude/skills/walden/SKILL.md` |
 | Project | `.opencode/skills/walden/SKILL.md` |
 
+OpenCode also reads `~/.claude/skills/`, so if you already installed Walden for Claude Code it is picked up automatically — copying it into both `~/.config/opencode/skills/` and `~/.claude/skills/` would surface the skill twice.
+
 `SKILL.md` is used as-is: its `name`, `description`, and `metadata` frontmatter is already valid for OpenCode, and unknown fields are ignored. No edits are required.
 
 If `XDG_CONFIG_HOME` is set, OpenCode resolves the global directory under `$XDG_CONFIG_HOME/opencode/skills/` instead of `~/.config/opencode/skills/`. The `setup.sh` installer honors this automatically.

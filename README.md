@@ -104,7 +104,7 @@ The setup script builds the binary, installs it to `~/.local/bin/walden`, and as
 ### 2. Open Claude Code and start building
 
 ```
-/walden We need to build a user authentication system. Let's design it with Walden.
+We need to build a user authentication system. Let's design it with Walden.
 ```
 
 That's it. The skill takes over from there.
@@ -359,18 +359,18 @@ The optional AI skill handles non-deterministic authoring work while delegating 
 **For Claude Code** (project-level):
 
 ```bash
-mkdir -p .claude/commands
-cp skill/walden/SKILL.md .claude/commands/walden.md
+mkdir -p .claude/skills/walden
+cp skill/walden/SKILL.md .claude/skills/walden/SKILL.md
 ```
 
 **For Claude Code** (user-level, available across all projects):
 
 ```bash
-mkdir -p ~/.claude/commands
-cp skill/walden/SKILL.md ~/.claude/commands/walden.md
+mkdir -p ~/.claude/skills/walden
+cp skill/walden/SKILL.md ~/.claude/skills/walden/SKILL.md
 ```
 
-Then invoke with `/walden` inside Claude Code.
+Claude Code auto-activates the skill when your request matches its description. See `skill/walden/install-claude.md` for details.
 
 **For Codex:**
 
