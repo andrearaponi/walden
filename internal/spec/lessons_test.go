@@ -40,7 +40,7 @@ Review this file before non-trivial work when the current request matches past m
 
 ## Lessons
 
-<!-- Append entries with scripts/log_walden_lesson.py -->
+<!-- Append entries with: walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..." -->
 ### 2026-03-22T08:00:00Z | todo-app-demo | design
 - Trigger: design constraints added after approval request
 - Lesson: capture workflow constraints before approval
@@ -64,7 +64,7 @@ Review this file before non-trivial work when the current request matches past m
 
 ## Lessons
 
-<!-- Append entries with scripts/log_walden_lesson.py -->
+<!-- Append entries with: walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..." -->
 ### 2026-03-21T14:07:51Z | repo-init-and-review-flow | design
 - Trigger: existing trigger
 - Lesson: existing lesson

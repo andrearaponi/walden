@@ -16,7 +16,7 @@ Review this file before non-trivial work when the current request matches past m
 
 ## Lessons
 
-<!-- Append entries with scripts/log_walden_lesson.py -->
+<!-- Append entries with: walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..." -->
 `
 
 // LessonEntry is the canonical structured payload for one Walden lesson.
