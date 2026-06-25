@@ -22,20 +22,27 @@ const binaryName = "walden"
 // -ldflags and defaults to "dev" for untagged builds.
 var Version = "dev"
 
-var plannedCommands = []string{
-	"version [--json]",
-	"repo init [--json]",
-	"feature init <name> [--json]",
-	"status <feature> [--json]",
-	"reconcile <feature> [--json]",
-	"lesson log --feature <name> --phase requirements|design|tasks|execute|release --trigger <text> --lesson <text> --guardrail <text> [--json]",
-	"task status <feature> [--json]",
-	"task start <feature> [task-id] [--json]",
-	"task complete <feature> <task-id> [--json]",
-	"task complete-all <feature> [--json]",
-	"validate <feature> [--all] [--json]",
-	"review open <feature> --phase requirements|design|tasks [--json]",
-	"review approve <feature> --phase requirements|design|tasks [--json]",
+// commandUsage pairs a command's invocation syntax with a one-line summary
+// for the help output.
+type commandUsage struct {
+	Syntax  string
+	Summary string
+}
+
+var commandUsages = []commandUsage{
+	{"version [--json]", "Print the CLI and schema version"},
+	{"repo init [--json]", "Initialize Walden in the current repository"},
+	{"feature init <name> [--json]", "Scaffold a new feature spec"},
+	{"status <feature> [--json]", "Show a feature's phase, blockers, and next action"},
+	{"reconcile <feature> [--json]", "Re-sync the approval chain after upstream edits"},
+	{"lesson log --feature <name> --phase <phase> --trigger <text> --lesson <text> --guardrail <text> [--json]", "Append a structured lesson to .walden/lessons.md"},
+	{"task status <feature> [--json]", "Show execution readiness and the next runnable task"},
+	{"task start <feature> [task-id] [--json]", "Resolve normalized execution context for a task"},
+	{"task complete <feature> <task-id> [--json]", "Run a task's proofs and mark it complete"},
+	{"task complete-all <feature> [--json]", "Complete all runnable tasks in order"},
+	{"validate <feature> [--all] [--json]", "Check EARS, traceability, and freshness"},
+	{"review open <feature> --phase <phase> [--json]", "Open the review gate (move to in-review)"},
+	{"review approve <feature> --phase <phase> [--json]", "Approve the review gate (move to approved)"},
 }
 
 var commandRunner shell.Runner = shell.NewExecRunner()
@@ -48,6 +55,9 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "--help", "-h":
+		printUsage(stdout)
+		return 0
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
 	case "repo":
@@ -910,11 +920,16 @@ func runReviewApprove(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func printUsage(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "%s\n\n", binaryName)
-	_, _ = fmt.Fprintln(w, "Planned commands:")
-	for _, command := range plannedCommands {
-		_, _ = fmt.Fprintf(w, "- %s\n", command)
+	_, _ = fmt.Fprintf(w, "Usage:\n  %s <command> [arguments]\n\n", binaryName)
+	_, _ = fmt.Fprintln(w, "Commands:")
+	for _, command := range commandUsages {
+		_, _ = fmt.Fprintf(w, "  %s\n      %s\n", command.Syntax, command.Summary)
 	}
+	_, _ = fmt.Fprintln(w, "\nFlags:")
+	_, _ = fmt.Fprintln(w, "  --json           Emit machine-readable JSON instead of text")
+	_, _ = fmt.Fprintln(w, "  --all            Validate the full spec, not just the current phase (validate)")
+	_, _ = fmt.Fprintln(w, "  --phase <phase>  Target requirements|design|tasks (review open/approve)")
+	_, _ = fmt.Fprintf(w, "\nRun '%s --help' to show this help.\n", binaryName)
 }
 
 func statusSuccessResult(state workflow.FeatureState) output.Result {
