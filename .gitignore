@@ -13,6 +13,11 @@ walden-*-darwin-arm64
 # Claude Code local config
 .claude/
 
+# Walden dogfooding artifacts (local only — never published in this repo)
+.walden/
+.github/workflows/validate-walden.yml
+.github/pull_request_template.md
+
 # Go
 *.exe
 *.exe~
