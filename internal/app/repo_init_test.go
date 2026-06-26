@@ -84,8 +84,8 @@ func TestRunRepoInitPrintsJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
 		t.Fatalf("expected valid json, got %v", err)
 	}
-	if envelope.SchemaVersion != "v0alpha1" {
-		t.Fatalf("expected schema_version v0alpha1, got %q", envelope.SchemaVersion)
+	if envelope.SchemaVersion != "v0beta1" {
+		t.Fatalf("expected schema_version v0beta1, got %q", envelope.SchemaVersion)
 	}
 	if envelope.Command != "repo-init" {
 		t.Fatalf("expected command repo-init, got %q", envelope.Command)

@@ -2,9 +2,15 @@
 
 All notable changes to Walden will be documented in this file.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0alpha1` until the CLI stabilizes to v1.0.0.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-06-26
+
+### Changed
+
+- JSON output contract advanced from `schema_version: v0alpha1` to `v0beta1` — a maturing-but-not-yet-frozen contract. The envelope shape is unchanged; this signals that integrations can build on it with care, while it may still change before the stable `v1` (which lands at v1.0.0). Match the `v0` prefix rather than the exact string.
 
 ## [0.2.0] - 2026-06-25
 

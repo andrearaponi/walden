@@ -26,7 +26,7 @@ func TestVersionPrintsVersionAndSchema(t *testing.T) {
 	if !strings.Contains(out, "walden") {
 		t.Fatalf("expected output to contain binary name, got %q", out)
 	}
-	if !strings.Contains(out, "v0alpha1") {
+	if !strings.Contains(out, "v0beta1") {
 		t.Fatalf("expected output to contain schema version, got %q", out)
 	}
 }
@@ -45,8 +45,8 @@ func TestVersionPrintsJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
 		t.Fatalf("expected valid json, got %v", err)
 	}
-	if envelope.SchemaVersion != "v0alpha1" {
-		t.Fatalf("expected schema_version v0alpha1, got %q", envelope.SchemaVersion)
+	if envelope.SchemaVersion != "v0beta1" {
+		t.Fatalf("expected schema_version v0beta1, got %q", envelope.SchemaVersion)
 	}
 	if envelope.Command != "version" {
 		t.Fatalf("expected command version, got %q", envelope.Command)

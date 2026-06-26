@@ -210,7 +210,7 @@ type Envelope struct {
 // PrintJSON renders the result inside a versioned JSON envelope.
 func PrintJSON(w io.Writer, command string, result Result) error {
 	envelope := Envelope{
-		SchemaVersion: "v0alpha1",
+		SchemaVersion: "v0beta1",
 		Command:       command,
 		OK:            result.ExitCode == 0,
 		Result:        result,

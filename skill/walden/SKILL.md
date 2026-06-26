@@ -46,7 +46,7 @@ All `--json` commands return a versioned envelope:
 
 ```json
 {
-  "schema_version": "v0alpha1",
+  "schema_version": "v0beta1",
   "command": "<command-name>",
   "ok": true,
   "result": {}

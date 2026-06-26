@@ -92,7 +92,7 @@ func runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	result := output.Result{
-		Summary:  fmt.Sprintf("walden %s (schema %s)", Version, "v0alpha1"),
+		Summary:  fmt.Sprintf("walden %s (schema %s)", Version, "v0beta1"),
 		ExitCode: 0,
 	}
 
