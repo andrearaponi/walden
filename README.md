@@ -404,14 +404,14 @@ All `--json` commands return a versioned envelope:
 
 ```json
 {
-  "schema_version": "v0alpha1",
+  "schema_version": "v0beta1",
   "command": "status",
   "ok": true,
   "result": { }
 }
 ```
 
-The schema version is `v0alpha1` for this release. Breaking changes will bump the version.
+The schema version is `v0beta1` — a maturing contract: the shape is settling and you can build on it, but it may still change before the stable `v1` (which lands at v1.0.0). Match the `v0` prefix rather than the exact string; breaking changes are noted in the changelog.
 
 When `ok` is `false`, the `result` contains error details. This contract enables machine-readable consumption by CI pipelines, scripts, and agent toolchains.
 

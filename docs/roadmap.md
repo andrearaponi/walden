@@ -19,7 +19,7 @@ The first public release includes:
 These improvements are planned for the open source core:
 
 - **CLI polish** — improved error messages, help text, and edge case handling.
-- **JSON contract stabilization** — move from `v0alpha1` toward a stable `v1` schema as the contract matures.
+- **JSON contract stabilization** — now at `v0beta1`; move toward a stable `v1` schema as the contract matures.
 - **Skill refinement** — tighter CLI delegation, fewer redundant instructions, better example conversations.
 - **Additional examples** — backend service demo, multi-feature workflow example.
 - **CI integration patterns** — documented patterns for using Walden validation in CI pipelines.
@@ -49,4 +49,4 @@ These represent the full platform vision:
 
 ## Versioning
 
-The open source CLI follows semantic versioning. The JSON output contract uses `v0alpha1` until the CLI stabilizes at v1.0.0, at which point it will bump to `v1` with a documented migration guide. Breaking CLI changes are documented in the changelog.
+The open source CLI follows semantic versioning. The JSON output contract is at `v0beta1` and remains pre-stable until the CLI stabilizes at v1.0.0, at which point it will bump to `v1` with a documented migration guide. Breaking CLI changes are documented in the changelog.

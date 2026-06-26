@@ -98,8 +98,8 @@ func TestPrintJSONProducesVersionedEnvelope(t *testing.T) {
 		t.Fatalf("expected valid json, got %v", err)
 	}
 
-	if envelope.SchemaVersion != "v0alpha1" {
-		t.Fatalf("expected schema_version %q, got %q", "v0alpha1", envelope.SchemaVersion)
+	if envelope.SchemaVersion != "v0beta1" {
+		t.Fatalf("expected schema_version %q, got %q", "v0beta1", envelope.SchemaVersion)
 	}
 	if envelope.Command != "validate" {
 		t.Fatalf("expected command %q, got %q", "validate", envelope.Command)
