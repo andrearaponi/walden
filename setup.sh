@@ -60,7 +60,9 @@ detect_platform() {
 # --- Version detection ---
 
 detect_version() {
-  VERSION="$(git -C "$SCRIPT_DIR" describe --tags --abbrev=0 2>/dev/null || echo "dev")"
+  # Full describe: clean tag on release commits (v0.3.0), honest suffix on
+  # dev builds (v0.3.0-9-g337b6b5) so installs from a branch are identifiable.
+  VERSION="$(git -C "$SCRIPT_DIR" describe --tags --dirty 2>/dev/null || echo "dev")"
   info "Version: ${VERSION}"
 }
 
