@@ -2,13 +2,14 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.1.0
+## Current Release: v0.4.0
 
-The first public release includes:
+The open source core today includes:
 
 - Deterministic CLI with all core commands
-- Versioned JSON output contract (`v0alpha1`)
-- Public skill bundle for Claude, Codex, Copilot, and OpenCode
+- Content-fingerprint freshness chain: tamper detection and provable approval binding on every spec document
+- Versioned JSON output contract (`v0beta1`)
+- Public skill bundle for Claude Code, Codex, Copilot, and OpenCode (model-invoked Agent Skill on Claude Code)
 - Documentation pack (concepts, workflow, boundaries)
 - Example project with shell-safe verification
 - Repository bootstrap and feature scaffolding templates
