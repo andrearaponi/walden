@@ -31,7 +31,19 @@ type Result struct {
 	EARSValidation        []EARSCriterion   `json:"ears_validation,omitempty"`
 	Coverage              *CoverageReport   `json:"coverage,omitempty"`
 	EARSDistribution      *EARSDistribution `json:"ears_distribution,omitempty"`
+	Skills                []SkillStatus     `json:"skills,omitempty"`
+	Content               string            `json:"content,omitempty"`
 	ExitCode              int               `json:"exit_code"`
+}
+
+// SkillStatus is the shared output view for one skill installation slot.
+type SkillStatus struct {
+	Agent     string `json:"agent"`
+	Scope     string `json:"scope"`
+	Path      string `json:"path"`
+	Installed bool   `json:"installed"`
+	State     string `json:"state"`
+	Version   string `json:"version,omitempty"`
 }
 
 // EARSDistribution is the JSON output view of EARS form counts.
@@ -180,6 +192,20 @@ func PrintText(w io.Writer, result Result) {
 		}
 		if result.Task.Verification != "" {
 			_, _ = fmt.Fprintf(w, "Task verification: %s\n", result.Task.Verification)
+		}
+	}
+
+	if len(result.Skills) > 0 {
+		_, _ = fmt.Fprintln(w, "Skills:")
+		for _, skill := range result.Skills {
+			_, _ = fmt.Fprintf(w, "- %s (%s): %s", skill.Agent, skill.Scope, skill.State)
+			if skill.Version != "" {
+				_, _ = fmt.Fprintf(w, " version=%s", skill.Version)
+			}
+			if skill.Installed {
+				_, _ = fmt.Fprintf(w, " path=%s", skill.Path)
+			}
+			_, _ = fmt.Fprintln(w)
 		}
 	}
 

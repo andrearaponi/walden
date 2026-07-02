@@ -2,30 +2,29 @@
 
 ## Prerequisites
 
-1. Install the `walden` CLI and ensure it is available in `PATH`:
+Install the `walden` CLI and ensure it is available in `PATH`:
 
-   ```bash
-   go install github.com/andrearaponi/walden/cmd/walden@latest
-   ```
+```bash
+go install github.com/andrearaponi/walden/cmd/walden@latest
+```
 
-   Verify with:
+Verify with:
 
-   ```bash
-   walden version
-   ```
+```bash
+walden version
+```
 
-2. An [OpenCode](https://opencode.ai) installation with native Agent Skills support.
+The skill is embedded in the binary, so the CLI is the only prerequisite. An [OpenCode](https://opencode.ai) installation with native Agent Skills support is required.
 
 ## Install the Skill
 
-Copy `SKILL.md` into your global OpenCode skills directory:
-
 ```bash
-mkdir -p ~/.config/opencode/skills/walden
-cp skill/walden/SKILL.md ~/.config/opencode/skills/walden/SKILL.md
+walden skill install opencode
 ```
 
-OpenCode discovers skills from several locations. Pick the one that matches your scope:
+This writes the embedded skill to the global OpenCode skills directory. Resolution order: `$OPENCODE_HOME/skills/walden/SKILL.md` when `OPENCODE_HOME` is set, otherwise `${XDG_CONFIG_HOME:-~/.config}/opencode/skills/walden/SKILL.md`.
+
+OpenCode discovers skills from several locations:
 
 | Scope | Path |
 | --- | --- |
@@ -33,11 +32,22 @@ OpenCode discovers skills from several locations. Pick the one that matches your
 | Global (shared with Claude) | `~/.claude/skills/walden/SKILL.md` |
 | Project | `.opencode/skills/walden/SKILL.md` |
 
-OpenCode also reads `~/.claude/skills/`, so if you already installed Walden for Claude Code it is picked up automatically — copying it into both `~/.config/opencode/skills/` and `~/.claude/skills/` would surface the skill twice.
+OpenCode also reads `~/.claude/skills/`, so if you already ran `walden skill install claude` the skill is picked up automatically — installing for both agents would surface it twice. For the OpenCode project scope, export the skill yourself:
 
-`SKILL.md` is used as-is: its `name`, `description`, and `metadata` frontmatter is already valid for OpenCode, and unknown fields are ignored. No edits are required.
+```bash
+mkdir -p .opencode/skills/walden
+walden skill show > .opencode/skills/walden/SKILL.md
+```
 
-If `XDG_CONFIG_HOME` is set, OpenCode resolves the global directory under `$XDG_CONFIG_HOME/opencode/skills/` instead of `~/.config/opencode/skills/`. The `setup.sh` installer honors this automatically.
+`SKILL.md` is used as-is: its `name`, `description`, and `metadata` frontmatter is already valid for OpenCode, and unknown fields are ignored.
+
+## Verify And Update
+
+```bash
+walden skill status
+```
+
+After upgrading the binary, rerun `walden skill install opencode` to refresh the skill.
 
 ## Usage
 

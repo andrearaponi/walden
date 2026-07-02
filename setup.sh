@@ -6,17 +6,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
 BINARY_NAME="walden"
-SKILL_SOURCE="$SCRIPT_DIR/skill/walden/SKILL.md"
-CLAUDE_TARGET="$HOME/.claude/skills/walden/SKILL.md"
-CLAUDE_COMMAND_LEGACY="$HOME/.claude/commands/walden.md"
-CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-CODEX_TARGET="$CODEX_HOME/AGENTS.md"
-CODEX_BEGIN="# --- BEGIN WALDEN SKILL ---"
-CODEX_END="# --- END WALDEN SKILL ---"
-COPILOT_HOME="${COPILOT_HOME:-$HOME/.copilot}"
-COPILOT_TARGET="$COPILOT_HOME/skills/walden/SKILL.md"
-OPENCODE_HOME="${OPENCODE_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
-OPENCODE_TARGET="$OPENCODE_HOME/skills/walden/SKILL.md"
+WALDEN="${INSTALL_DIR}/${BINARY_NAME}"
 
 # --- Colors (degrade gracefully) ---
 
@@ -74,8 +64,8 @@ check_prerequisites() {
     exit 1
   fi
 
-  if [ ! -f "$SKILL_SOURCE" ]; then
-    err "SKILL.md not found at $SKILL_SOURCE"
+  if [ ! -f "$SCRIPT_DIR/go.mod" ]; then
+    err "go.mod not found at $SCRIPT_DIR"
     err "Run this script from the walden repository root."
     exit 1
   fi
@@ -97,8 +87,8 @@ build_binary() {
 
 install_binary() {
   mkdir -p "$INSTALL_DIR"
-  cp "${SCRIPT_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
-  chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
+  cp "${SCRIPT_DIR}/${BINARY_NAME}" "$WALDEN"
+  chmod +x "$WALDEN"
   rm -f "${SCRIPT_DIR}/${BINARY_NAME}"
 
   case ":$PATH:" in
@@ -107,14 +97,14 @@ install_binary() {
        warn "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
   esac
 
-  ok "Binary installed to ${INSTALL_DIR}/${BINARY_NAME}"
+  ok "Binary installed to $WALDEN"
 }
 
 # --- Binary verify ---
 
 verify_binary() {
-  if "${INSTALL_DIR}/${BINARY_NAME}" version >/dev/null 2>&1; then
-    result="$("${INSTALL_DIR}/${BINARY_NAME}" version 2>&1 | head -1)"
+  if "$WALDEN" version >/dev/null 2>&1; then
+    result="$("$WALDEN" version 2>&1 | head -1)"
     ok "Verified: ${result}"
   else
     warn "Binary installed but 'walden version' did not succeed"
@@ -122,82 +112,12 @@ verify_binary() {
   fi
 }
 
-# --- Skill install: Claude ---
-
-install_skill_claude() {
-  mkdir -p "$(dirname "$CLAUDE_TARGET")"
-  cp "$SKILL_SOURCE" "$CLAUDE_TARGET"
-  ok "Skill installed for Claude Code at ${CLAUDE_TARGET}"
-  if [ -f "$CLAUDE_COMMAND_LEGACY" ]; then
-    rm -f "$CLAUDE_COMMAND_LEGACY"
-    info "Removed legacy /walden command at ${CLAUDE_COMMAND_LEGACY}"
-  fi
-}
-
-# --- Skill install: Codex ---
-
-install_skill_codex() {
-  if grep -q "$CODEX_BEGIN" "$CODEX_TARGET" 2>/dev/null; then
-    ok "Skill already installed for Codex (skipping)"
-    return 0
-  fi
-
-  mkdir -p "$(dirname "$CODEX_TARGET")"
-  {
-    printf '\n%s\n' "$CODEX_BEGIN"
-    cat "$SKILL_SOURCE"
-    printf '\n%s\n' "$CODEX_END"
-  } >> "$CODEX_TARGET"
-  ok "Skill installed for Codex at ${CODEX_TARGET}"
-}
-
-# --- Skill install: Copilot ---
-
-install_skill_copilot() {
-  mkdir -p "$(dirname "$COPILOT_TARGET")"
-  cp "$SKILL_SOURCE" "$COPILOT_TARGET"
-  ok "Skill installed for Copilot at ${COPILOT_TARGET}"
-}
-
-# --- Skill install: OpenCode ---
-
-install_skill_opencode() {
-  mkdir -p "$(dirname "$OPENCODE_TARGET")"
-  cp "$SKILL_SOURCE" "$OPENCODE_TARGET"
-  ok "Skill installed for OpenCode at ${OPENCODE_TARGET}"
-}
-
-# --- Skill verify ---
-
-verify_skill() {
-  verified=0
-  if [ -f "$CLAUDE_TARGET" ]; then
-    ok "Claude skill present at ${CLAUDE_TARGET}"
-    verified=1
-  fi
-  if grep -q "$CODEX_BEGIN" "$CODEX_TARGET" 2>/dev/null; then
-    ok "Codex skill present at ${CODEX_TARGET}"
-    verified=1
-  fi
-  if [ -f "$COPILOT_TARGET" ]; then
-    ok "Copilot skill present at ${COPILOT_TARGET}"
-    verified=1
-  fi
-  if [ -f "$OPENCODE_TARGET" ]; then
-    ok "OpenCode skill present at ${OPENCODE_TARGET}"
-    verified=1
-  fi
-  if [ "$verified" -eq 0 ]; then
-    info "No skill files installed (skipped)"
-  fi
-}
-
-# --- Skill prompt ---
+# --- Skill install (delegated to the binary) ---
 
 prompt_skill_install() {
   if ! [ -t 0 ]; then
     info "Non-interactive mode: skipping skill install"
-    info "Run './setup.sh install' interactively to install the skill"
+    info "Run '${WALDEN} skill install <agent>' to install the skill"
     return 0
   fi
 
@@ -213,82 +133,37 @@ prompt_skill_install() {
   read -r choice < /dev/tty
 
   case "$choice" in
-    1) install_skill_claude ;;
-    2) install_skill_codex ;;
-    3) install_skill_copilot ;;
-    4) install_skill_opencode ;;
-    5) install_skill_claude; install_skill_codex; install_skill_copilot; install_skill_opencode ;;
+    1) "$WALDEN" skill install claude ;;
+    2) "$WALDEN" skill install codex ;;
+    3) "$WALDEN" skill install copilot ;;
+    4) "$WALDEN" skill install opencode ;;
+    5) "$WALDEN" skill install --all ;;
     6) info "Skill install skipped" ;;
     *) warn "Invalid choice: ${choice}. Skipping skill install." ;;
   esac
 }
 
+verify_skill() {
+  "$WALDEN" skill status
+}
+
 # --- Uninstall ---
 
+uninstall_skill() {
+  if [ -x "$WALDEN" ]; then
+    "$WALDEN" skill uninstall --all
+  else
+    warn "walden binary not found at ${WALDEN}; skill files may remain"
+    warn "Reinstall and run '${BINARY_NAME} skill uninstall --all' to remove them"
+  fi
+}
+
 uninstall_binary() {
-  if [ -f "${INSTALL_DIR}/${BINARY_NAME}" ]; then
-    rm -f "${INSTALL_DIR}/${BINARY_NAME}"
-    ok "Removed ${INSTALL_DIR}/${BINARY_NAME}"
+  if [ -f "$WALDEN" ]; then
+    rm -f "$WALDEN"
+    ok "Removed $WALDEN"
   else
-    info "Binary not found at ${INSTALL_DIR}/${BINARY_NAME} (skipping)"
-  fi
-}
-
-uninstall_skill_claude() {
-  if [ -f "$CLAUDE_TARGET" ]; then
-    rm -rf "$(dirname "$CLAUDE_TARGET")"
-    ok "Removed ${CLAUDE_TARGET}"
-  else
-    info "Claude skill not found (skipping)"
-  fi
-  if [ -f "$CLAUDE_COMMAND_LEGACY" ]; then
-    rm -f "$CLAUDE_COMMAND_LEGACY"
-    ok "Removed legacy /walden command at ${CLAUDE_COMMAND_LEGACY}"
-  fi
-}
-
-uninstall_skill_codex() {
-  if [ ! -f "$CODEX_TARGET" ]; then
-    info "Codex AGENTS.md not found (skipping)"
-    return 0
-  fi
-
-  if ! grep -q "$CODEX_BEGIN" "$CODEX_TARGET" 2>/dev/null; then
-    info "No Walden block in Codex AGENTS.md (skipping)"
-    return 0
-  fi
-
-  tmp="$(mktemp)"
-  awk -v begin="$CODEX_BEGIN" -v end="$CODEX_END" '
-    $0 == begin { skip=1; next }
-    $0 == end   { skip=0; next }
-    !skip       { print }
-  ' "$CODEX_TARGET" > "$tmp"
-
-  if [ -s "$tmp" ]; then
-    mv "$tmp" "$CODEX_TARGET"
-  else
-    rm -f "$tmp" "$CODEX_TARGET"
-  fi
-
-  ok "Removed Walden block from ${CODEX_TARGET}"
-}
-
-uninstall_skill_copilot() {
-  if [ -f "$COPILOT_TARGET" ]; then
-    rm -rf "$(dirname "$COPILOT_TARGET")"
-    ok "Removed ${COPILOT_TARGET}"
-  else
-    info "Copilot skill not found (skipping)"
-  fi
-}
-
-uninstall_skill_opencode() {
-  if [ -f "$OPENCODE_TARGET" ]; then
-    rm -rf "$(dirname "$OPENCODE_TARGET")"
-    ok "Removed ${OPENCODE_TARGET}"
-  else
-    info "OpenCode skill not found (skipping)"
+    info "Binary not found at $WALDEN (skipping)"
   fi
 }
 
@@ -321,11 +196,8 @@ main() {
       ;;
     uninstall)
       printf "\n${BOLD}=== Walden Uninstall ===${NC}\n\n"
+      uninstall_skill
       uninstall_binary
-      uninstall_skill_claude
-      uninstall_skill_codex
-      uninstall_skill_copilot
-      uninstall_skill_opencode
       printf "\n${BOLD}=== Done ===${NC}\n"
       ;;
     --help|-h)

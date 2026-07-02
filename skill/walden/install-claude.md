@@ -2,39 +2,46 @@
 
 ## Prerequisites
 
-1. Install the `walden` CLI and ensure it is available in `PATH`:
+Install the `walden` CLI and ensure it is available in `PATH`:
 
-   ```bash
-   go install github.com/andrearaponi/walden/cmd/walden@latest
-   ```
+```bash
+go install github.com/andrearaponi/walden/cmd/walden@latest
+```
 
-   Verify with:
+Verify with:
 
-   ```bash
-   walden version
-   ```
+```bash
+walden version
+```
 
-2. Claude Code or a Claude-compatible agent environment with Agent Skills support.
+The skill is embedded in the binary, so the CLI is the only prerequisite.
 
 ## Install the Skill
-
-Claude Code loads Agent Skills from a `skills/<name>/SKILL.md` layout and activates them automatically based on their `description`. Copy `SKILL.md` into the Walden skill directory.
 
 **User-level** (available across all projects):
 
 ```bash
-mkdir -p ~/.claude/skills/walden
-cp skill/walden/SKILL.md ~/.claude/skills/walden/SKILL.md
+walden skill install claude
 ```
 
-**Project-level** (scoped to a single repository):
+This writes the embedded skill to `~/.claude/skills/walden/SKILL.md` and removes the legacy `/walden` command file if one is present.
+
+**Project-level** (scoped to a single repository, shared with your team):
 
 ```bash
-mkdir -p .claude/skills/walden
-cp skill/walden/SKILL.md .claude/skills/walden/SKILL.md
+walden skill install claude --project
+git add .claude/skills/walden/SKILL.md
 ```
 
-`SKILL.md` is used as-is: its `name` and `description` frontmatter is what Claude Code reads to decide when to apply the skill.
+Committing the file gives every teammate the skill on clone — no installation step on their side.
+
+## Verify And Update
+
+```bash
+walden skill status
+```
+
+Reports whether the installation is `in-sync` or `drifted` relative to the binary's embedded copy, and which binary version installed it. After upgrading the binary, rerun `walden skill install claude` to refresh the skill.
 
 ## Usage
 
