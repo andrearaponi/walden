@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-02
+
+### Added
+
+- **The AI skill ships inside the binary.** `skill/walden/SKILL.md` is embedded at build time (`go:embed`), so every distribution channel delivers the skill at the version matching the CLI. New `walden skill` command group:
+  - `walden skill install <agent>|--all [--project]` — places the skill for `claude`, `codex`, `copilot`, or `opencode`. User scope by default; explicit `--project` for claude (`.claude/skills/`, committable to share with the team) and codex (`AGENTS.md` in the working directory). Writes are atomic (temp + rename); the Codex marker block stays byte-compatible with historical `setup.sh` installs.
+  - `walden skill uninstall <agent>|--all [--project]` — symmetric, idempotent removal; Codex block extraction preserves all unrelated `AGENTS.md` content.
+  - `walden skill status` — classifies every agent×scope slot as `in-sync`/`drifted` against the embedded copy, reports which binary version installed it, and flags diverging user/project installations.
+  - `walden skill show` — prints the embedded SKILL.md verbatim: the escape hatch for agents Walden does not model yet.
+- Installed skills carry a version stamp (`<!-- walden-skill-version: ... -->`) recording the installing binary; drift comparison normalizes it, so the stamp itself never reads as drift. Legacy stamp-less installs are classified without error.
+- **One-liner installer consuming release binaries.** `curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh` — detects the platform (darwin/linux × amd64/arm64), resolves the latest release through the `releases/latest` redirect (no GitHub API, no rate limits), downloads the prebuilt binary into a temporary workspace, verifies its SHA-256 against the release's `checksums.txt` (fail-closed; `--no-verify` escape hatch for releases ≤ v0.4.0 that predate checksums), installs atomically to `~/.local/bin`, and hands skill placement to `walden skill install`. Flags: `--skill <agent|all>`, `--version <tag>`, `--no-verify`, `--uninstall`.
+- The release pipeline publishes `checksums.txt` with SHA-256 digests of every binary asset.
+- `skills` and `content` fields on command results (additive within `schema_version: v0beta1` — the envelope is unchanged and existing integrations keep working).
+
+### Changed
+
+- `setup.sh` delegates every skill install/uninstall/verify operation to the binary (`walden skill ...`); the interactive agent prompt remains in the script. Shell placement logic is gone.
+- Reinstalling the Codex skill now replaces the existing marker block in place (previously `setup.sh` skipped when a block was present) — refreshing the skill on binary upgrade is the point of the embed.
+- README leads with the one-liner install; per-agent guides document `walden skill install` in place of manual copy steps.
+- Installing the claude skill at user scope removes the legacy `~/.claude/commands/walden.md` command file when present (parity with `setup.sh`, now enforced by the binary).
+
 ## [0.4.0] - 2026-07-02
 
 ### Added
