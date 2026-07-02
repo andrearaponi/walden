@@ -181,9 +181,42 @@
       </dl>
     </section>
 
+    <!-- ─────────────────────  HOW YOU USE IT  ──────────────────────── -->
+    <section class="howto" id="howto">
+      <div class="section-label"><span>§ 04</span> How you use it</div>
+      <p class="lede">
+        One prompt. No commands to memorize — describe the feature to your coding
+        agent, name Walden, and the ceremony starts.
+      </p>
+
+      <figure class="demo-frame howto-frame">
+        <div class="demo-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="demo-bar-title">claude code — new session</span>
+        </div>
+        <div class="howto-stage">
+          <p class="howto-label">you</p>
+          <p class="howto-prompt">We need to build a personal, single-user todo app.
+             Classic CRUD on tasks — each task has categories, a due date, a priority
+             level, and can of course be marked completed. We&rsquo;ll build it in
+             Go&nbsp;1.26, TDD fail-fast, SQLite as the database, OpenAPI for the APIs,
+             adopting RFC&nbsp;7807 problem details. The frontend will be embedded in
+             Go, using React and Tailwind&nbsp;v4. Authentication is out of scope for
+             now. <em>Let&rsquo;s use Walden.</em><span class="cursor" aria-hidden="true"></span></p>
+        </div>
+      </figure>
+
+      <p class="howto-note">
+        What happens next: the skill asks its clarifying questions, then drafts —
+        EARS requirements, design, tasks with proofs — stopping at every gate for
+        your approval. <code>walden validate</code>, <code>walden review approve</code>,
+        <code>walden task complete</code> run underneath. You never type them.
+      </p>
+    </section>
+
     <!-- ─────────────────────  THE STACK (recipes)  ─────────────────── -->
     <section class="stack" id="stack">
-      <div class="section-label"><span>§ 04</span> The kernel under your stack</div>
+      <div class="section-label"><span>§ 05</span> The kernel under your stack</div>
       <p class="lede">
         Walden doesn&rsquo;t replace your agent, your IDE, or your spec tool. It is the
         gate they call — anything that runs a command and reads an exit code gets hard gates.
@@ -231,7 +264,7 @@
 
     <!-- ────────────────────────  INSTALL  ──────────────────────────── -->
     <section class="install" id="install">
-      <div class="section-label"><span>§ 05</span> Install</div>
+      <div class="section-label"><span>§ 06</span> Install</div>
       <p class="lede">
         One command. The latest release binary lands in <code>~/.local/bin/walden</code>,
         checksum-verified — then it installs its own AI skill for Claude&nbsp;Code, Codex,
@@ -252,7 +285,7 @@
 
     <!-- ──────────────────────  ON THE NAME  ────────────────────────── -->
     <section class="name" id="name">
-      <div class="section-label"><span>§ 06</span> On the name</div>
+      <div class="section-label"><span>§ 07</span> On the name</div>
       <blockquote class="thoreau">
         <span class="quote-mark" aria-hidden="true">&ldquo;</span>
         I went to the woods because I wished to live deliberately, to front only
@@ -302,7 +335,7 @@
           if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
         });
       }, { threshold: 0.18 });
-      document.querySelectorAll('.section-label, .lede, .claim-line, .claim-sub, .voice, .phase, .ears-sample, .ears-forms, .demo-frame, .recipe, .stack-note, .code-block, .install-alt, .thoreau, .name-note')
+      document.querySelectorAll('.section-label, .lede, .claim-line, .claim-sub, .voice, .phase, .ears-sample, .ears-forms, .demo-frame, .howto-note, .recipe, .stack-note, .code-block, .install-alt, .thoreau, .name-note')
         .forEach(function (el) { el.classList.add('rise'); io.observe(el); });
     }
   </script>
