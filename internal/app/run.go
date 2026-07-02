@@ -43,6 +43,10 @@ var commandUsages = []commandUsage{
 	{"validate <feature> [--all] [--json]", "Check EARS, traceability, and freshness"},
 	{"review open <feature> --phase <phase> [--json]", "Open the review gate (move to in-review)"},
 	{"review approve <feature> --phase <phase> [--json]", "Approve the review gate (move to approved)"},
+	{"skill install <agent>|--all [--project] [--json]", "Install the embedded AI skill (claude|codex|copilot|opencode)"},
+	{"skill uninstall <agent>|--all [--project] [--json]", "Remove an installed AI skill"},
+	{"skill status [--json]", "Report installed skills and drift against the embedded copy"},
+	{"skill show [--json]", "Print the embedded SKILL.md"},
 }
 
 var commandRunner shell.Runner = shell.NewExecRunner()
@@ -76,6 +80,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runValidate(args[1:], stdout, stderr)
 	case "review":
 		return runReview(args[1:], stdout, stderr)
+	case "skill":
+		return runSkill(args[1:], stdout, stderr)
 	}
 
 	_, _ = fmt.Fprintf(stderr, "unknown command: %s\n\n", strings.Join(args, " "))

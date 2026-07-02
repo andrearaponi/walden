@@ -65,9 +65,10 @@ The setup script builds the binary, installs it to `~/.local/bin/walden`, and op
 
 ```bash
 go install github.com/andrearaponi/walden/cmd/walden@latest
+walden skill install claude
 ```
 
-Requires Go 1.25.0 or later.
+Requires Go 1.25.0 or later. The skill ships inside the binary — `walden skill install` places it for your agent (`claude`, `codex`, `copilot`, `opencode`, or `--all`), always at the version matching the CLI.
 
 ### Build Locally
 
@@ -81,13 +82,18 @@ go build -o walden ./cmd/walden
 
 ```bash
 walden version
+walden skill status
 ```
+
+`walden skill status` reports where the skill is installed and whether it matches the binary's embedded copy.
 
 ### Uninstall
 
 ```bash
 ./setup.sh uninstall
 ```
+
+Or remove just the skill with `walden skill uninstall <agent>` (or `--all`).
 
 ## Quickstart
 
@@ -364,49 +370,33 @@ The optional AI skill handles non-deterministic authoring work while delegating 
 
 ### Install the Skill
 
-**Using setup.sh** (interactive prompt):
+The skill is embedded in the binary — no repository clone or manual copying needed:
 
 ```bash
-./setup.sh
+walden skill install claude      # or codex, copilot, opencode
+walden skill install --all       # every supported agent at once
 ```
 
-**For Claude Code** (project-level):
+Installs are user-scoped by default (available across all your projects). For Claude Code and Codex you can install at project scope instead, so teammates get the skill by cloning the repository:
 
 ```bash
-mkdir -p .claude/skills/walden
-cp skill/walden/SKILL.md .claude/skills/walden/SKILL.md
+walden skill install claude --project
+git add .claude/skills/walden/SKILL.md
 ```
 
-**For Claude Code** (user-level, available across all projects):
+Check installations and detect drift against the binary's embedded copy:
 
 ```bash
-mkdir -p ~/.claude/skills/walden
-cp skill/walden/SKILL.md ~/.claude/skills/walden/SKILL.md
+walden skill status
 ```
 
-Claude Code auto-activates the skill when your request matches its description. See `skill/walden/install-claude.md` for details.
-
-**For Codex:**
-
-See `skill/walden/install-codex.md` for Codex-specific instructions.
-
-**For Copilot:**
+For agents Walden does not model yet, print the skill and place it yourself:
 
 ```bash
-mkdir -p ~/.copilot/skills/walden
-cp skill/walden/SKILL.md ~/.copilot/skills/walden/SKILL.md
+walden skill show > wherever/your/agent/loads/it.md
 ```
 
-See `skill/walden/install-copilot.md` for Copilot-specific instructions.
-
-**For OpenCode:**
-
-```bash
-mkdir -p ~/.config/opencode/skills/walden
-cp skill/walden/SKILL.md ~/.config/opencode/skills/walden/SKILL.md
-```
-
-See `skill/walden/install-opencode.md` for OpenCode-specific instructions.
+Claude Code auto-activates the skill when your request matches its description. Per-agent notes: `skill/walden/install-claude.md`, `install-codex.md`, `install-copilot.md`, `install-opencode.md`.
 
 ### Prerequisite
 

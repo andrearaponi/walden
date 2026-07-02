@@ -2,28 +2,39 @@
 
 ## Prerequisites
 
-1. Install the `walden` CLI and ensure it is available in `PATH`:
+Install the `walden` CLI and ensure it is available in `PATH`:
 
-   ```bash
-   go install github.com/andrearaponi/walden/cmd/walden@latest
-   ```
+```bash
+go install github.com/andrearaponi/walden/cmd/walden@latest
+```
 
-   Verify with:
+Verify with:
 
-   ```bash
-   walden version
-   ```
+```bash
+walden version
+```
 
-2. A GitHub Copilot-compatible agent environment.
+The skill is embedded in the binary, so the CLI is the only prerequisite.
 
 ## Install the Skill
 
-Copy `SKILL.md` into `~/.copilot/skills/walden/`:
+```bash
+walden skill install copilot
+```
+
+This writes the embedded skill to `${COPILOT_HOME:-~/.copilot}/skills/walden/SKILL.md`. Copilot support is user-scoped; `--project` is not available for this agent. If your Copilot setup loads instructions from a repository path, export the skill there yourself:
 
 ```bash
-mkdir -p ~/.copilot/skills/walden
-cp skill/walden/SKILL.md ~/.copilot/skills/walden/SKILL.md
+walden skill show > path/your/copilot/setup/reads.md
 ```
+
+## Verify And Update
+
+```bash
+walden skill status
+```
+
+After upgrading the binary, rerun `walden skill install copilot` to refresh the skill.
 
 ## Usage
 
