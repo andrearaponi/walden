@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Added
+
+- **Freshness hardening: content fingerprints.** `walden review approve` now records a SHA-256 fingerprint of the approved document body (`approved_fingerprint`) and binds downstream approvals to the upstream's fingerprint (`source_requirements_fingerprint`, `source_design_fingerprint`). Staleness verdicts are decided by fingerprint comparison alone — editing an approved document without re-approval, a missing fingerprint, or a malformed fingerprint all fail closed and block execution with a named cause. Timestamps remain in frontmatter as human-readable context.
+- `stale_causes` and `approved_fingerprint` fields on document entries in `status`/`validate` JSON output (additive within `schema_version: v0beta1`).
+- Fingerprint normalization treats task checkbox state as execution progress, not content: completing tasks does not stale the approved plan.
+
+### Changed
+
+- **Migration (strict):** documents approved by pre-fingerprint versions report stale with cause `approval fingerprint missing`. Run `walden reconcile <feature>` once and re-approve each phase to migrate.
+- `walden reconcile` now resets a modified-after-approval document to `draft` (previously `in-review`): changed content is unreviewed content.
+- Content-identical re-approval of an upstream document no longer marks downstream documents stale (previously any re-approval staled the chain via timestamps).
+- `walden task complete-all` on a gate-blocked feature now exits non-zero with the blocker (previously reported "no runnable tasks" with exit 0).
+
 ## [0.3.0] - 2026-06-26
 
 ### Changed

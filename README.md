@@ -188,6 +188,7 @@ Each document begins with YAML frontmatter that tracks its lifecycle:
 status: draft | in-review | approved
 approved_at:
 last_modified: 2026-03-22T10:00:00Z
+approved_fingerprint:
 ---
 ```
 
@@ -197,7 +198,9 @@ last_modified: 2026-03-22T10:00:00Z
 status: draft | in-review | approved
 approved_at:
 last_modified: 2026-03-22T10:00:00Z
+approved_fingerprint:
 source_requirements_approved_at:
+source_requirements_fingerprint:
 ---
 ```
 
@@ -207,17 +210,27 @@ source_requirements_approved_at:
 status: draft | in-review | approved
 approved_at:
 last_modified: 2026-03-22T10:00:00Z
+approved_fingerprint:
 source_design_approved_at:
+source_design_fingerprint:
 ---
 ```
 
-The `source_*` fields create an approval chain. When a downstream document is approved, it records the upstream `approved_at` timestamp. If the upstream document is later re-approved with a new timestamp, the downstream becomes stale.
+The `source_*` fields create an approval chain. When `walden review approve` approves a document, it records a SHA-256 **content fingerprint** of the approved body (`approved_fingerprint`) and, on downstream documents, the upstream's approval fingerprint (`source_*_fingerprint`). The timestamps remain as human-readable context; the fingerprints carry the verdict.
 
 ### Freshness
 
-A document is **fresh** when its `source_*` timestamp matches the current upstream `approved_at`. A document is **stale** when they diverge.
+Freshness is decided by content identity, not by declared metadata:
 
-Stale documents block execution. Use `walden reconcile <feature>` to repair the chain.
+- An approved document is **intact** when its current body still matches its own `approved_fingerprint`. Editing an approved document — without re-approval — makes it stale, no matter what its metadata claims.
+- A downstream document is **fresh** when it is intact and its `source_*_fingerprint` equals the upstream's current `approved_fingerprint`. Re-approving an upstream document without changing its content does **not** stale the chain.
+- Missing or malformed fingerprints on an approved document fail closed: the document is stale, with the cause named in the output (`stale_causes` in `--json`).
+
+Fingerprint computation normalizes line endings and task checkbox state (checking a task off with `walden task complete` is execution progress, not a content change) and nothing else.
+
+Stale documents block execution. Use `walden reconcile <feature>` to repair the chain: tampered or legacy documents reset to `draft`, stale downstream documents reset to `draft`, and re-approval records fresh fingerprints.
+
+**Migrating from pre-fingerprint versions:** documents approved before fingerprints existed report stale (`approval fingerprint missing`). Run `walden reconcile <feature>` once and re-approve each phase; the chain comes back hardened.
 
 ### Requirement IDs
 
@@ -302,7 +315,8 @@ Each acceptance criterion gets a stable ID (e.g., `R1.AC1`) and uses exactly one
 | Property | Enforced by CLI today | Planned |
 | --- | --- | --- |
 | Phase ordering | Yes | - |
-| Freshness chain | Yes | Hardening planned |
+| Freshness chain (content fingerprints) | Yes | - |
+| Tamper detection on approved documents | Yes | - |
 | AC ID traceability (task reference coverage) | Yes | - |
 | EARS grammar validation (keyword shape) | Yes | - |
 | Proof coverage per AC (via covers: field) | Yes | - |

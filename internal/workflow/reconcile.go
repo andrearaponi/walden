@@ -54,67 +54,59 @@ func reconcileFeatureAt(root, featureName, reconciledAt string) (ReconcileResult
 func reconcileFeature(feature spec.Feature, reconciledAt string) (spec.Feature, []string, error) {
 	changedDocs := map[string]struct{}{}
 
-	if err := downgradeIfModified(&feature.Requirements, reconciledAt, changedDocs); err != nil {
+	// Pass 1: approved documents whose own content no longer matches their
+	// approval fingerprint — or that lack one — lose their approval.
+	// Changed content is unreviewed content: draft is the honest state.
+	report := spec.EvaluateFreshness(feature)
+	if err := resetIfNotIntact(&feature.Requirements, report.Requirements, reconciledAt, changedDocs); err != nil {
 		return spec.Feature{}, nil, err
 	}
-	if err := downgradeIfModified(&feature.Design, reconciledAt, changedDocs); err != nil {
+	if err := resetIfNotIntact(&feature.Design, report.Design, reconciledAt, changedDocs); err != nil {
 		return spec.Feature{}, nil, err
 	}
-	if err := downgradeIfModified(&feature.Tasks, reconciledAt, changedDocs); err != nil {
+	if err := resetIfNotIntact(&feature.Tasks, report.Tasks, reconciledAt, changedDocs); err != nil {
 		return spec.Feature{}, nil, err
 	}
 
-	effectiveRequirementsApprovedAt := effectiveApprovedAt(feature.Requirements)
-	if feature.Design.Exists && feature.Design.SourceRequirementsApprovedAt != effectiveRequirementsApprovedAt {
-		updatedDesign, err := spec.ResetDocumentToDraft(feature.Design, reconciledAt)
-		if err != nil {
+	// Pass 2: chain repair — a downstream document bound to an upstream
+	// approval fingerprint that differs (or no longer exists) resets to
+	// draft, cascading design -> tasks.
+	effectiveRequirements := effectiveApprovedFingerprint(feature.Requirements)
+	if feature.Design.Exists && feature.Design.SourceRequirementsFingerprint != effectiveRequirements {
+		if err := resetToDraft(&feature.Design, reconciledAt, changedDocs); err != nil {
 			return spec.Feature{}, nil, err
-		}
-		if documentChanged(feature.Design, updatedDesign) {
-			feature.Design = updatedDesign
-			changedDocs["design.md"] = struct{}{}
 		}
 		if feature.Tasks.Exists {
-			updatedTasks, err := spec.ResetDocumentToDraft(feature.Tasks, reconciledAt)
-			if err != nil {
+			if err := resetToDraft(&feature.Tasks, reconciledAt, changedDocs); err != nil {
 				return spec.Feature{}, nil, err
-			}
-			if documentChanged(feature.Tasks, updatedTasks) {
-				feature.Tasks = updatedTasks
-				changedDocs["tasks.md"] = struct{}{}
 			}
 		}
 	}
 
-	effectiveDesignApprovedAt := effectiveApprovedAt(feature.Design)
-	if feature.Tasks.Exists && feature.Tasks.SourceDesignApprovedAt != effectiveDesignApprovedAt {
-		updatedTasks, err := spec.ResetDocumentToDraft(feature.Tasks, reconciledAt)
-		if err != nil {
+	effectiveDesign := effectiveApprovedFingerprint(feature.Design)
+	if feature.Tasks.Exists && feature.Tasks.SourceDesignFingerprint != effectiveDesign {
+		if err := resetToDraft(&feature.Tasks, reconciledAt, changedDocs); err != nil {
 			return spec.Feature{}, nil, err
-		}
-		if documentChanged(feature.Tasks, updatedTasks) {
-			feature.Tasks = updatedTasks
-			changedDocs["tasks.md"] = struct{}{}
 		}
 	}
 
 	return feature, orderedChangedDocs(changedDocs), nil
 }
 
-func downgradeIfModified(document *spec.Document, reconciledAt string, changedDocs map[string]struct{}) error {
-	if !document.Exists || document.Status != "approved" {
+func resetIfNotIntact(document *spec.Document, verdict spec.DocumentFreshness, reconciledAt string, changedDocs map[string]struct{}) error {
+	if !document.Exists || document.Status != "approved" || verdict.Intact {
 		return nil
 	}
 
-	modified, err := modifiedAfterApproval(*document)
-	if err != nil {
-		return err
-	}
-	if !modified {
+	return resetToDraft(document, reconciledAt, changedDocs)
+}
+
+func resetToDraft(document *spec.Document, reconciledAt string, changedDocs map[string]struct{}) error {
+	if !document.Exists {
 		return nil
 	}
 
-	updated, err := spec.DowngradeDocumentToInReview(*document, reconciledAt)
+	updated, err := spec.ResetDocumentToDraft(*document, reconciledAt)
 	if err != nil {
 		return err
 	}
@@ -126,39 +118,9 @@ func downgradeIfModified(document *spec.Document, reconciledAt string, changedDo
 	return nil
 }
 
-func modifiedAfterApproval(document spec.Document) (bool, error) {
-	if document.Status != "approved" {
-		return false, nil
-	}
-
-	approvedAt, err := parseTimestamp(document.Path, "approved_at", document.ApprovedAt)
-	if err != nil {
-		return false, err
-	}
-	lastModified, err := parseTimestamp(document.Path, "last_modified", document.LastModified)
-	if err != nil {
-		return false, err
-	}
-
-	return lastModified.After(approvedAt), nil
-}
-
-func parseTimestamp(path, field, raw string) (time.Time, error) {
-	if raw == "" {
-		return time.Time{}, fmt.Errorf("%s: %s is required", filepath.Base(path), field)
-	}
-
-	parsed, err := time.Parse("2006-01-02T15:04:05Z", raw)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("%s: invalid %s %q", filepath.Base(path), field, raw)
-	}
-
-	return parsed, nil
-}
-
-func effectiveApprovedAt(document spec.Document) string {
+func effectiveApprovedFingerprint(document spec.Document) string {
 	if document.Exists && document.Status == "approved" {
-		return document.ApprovedAt
+		return document.ApprovedFingerprint
 	}
 
 	return ""
@@ -168,8 +130,11 @@ func documentChanged(before, after spec.Document) bool {
 	return before.Status != after.Status ||
 		before.ApprovedAt != after.ApprovedAt ||
 		before.LastModified != after.LastModified ||
+		before.ApprovedFingerprint != after.ApprovedFingerprint ||
 		before.SourceRequirementsApprovedAt != after.SourceRequirementsApprovedAt ||
-		before.SourceDesignApprovedAt != after.SourceDesignApprovedAt
+		before.SourceDesignApprovedAt != after.SourceDesignApprovedAt ||
+		before.SourceRequirementsFingerprint != after.SourceRequirementsFingerprint ||
+		before.SourceDesignFingerprint != after.SourceDesignFingerprint
 }
 
 func orderedChangedDocs(changed map[string]struct{}) []string {

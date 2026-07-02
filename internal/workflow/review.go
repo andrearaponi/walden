@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/andrearaponi/walden/internal/spec"
@@ -34,7 +35,8 @@ func OpenReview(root, featureName string, phase Phase) (ReviewContext, error) {
 	}
 
 	state := ResolveFeatureState(feature)
-	if err := validateOpenReview(state, phase); err != nil {
+	report := spec.EvaluateFreshness(feature)
+	if err := validateOpenReview(state, report, phase); err != nil {
 		return ReviewContext{}, err
 	}
 
@@ -75,7 +77,8 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 	}
 
 	state := ResolveFeatureState(feature)
-	if err := validateApproveReview(state, phase); err != nil {
+	report := spec.EvaluateFreshness(feature)
+	if err := validateApproveReview(state, report, phase); err != nil {
 		return ApprovalResult{}, err
 	}
 
@@ -88,17 +91,23 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 	document.Status = "approved"
 	document.ApprovedAt = approvedAt
 	document.LastModified = approvedAt
+	document.ApprovedFingerprint = spec.Fingerprint(document.Body)
 	document.Fields["status"] = document.Status
 	document.Fields["approved_at"] = document.ApprovedAt
 	document.Fields["last_modified"] = document.LastModified
+	document.Fields["approved_fingerprint"] = document.ApprovedFingerprint
 
 	switch phase {
 	case PhaseDesign:
 		document.SourceRequirementsApprovedAt = feature.Requirements.ApprovedAt
+		document.SourceRequirementsFingerprint = feature.Requirements.ApprovedFingerprint
 		document.Fields["source_requirements_approved_at"] = document.SourceRequirementsApprovedAt
+		document.Fields["source_requirements_fingerprint"] = document.SourceRequirementsFingerprint
 	case PhaseTasks:
 		document.SourceDesignApprovedAt = feature.Design.ApprovedAt
+		document.SourceDesignFingerprint = feature.Design.ApprovedFingerprint
 		document.Fields["source_design_approved_at"] = document.SourceDesignApprovedAt
+		document.Fields["source_design_fingerprint"] = document.SourceDesignFingerprint
 	}
 
 	if err := spec.SaveDocument(*document); err != nil {
@@ -121,7 +130,7 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 	}, nil
 }
 
-func validateOpenReview(state FeatureState, phase Phase) error {
+func validateOpenReview(state FeatureState, report spec.FreshnessReport, phase Phase) error {
 	switch phase {
 	case PhaseRequirements:
 		if !state.Requirements.Exists {
@@ -132,8 +141,11 @@ func validateOpenReview(state FeatureState, phase Phase) error {
 		if state.Requirements.Status != "approved" {
 			return fmt.Errorf("requirements.md must be approved before opening design review")
 		}
-		if state.Design.Status == "approved" && !state.Design.Fresh {
-			return fmt.Errorf("design.md is stale relative to requirements.md")
+		if err := staleDocumentError("requirements.md", report.Requirements); err != nil {
+			return err
+		}
+		if state.Design.Status == "approved" && !report.Design.Fresh {
+			return staleChainError("design.md", "requirements.md", report.Design)
 		}
 		if !state.Design.Exists {
 			return fmt.Errorf("design.md does not exist")
@@ -143,14 +155,17 @@ func validateOpenReview(state FeatureState, phase Phase) error {
 		if state.Requirements.Status != "approved" {
 			return fmt.Errorf("requirements.md must be approved before opening tasks review")
 		}
+		if err := staleDocumentError("requirements.md", report.Requirements); err != nil {
+			return err
+		}
 		if state.Design.Status != "approved" {
 			return fmt.Errorf("design.md must be approved before opening tasks review")
 		}
-		if !state.Design.Fresh {
-			return fmt.Errorf("design.md is stale relative to requirements.md")
+		if !report.Design.Fresh {
+			return staleChainError("design.md", "requirements.md", report.Design)
 		}
-		if state.Tasks.Status == "approved" && !state.Tasks.Fresh {
-			return fmt.Errorf("tasks.md is stale relative to design.md")
+		if state.Tasks.Status == "approved" && !report.Tasks.Fresh {
+			return staleChainError("tasks.md", "design.md", report.Tasks)
 		}
 		if !state.Tasks.Exists {
 			return fmt.Errorf("tasks.md does not exist")
@@ -161,7 +176,7 @@ func validateOpenReview(state FeatureState, phase Phase) error {
 	}
 }
 
-func validateApproveReview(state FeatureState, phase Phase) error {
+func validateApproveReview(state FeatureState, report spec.FreshnessReport, phase Phase) error {
 	switch phase {
 	case PhaseRequirements:
 		if !state.Requirements.Exists {
@@ -178,6 +193,9 @@ func validateApproveReview(state FeatureState, phase Phase) error {
 		if state.Requirements.Status != "approved" {
 			return fmt.Errorf("requirements.md must be approved before approving design review")
 		}
+		if err := staleDocumentError("requirements.md", report.Requirements); err != nil {
+			return err
+		}
 		if state.Design.Status != "in-review" {
 			return fmt.Errorf("design.md must be in-review before approval")
 		}
@@ -189,11 +207,14 @@ func validateApproveReview(state FeatureState, phase Phase) error {
 		if state.Requirements.Status != "approved" {
 			return fmt.Errorf("requirements.md must be approved before approving tasks review")
 		}
+		if err := staleDocumentError("requirements.md", report.Requirements); err != nil {
+			return err
+		}
 		if state.Design.Status != "approved" {
 			return fmt.Errorf("design.md must be approved before approving tasks review")
 		}
-		if !state.Design.Fresh {
-			return fmt.Errorf("design.md is stale relative to requirements.md")
+		if !report.Design.Fresh {
+			return staleChainError("design.md", "requirements.md", report.Design)
 		}
 		if state.Tasks.Status != "in-review" {
 			return fmt.Errorf("tasks.md must be in-review before approval")
@@ -202,6 +223,21 @@ func validateApproveReview(state FeatureState, phase Phase) error {
 	default:
 		return fmt.Errorf("invalid phase %q", phase)
 	}
+}
+
+// staleDocumentError reports an approved document whose own content no longer
+// matches its approval fingerprint (or that lacks one).
+func staleDocumentError(name string, verdict spec.DocumentFreshness) error {
+	if verdict.Fresh {
+		return nil
+	}
+	return fmt.Errorf("%s is stale: %s (run walden reconcile)", name, strings.Join(verdict.Causes, "; "))
+}
+
+// staleChainError reports a downstream document whose approval no longer
+// binds to the upstream's current approved content.
+func staleChainError(name, upstream string, verdict spec.DocumentFreshness) error {
+	return fmt.Errorf("%s is stale relative to %s: %s (run walden reconcile)", name, upstream, strings.Join(verdict.Causes, "; "))
 }
 
 func documentForPhase(feature *spec.Feature, phase Phase) *spec.Document {

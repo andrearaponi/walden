@@ -48,16 +48,21 @@ Each document begins with YAML frontmatter that tracks its lifecycle:
 status: draft|in-review|approved
 approved_at: 2026-03-22T10:00:00Z
 last_modified: 2026-03-22T10:00:00Z
-source_requirements_approved_at:  # design.md only
-source_design_approved_at:        # tasks.md only
+approved_fingerprint: sha256:...              # recorded at approval
+source_requirements_approved_at:              # design.md only
+source_requirements_fingerprint: sha256:...   # design.md only
+source_design_approved_at:                    # tasks.md only
+source_design_fingerprint: sha256:...         # tasks.md only
 ---
 ```
 
-The `source_*` fields create an approval chain. If an upstream document is re-approved with a new timestamp, downstream documents become stale and must be reconciled.
+The `source_*` fields create an approval chain. `walden review approve` records a SHA-256 fingerprint of the approved body and binds downstream approvals to the upstream's fingerprint. If an upstream document's approved content changes, downstream documents become stale and must be reconciled.
 
 ## Freshness
 
-A document is **fresh** when its `source_*` timestamp matches the current upstream `approved_at`. A document is **stale** when the upstream approval changed after the downstream was last approved.
+Freshness is decided by content fingerprints alone; timestamps remain as human-readable context.
+
+An approved document is **intact** when its body still matches its own `approved_fingerprint` — editing approved content without re-approval makes it stale regardless of metadata. A downstream document is **fresh** when it is intact and its `source_*_fingerprint` equals the upstream's current `approved_fingerprint`. Content-identical re-approval does not stale the chain. Missing or malformed fingerprints fail closed with a named cause (documents approved by pre-fingerprint versions repair with one `walden reconcile` + re-approval cycle).
 
 Stale documents block execution. Use `walden reconcile` to repair the chain.
 

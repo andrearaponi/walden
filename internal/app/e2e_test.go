@@ -139,13 +139,18 @@ source_design_approved_at: 2026-03-22T07:10:00Z
 		t.Fatalf("expected parent task 1 to auto-complete, got %#v", task)
 	}
 
+	// Requirements are re-approved with different content: the fixture writer
+	// stamps a fresh approval fingerprint, so the downstream source
+	// fingerprints no longer match.
 	writeStatusFeatureFile(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
-approved_at: 2026-03-22T07:00:00Z
+approved_at: 2026-03-22T07:45:00Z
 last_modified: 2026-03-22T07:45:00Z
 ---
 
 # Requirements Document
+
+Revised requirement content.
 `)
 
 	assertCommandSuccess(t, []string{"reconcile", "todo-app-demo"}, "reconciliation completed for todo-app-demo")
@@ -154,8 +159,8 @@ last_modified: 2026-03-22T07:45:00Z
 	if err != nil {
 		t.Fatalf("expected feature reload after reconcile to succeed, got %v", err)
 	}
-	if feature.Requirements.Status != "in-review" {
-		t.Fatalf("expected requirements to move to in-review, got %q", feature.Requirements.Status)
+	if feature.Requirements.Status != "approved" {
+		t.Fatalf("expected re-approved requirements to stay approved, got %q", feature.Requirements.Status)
 	}
 	if feature.Design.Status != "draft" {
 		t.Fatalf("expected design to reset to draft, got %q", feature.Design.Status)

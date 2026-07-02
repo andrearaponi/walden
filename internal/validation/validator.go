@@ -35,15 +35,15 @@ var (
 
 // Result is the deterministic outcome of a validation run.
 type Result struct {
-	Feature         string
-	SpecDir         string
-	Valid           bool
-	Message         string
-	Scope           Scope
-	ValidatedPhases []string
-	SkippedPhases   []string
-	Warnings        []string
-	EARSResults     []EARSCriterion
+	Feature          string
+	SpecDir          string
+	Valid            bool
+	Message          string
+	Scope            Scope
+	ValidatedPhases  []string
+	SkippedPhases    []string
+	Warnings         []string
+	EARSResults      []EARSCriterion
 	Coverage         *CoverageReport
 	EARSDistribution *EARSDistribution
 }
@@ -582,32 +582,30 @@ func validatePrerequisites(feature spec.Feature) error {
 }
 
 func validateFreshness(feature spec.Feature, plan validationPlan) error {
-	if plan.validateDesign && feature.Design.Exists && feature.Design.Status == "approved" {
-		equal, err := timestampsEqual(feature.Requirements.ApprovedAt, feature.Design.SourceRequirementsApprovedAt)
-		if err != nil {
-			return fmt.Errorf("design.md freshness check: %w", err)
-		}
-		if !equal {
-			return fmt.Errorf("design.md is stale relative to requirements.md")
-		}
+	report := spec.EvaluateFreshness(feature)
+
+	if plan.validateRequirements && feature.Requirements.Exists &&
+		feature.Requirements.Status == "approved" && !report.Requirements.Fresh {
+		return fmt.Errorf("requirements.md is stale: %s", strings.Join(report.Requirements.Causes, "; "))
 	}
-	if plan.validateTasks && feature.Tasks.Exists && feature.Tasks.Status == "approved" {
-		equal, err := timestampsEqual(feature.Design.ApprovedAt, feature.Tasks.SourceDesignApprovedAt)
-		if err != nil {
-			return fmt.Errorf("tasks.md freshness check: %w", err)
-		}
-		if !equal {
-			return fmt.Errorf("tasks.md is stale relative to design.md")
-		}
+	if plan.validateDesign && feature.Design.Exists &&
+		feature.Design.Status == "approved" && !report.Design.Fresh {
+		return staleValidationError("design.md", "requirements.md", report.Design)
+	}
+	if plan.validateTasks && feature.Tasks.Exists &&
+		feature.Tasks.Status == "approved" && !report.Tasks.Fresh {
+		return staleValidationError("tasks.md", "design.md", report.Tasks)
 	}
 	return nil
 }
 
-func timestampsEqual(a, b string) (bool, error) {
-	if a == "" || b == "" {
-		return a == b, nil
+// staleValidationError distinguishes a document whose own content changed
+// from one whose upstream moved: both are stale, with different phrasing.
+func staleValidationError(name, upstream string, verdict spec.DocumentFreshness) error {
+	if !verdict.Intact {
+		return fmt.Errorf("%s is stale: %s", name, strings.Join(verdict.Causes, "; "))
 	}
-	return spec.TimestampsEqual(a, b)
+	return fmt.Errorf("%s is stale relative to %s: %s", name, upstream, strings.Join(verdict.Causes, "; "))
 }
 
 func validateRequirementReferences(feature spec.Feature, plan validationPlan) error {
