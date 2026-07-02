@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Walden — Intention before code. Proof before completion.</title>
+  <meta name="description" content="Walden is an open-source, spec-driven delivery kernel. It turns ideas into reviewed specifications and executes approved work through a deterministic, gated workflow." />
+
+  <meta property="og:title" content="Walden — a spec-driven delivery kernel" />
+  <meta property="og:description" content="Intention before code. Proof before completion. A deterministic Go CLI that enforces the workflow; an optional AI skill that drafts the specs." />
+  <meta property="og:type" content="website" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='13'%20fill='%232c4734'/%3E%3Ctext%20x='32'%20y='46'%20font-family='Georgia,serif'%20font-size='42'%20fill='%23f2eee4'%20text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..520&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- paper grain overlay -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="site-head">
+    <a class="wordmark" href="#top">Walden<span class="mark">§</span></a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#workflow">Workflow</a>
+      <a href="#ears">EARS</a>
+      <a href="#stack">Integrate</a>
+      <a href="#install">Install</a>
+      <a class="nav-gh" href="https://github.com/andrearaponi/walden">GitHub&nbsp;↗</a>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <!-- ───────────────────────────  HERO  ─────────────────────────── -->
+    <section class="hero">
+      <!-- pond contours: atmosphere -->
+      <svg class="contours" viewBox="0 0 600 600" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+        <g fill="none" stroke="currentColor">
+          <ellipse cx="300" cy="300" rx="70"  ry="52"  transform="rotate(-18 300 300)"/>
+          <ellipse cx="300" cy="300" rx="118" ry="92"  transform="rotate(-18 300 300)"/>
+          <ellipse cx="300" cy="300" rx="170" ry="132" transform="rotate(-18 300 300)"/>
+          <ellipse cx="300" cy="300" rx="226" ry="176" transform="rotate(-18 300 300)"/>
+          <ellipse cx="300" cy="300" rx="288" ry="222" transform="rotate(-18 300 300)"/>
+          <ellipse cx="300" cy="300" rx="356" ry="272" transform="rotate(-18 300 300)"/>
+        </g>
+      </svg>
+
+      <p class="eyebrow reveal">Spec-driven delivery kernel · Open source</p>
+      <h1 class="hero-title">
+        <span class="reveal" style="--d:.05s">Intention before code.</span>
+        <span class="reveal accent" style="--d:.18s">Proof before completion.</span>
+      </h1>
+      <p class="hero-sub reveal" style="--d:.32s">
+        Walden turns ideas into reviewed feature specifications and executes approved
+        work through a deterministic, gated workflow. A Go CLI enforces the rules.
+        An optional AI skill drafts the specs.
+      </p>
+
+      <div class="install-line reveal" style="--d:.44s">
+        <code id="cmd-hero">curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh</code>
+        <button class="copy" data-copy="#cmd-hero" aria-label="Copy install command">Copy</button>
+      </div>
+
+      <p class="meta-line reveal" style="--d:.54s">
+        Apache&#8209;2.0 &nbsp;·&nbsp; Zero dependencies &nbsp;·&nbsp; Pure Go standard library
+      </p>
+    </section>
+
+    <!-- ─────────────────────────  THE CLAIM  ───────────────────────── -->
+    <section class="claim" aria-label="Positioning">
+      <p class="claim-line">
+        <span class="claim-soft">Plan modes draft. Checklists suggest. Analysis advises.</span>
+        <span class="claim-hard">Walden enforces.</span>
+      </p>
+      <p class="claim-sub">
+        Blocking gates with exit codes — validation, proofs, freshness —
+        independent of any model&rsquo;s judgment.
+      </p>
+    </section>
+
+    <!-- ───────────────────────  TWO VOICES  ────────────────────────── -->
+    <section class="voices" id="voices">
+      <div class="section-label"><span>§ 01</span> Two halves, one boundary</div>
+      <p class="lede">
+        Walden draws a hard line between what a machine should decide and what a human
+        should author. The non-deterministic work is drafted. The rules are enforced.
+      </p>
+
+      <div class="voices-grid">
+        <div class="voice voice--human">
+          <p class="voice-head">The skill drafts</p>
+          <ul>
+            <li>Asks the clarifying questions</li>
+            <li>Writes requirements in EARS form</li>
+            <li>Designs architecture, weighs the alternatives</li>
+            <li>Breaks work into tasks, each with a proof</li>
+            <li>Reads past lessons before similar work</li>
+          </ul>
+          <p class="voice-foot">non-deterministic · proposes, never approves</p>
+        </div>
+
+        <div class="voice voice--machine">
+          <p class="voice-head">The CLI enforces</p>
+          <ul>
+            <li>phase order: requirements → design → tasks</li>
+            <li>document freshness &amp; approval chains</li>
+            <li>AC traceability — 100% coverage required</li>
+            <li>a verification proof on every leaf task</li>
+            <li>stale-document detection &amp; reconciliation</li>
+          </ul>
+          <p class="voice-foot">deterministic · the same answer every time</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────  WORKFLOW  ──────────────────────────── -->
+    <section class="workflow" id="workflow">
+      <div class="section-label"><span>§ 02</span> How it works</div>
+      <p class="lede">
+        Every feature moves through four phases. Each one has an approval gate that must
+        pass before the next begins. Phases cannot be skipped.
+      </p>
+
+      <ol class="phases">
+        <li class="phase">
+          <span class="phase-num">01</span>
+          <h3>Requirements</h3>
+          <p>What the feature must do — EARS acceptance criteria with stable IDs like <code>R1.AC1</code>.</p>
+          <span class="gate">validate · review · approve</span>
+        </li>
+        <li class="phase">
+          <span class="phase-num">02</span>
+          <h3>Design</h3>
+          <p>How it gets built — architecture, alternatives considered, tradeoffs, a coverage matrix.</p>
+          <span class="gate">validate · review · approve</span>
+        </li>
+        <li class="phase">
+          <span class="phase-num">03</span>
+          <h3>Tasks</h3>
+          <p>What code to write, in order. Every leaf task traces to an AC and carries a proof.</p>
+          <span class="gate">validate · review · approve</span>
+        </li>
+        <li class="phase">
+          <span class="phase-num">04</span>
+          <h3>Execute</h3>
+          <p>Build it. The CLI runs each verification proof — a task closes only when its proof passes.</p>
+          <span class="gate">verify · complete</span>
+        </li>
+      </ol>
+
+      <p class="workflow-note">
+        Change an already-approved document and everything downstream resets to draft.
+        Execution stays blocked until the chain is reconciled. No code outruns its spec.
+      </p>
+    </section>
+
+    <!-- ─────────────────────────  EARS  ────────────────────────────── -->
+    <section class="ears" id="ears">
+      <div class="section-label"><span>§ 03</span> Requirements that can't be vague</div>
+      <p class="lede">
+        Every acceptance criterion takes exactly one of six EARS forms. The CLI validates
+        the grammar — a single <code>SHALL</code>, the right keywords in the right place.
+      </p>
+
+      <blockquote class="ears-sample">
+        <span class="kw">WHEN</span> a task&rsquo;s verification proof passes,
+        the system <span class="kw">SHALL</span> mark the task complete.
+      </blockquote>
+
+      <dl class="ears-forms">
+        <div><dt>Ubiquitous</dt><dd>the system SHALL …</dd></div>
+        <div><dt>Event-driven</dt><dd>WHEN … the system SHALL …</dd></div>
+        <div><dt>State-driven</dt><dd>WHILE … the system SHALL …</dd></div>
+        <div><dt>Optional</dt><dd>WHERE … the system SHALL …</dd></div>
+        <div><dt>Unwanted</dt><dd>IF … THEN the system SHALL …</dd></div>
+        <div><dt>Complex</dt><dd>WHILE … WHEN … the system SHALL …</dd></div>
+      </dl>
+    </section>
+
+    <!-- ─────────────────────  THE STACK (recipes)  ─────────────────── -->
+    <section class="stack" id="stack">
+      <div class="section-label"><span>§ 04</span> The kernel under your stack</div>
+      <p class="lede">
+        Walden doesn&rsquo;t replace your agent, your IDE, or your spec tool. It is the
+        gate they call — anything that runs a command and reads an exit code gets hard gates.
+      </p>
+
+      <div class="stack-grid">
+        <article class="recipe">
+          <h3 class="recipe-name">Your coding agent</h3>
+          <p>Claude Code, Codex, Copilot, OpenCode — the skill ships inside the
+             binary. It drafts the specs; the kernel enforces the gates.</p>
+          <code class="recipe-cmd">walden skill install &lt;agent&gt;</code>
+          <span class="recipe-out">skill drafts · kernel enforces</span>
+        </article>
+
+        <article class="recipe">
+          <h3 class="recipe-name">Your CI</h3>
+          <p>Gate every pull request that touches a spec. Validation runs headless
+             and the exit code decides — no model in the loop.</p>
+          <code class="recipe-cmd">walden validate &lt;feature&gt; --all --json</code>
+          <span class="recipe-out">exit ≠ 0 → merge blocked</span>
+        </article>
+
+        <article class="recipe">
+          <h3 class="recipe-name">Inside Kiro</h3>
+          <p>Kiro&rsquo;s hooks honor exit codes. Run the gate as a pre&#8209;tool&#8209;use
+             hook: when validation fails, the action is blocked.</p>
+          <code class="recipe-cmd">walden validate &lt;feature&gt; --all</code>
+          <span class="recipe-out">exit ≠ 0 → action blocked</span>
+        </article>
+
+        <article class="recipe">
+          <h3 class="recipe-name">Inside Spec Kit</h3>
+          <p>Spec Kit workflows run shell steps. Put the gate between phases:
+             the pipeline advances only when the kernel agrees.</p>
+          <code class="recipe-cmd">walden validate &lt;feature&gt; --all</code>
+          <span class="recipe-out">exit ≠ 0 → workflow halts</span>
+        </article>
+      </div>
+
+      <p class="workflow-note stack-note">
+        The same gate returns the same answer in every host. Enforcement stops being
+        a feature of your editor and becomes a property of the spec.
+      </p>
+    </section>
+
+    <!-- ────────────────────────  INSTALL  ──────────────────────────── -->
+    <section class="install" id="install">
+      <div class="section-label"><span>§ 05</span> Install</div>
+      <p class="lede">
+        One command. The latest release binary lands in <code>~/.local/bin/walden</code>,
+        checksum-verified — then it installs its own AI skill for Claude&nbsp;Code, Codex,
+        Copilot, or OpenCode. No Go toolchain, no clone.
+      </p>
+
+      <div class="code-block">
+        <button class="copy" data-copy="#cmd-setup" aria-label="Copy install command">Copy</button>
+        <pre id="cmd-setup"><span class="c">curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh</span></pre>
+      </div>
+
+      <p class="install-alt">
+        Prefer the toolchain? <code>go install github.com/andrearaponi/walden/cmd/walden@latest</code>
+        &nbsp;·&nbsp; then <code>walden skill install &lt;agent&gt;</code>. Building from a clone?
+        <code>./setup.sh</code> still works.
+      </p>
+    </section>
+
+    <!-- ──────────────────────  ON THE NAME  ────────────────────────── -->
+    <section class="name" id="name">
+      <div class="section-label"><span>§ 06</span> On the name</div>
+      <blockquote class="thoreau">
+        <span class="quote-mark" aria-hidden="true">&ldquo;</span>
+        I went to the woods because I wished to live deliberately, to front only
+        the essential facts of life.
+      </blockquote>
+      <p class="thoreau-cite">— Henry David Thoreau, <cite>Walden, or Life in the Woods</cite></p>
+      <p class="name-note">
+        Do fewer things, but do them with full attention. Software rarely does. Walden
+        is an attempt to apply that discipline — to require intention before code, and
+        proof before completion.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="site-foot">
+    <div class="foot-left">
+      <span class="foot-mark">Walden</span>
+      <span class="foot-meta">Apache-2.0 · built deliberately</span>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="https://github.com/andrearaponi/walden">GitHub</a>
+      <a href="https://github.com/andrearaponi/walden/tree/main/docs">Docs</a>
+      <a href="https://github.com/andrearaponi/walden/releases">Releases</a>
+    </nav>
+  </footer>
+
+  <script>
+    // click-to-copy — restrained micro-interaction
+    document.querySelectorAll('.copy').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var el = document.querySelector(btn.dataset.copy);
+        if (!el) return;
+        navigator.clipboard.writeText(el.innerText.trim()).then(function () {
+          var prev = btn.textContent;
+          btn.textContent = 'Copied';
+          btn.classList.add('is-copied');
+          setTimeout(function () { btn.textContent = prev; btn.classList.remove('is-copied'); }, 1400);
+        });
+      });
+    });
+
+    // deliberate scroll reveals (respects reduced motion)
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.18 });
+      document.querySelectorAll('.section-label, .lede, .claim-line, .claim-sub, .voice, .phase, .ears-sample, .ears-forms, .demo-frame, .recipe, .stack-note, .code-block, .install-alt, .thoreau, .name-note')
+        .forEach(function (el) { el.classList.add('rise'); io.observe(el); });
+    }
+  </script>
+</body>
+</html>
