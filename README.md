@@ -51,7 +51,30 @@ Phases cannot be skipped. Execution requires all three documents approved and fr
 
 ## Install
 
+### One-Liner (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
+```
+
+Downloads the latest release binary for your platform (darwin/linux, amd64/arm64), verifies its SHA-256 checksum, installs it to `~/.local/bin/walden`, and offers to install the AI skill for your coding agent. No Go toolchain, no clone.
+
+Flags pass through the pipe with `sh -s --`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh -s -- --skill claude
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--skill <agent\|all>` | Install the skill non-interactively (`claude`, `codex`, `copilot`, `opencode`, `all`) |
+| `--version <tag>` | Install a specific release instead of the latest |
+| `--no-verify` | Skip checksum verification (needed for releases ≤ v0.4.0, which predate `checksums.txt`) |
+| `--uninstall` | Remove the skill (all agents) and the binary |
+
 ### Using the Setup Script
+
+Building from a clone (contributors, unreleased changes):
 
 ```bash
 git clone https://github.com/andrearaponi/walden.git
@@ -90,22 +113,20 @@ walden skill status
 ### Uninstall
 
 ```bash
-./setup.sh uninstall
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh -s -- --uninstall
 ```
 
-Or remove just the skill with `walden skill uninstall <agent>` (or `--all`).
+From a clone, `./setup.sh uninstall` does the same. Or remove just the skill with `walden skill uninstall <agent>` (or `--all`).
 
 ## Quickstart
 
 ### 1. Install
 
 ```bash
-git clone https://github.com/andrearaponi/walden.git
-cd walden
-./setup.sh
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
 ```
 
-The setup script builds the binary, installs it to `~/.local/bin/walden`, and asks whether to install the AI skill for Claude Code, Codex, Copilot, or OpenCode.
+One command: the latest release binary lands in `~/.local/bin/walden` (checksum-verified) and the installer asks which coding agent gets the AI skill — Claude Code, Codex, Copilot, or OpenCode.
 
 ### 2. Open Claude Code and start building
 
