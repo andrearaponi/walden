@@ -10,12 +10,15 @@ import (
 var frontmatterPattern = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?`)
 
 type frontmatter struct {
-	Status                       string
-	ApprovedAt                   string
-	LastModified                 string
-	SourceRequirementsApprovedAt string
-	SourceDesignApprovedAt       string
-	Fields                       map[string]string
+	Status                        string
+	ApprovedAt                    string
+	LastModified                  string
+	ApprovedFingerprint           string
+	SourceRequirementsApprovedAt  string
+	SourceDesignApprovedAt        string
+	SourceRequirementsFingerprint string
+	SourceDesignFingerprint       string
+	Fields                        map[string]string
 }
 
 func parseFrontmatter(text string) (frontmatter, string, error) {
@@ -46,10 +49,16 @@ func parseFrontmatter(text string) (frontmatter, string, error) {
 			values.ApprovedAt = value
 		case "last_modified":
 			values.LastModified = value
+		case "approved_fingerprint":
+			values.ApprovedFingerprint = value
 		case "source_requirements_approved_at":
 			values.SourceRequirementsApprovedAt = value
 		case "source_design_approved_at":
 			values.SourceDesignApprovedAt = value
+		case "source_requirements_fingerprint":
+			values.SourceRequirementsFingerprint = value
+		case "source_design_fingerprint":
+			values.SourceDesignFingerprint = value
 		}
 	}
 

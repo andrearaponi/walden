@@ -34,6 +34,10 @@ type ExecutionReadiness struct {
 	NextTask         *ExecutableTask
 	Blockers         []string
 	NextAction       string
+	// GateBlocked distinguishes approval/freshness gate blockers from an
+	// exhausted implementation plan: gates must fail commands, a finished
+	// plan must not.
+	GateBlocked bool
 }
 
 // TaskStartContext is the deterministic execution context returned when a task starts.
@@ -88,6 +92,7 @@ func ResolveExecutionReadiness(feature spec.Feature) (ExecutionReadiness, error)
 	if blockingDocument, blockers := executionBlockers(state); len(blockers) > 0 {
 		readiness.BlockingDocument = blockingDocument
 		readiness.Blockers = blockers
+		readiness.GateBlocked = true
 		return readiness, nil
 	}
 
@@ -129,18 +134,20 @@ func executionBlockers(state FeatureState) (string, []string) {
 		return "requirements.md", []string{"requirements.md must be approved and fresh before execution"}
 	case state.Requirements.Status != "approved":
 		return "requirements.md", []string{"requirements.md must be approved and fresh before execution"}
+	case !state.Requirements.Fresh:
+		return "requirements.md", []string{staleDocumentMessage("requirements.md", state.Requirements)}
 	case !state.Design.Exists:
 		return "design.md", []string{"design.md must be approved and fresh before execution"}
 	case state.Design.Status != "approved":
 		return "design.md", []string{"design.md must be approved and fresh before execution"}
 	case !state.Design.Fresh:
-		return "design.md", []string{"design.md is stale relative to requirements.md"}
+		return "design.md", []string{staleChainMessage("design.md", "requirements.md", state.Design)}
 	case !state.Tasks.Exists:
 		return "tasks.md", []string{"tasks.md must be approved and fresh before execution"}
 	case state.Tasks.Status != "approved":
 		return "tasks.md", []string{"tasks.md must be approved and fresh before execution"}
 	case !state.Tasks.Fresh:
-		return "tasks.md", []string{"tasks.md is stale relative to design.md"}
+		return "tasks.md", []string{staleChainMessage("tasks.md", "design.md", state.Tasks)}
 	default:
 		return "", nil
 	}
@@ -317,6 +324,16 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 			return BatchCompletionResult{}, err
 		}
 		if !readiness.Runnable || readiness.NextTask == nil {
+			if readiness.GateBlocked && len(readiness.Blockers) > 0 {
+				return BatchCompletionResult{
+					Feature:                readiness.Feature,
+					CurrentPhase:           readiness.CurrentPhase,
+					CompletedTasks:         completedTasks,
+					CompletedLeafTasks:     completedLeafTasks,
+					AutoCompletedParentIDs: autoCompletedParentIDs,
+					NextAction:             readiness.NextAction,
+				}, fmt.Errorf("%s", readiness.Blockers[0])
+			}
 			return BatchCompletionResult{
 				Feature:                readiness.Feature,
 				CurrentPhase:           readiness.CurrentPhase,

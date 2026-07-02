@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/andrearaponi/walden/internal/spec"
 )
 
 func TestValidateFeatureReturnsValidResultForRepresentativeSpec(t *testing.T) {
@@ -1084,42 +1086,51 @@ source_design_approved_at:
 	}
 }
 
-func TestParseWaldenTimestampValidation(t *testing.T) {
-	tests := []struct {
-		name    string
-		a, b    string
-		wantEq  bool
-		wantErr bool
-	}{
-		{"canonical equal", "2026-03-21T14:00:00Z", "2026-03-21T14:00:00Z", true, false},
-		{"canonical different", "2026-03-21T14:00:00Z", "2026-03-21T15:00:00Z", false, false},
-		{"offset equivalent", "2026-03-21T14:00:00Z", "2026-03-21T15:00:00+01:00", true, false},
-		{"fractional seconds", "2026-03-21T14:00:00Z", "2026-03-21T14:00:00.000Z", true, false},
-		{"malformed left", "not-a-timestamp", "2026-03-21T14:00:00Z", false, true},
-		{"malformed right", "2026-03-21T14:00:00Z", "not-a-timestamp", false, true},
-		{"both empty", "", "", true, false},
+func TestValidateFreshnessReportsTamperedRequirements(t *testing.T) {
+	root := t.TempDir()
+	writeValidFeature(t, root, "tamper-test")
+
+	// Edit the approved requirements body without re-approval: the recorded
+	// fingerprint no longer matches.
+	path := filepath.Join(root, ".walden", "specs", "tamper-test", "requirements.md")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("expected requirements read to succeed, got %v", err)
+	}
+	if err := os.WriteFile(path, append(content, []byte("\nInjected after approval.\n")...), 0o644); err != nil {
+		t.Fatalf("expected tampered write to succeed, got %v", err)
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := timestampsEqual(tc.a, tc.b)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.wantEq {
-				t.Fatalf("expected equal=%v, got %v", tc.wantEq, got)
-			}
-		})
+	result, err := ValidateFeatureWithScope(root, "tamper-test", ScopeFullSpec)
+	if err != nil {
+		t.Fatalf("expected validation to run, got %v", err)
+	}
+	if result.Valid {
+		t.Fatalf("expected validation failure for tampered requirements, got %#v", result)
+	}
+	if !strings.Contains(result.Message, "requirements.md is stale: content does not match approval fingerprint") {
+		t.Fatalf("unexpected validation message: %q", result.Message)
 	}
 }
 
-func TestValidateFreshnessWithEquivalentTimestampFormats(t *testing.T) {
+func TestValidateFreshnessReportsMissingFingerprintCause(t *testing.T) {
+	root := t.TempDir()
+	// Legacy fixture: approved before fingerprints existed.
+	writeFeatureFileRaw(t, root, "legacy-test", "requirements.md", validRequirements)
+
+	result, err := ValidateFeatureWithScope(root, "legacy-test", ScopeFullSpec)
+	if err != nil {
+		t.Fatalf("expected validation to run, got %v", err)
+	}
+	if result.Valid {
+		t.Fatalf("expected validation failure for legacy approved document, got %#v", result)
+	}
+	if !strings.Contains(result.Message, "requirements.md is stale: approval fingerprint missing") {
+		t.Fatalf("unexpected validation message: %q", result.Message)
+	}
+}
+
+func TestValidateFreshnessFingerprintDecidesDespiteTimestampDivergence(t *testing.T) {
 	root := t.TempDir()
 	writeFeatureFile(t, root, "ts-test", "requirements.md", `---
 status: approved
@@ -1153,7 +1164,7 @@ last_modified: 2026-03-21T14:00:00Z
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
-source_requirements_approved_at: 2026-03-21T15:00:00+01:00
+source_requirements_approved_at: 2026-03-20T09:00:00Z
 ---
 
 # Feature Design
@@ -1250,6 +1261,13 @@ func writeValidFeature(t *testing.T, root, feature string) {
 func writeFeatureFile(t *testing.T, root, feature, name, content string) {
 	t.Helper()
 
+	writeFeatureFileRaw(t, root, feature, name, content)
+	stampFixtureFingerprint(t, root, feature, name)
+}
+
+func writeFeatureFileRaw(t *testing.T, root, feature, name, content string) {
+	t.Helper()
+
 	featureDir := filepath.Join(root, ".walden", "specs", feature)
 	if err := os.MkdirAll(featureDir, 0o755); err != nil {
 		t.Fatalf("expected feature directory creation to succeed, got %v", err)
@@ -1257,5 +1275,61 @@ func writeFeatureFile(t *testing.T, root, feature, name, content string) {
 	content = strings.ReplaceAll(content, "__BT__", "`")
 	if err := os.WriteFile(filepath.Join(featureDir, name), []byte(content), 0o644); err != nil {
 		t.Fatalf("expected %s write to succeed, got %v", name, err)
+	}
+}
+
+// stampFixtureFingerprint keeps approved fixtures fingerprint-fresh: it
+// records the document's own approval fingerprint and binds it to the
+// upstream's, mirroring what `review approve` does in production.
+func stampFixtureFingerprint(t *testing.T, root, featureName, name string) {
+	t.Helper()
+
+	feature, err := spec.LoadFeature(root, featureName)
+	if err != nil {
+		t.Fatalf("expected fixture feature load to succeed, got %v", err)
+	}
+
+	var document *spec.Document
+	switch name {
+	case "requirements.md":
+		document = &feature.Requirements
+	case "design.md":
+		document = &feature.Design
+	case "tasks.md":
+		document = &feature.Tasks
+	default:
+		return
+	}
+
+	if !document.Exists || document.Status != "approved" {
+		return
+	}
+
+	document.ApprovedFingerprint = spec.Fingerprint(document.Body)
+	document.Fields["approved_fingerprint"] = document.ApprovedFingerprint
+
+	switch name {
+	case "design.md":
+		if feature.Requirements.Status == "approved" {
+			fingerprint := feature.Requirements.ApprovedFingerprint
+			if fingerprint == "" {
+				fingerprint = spec.Fingerprint(feature.Requirements.Body)
+			}
+			document.SourceRequirementsFingerprint = fingerprint
+			document.Fields["source_requirements_fingerprint"] = fingerprint
+		}
+	case "tasks.md":
+		if feature.Design.Status == "approved" {
+			fingerprint := feature.Design.ApprovedFingerprint
+			if fingerprint == "" {
+				fingerprint = spec.Fingerprint(feature.Design.Body)
+			}
+			document.SourceDesignFingerprint = fingerprint
+			document.Fields["source_design_fingerprint"] = fingerprint
+		}
+	}
+
+	if err := spec.SaveDocument(*document); err != nil {
+		t.Fatalf("expected fixture fingerprint stamp to succeed, got %v", err)
 	}
 }

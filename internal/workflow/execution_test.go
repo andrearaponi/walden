@@ -11,7 +11,7 @@ import (
 
 func TestLoadExecutionReadinessReturnsNextUncheckedLeafTask(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -19,7 +19,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -28,7 +28,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -87,7 +87,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestLoadExecutionReadinessBlocksWhenTasksAreNotApproved(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -95,7 +95,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -104,7 +104,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: in-review
 approved_at:
 last_modified: 2026-03-21T14:20:00Z
@@ -142,7 +142,7 @@ source_design_approved_at:
 
 func TestLoadExecutionReadinessBlocksWhenTasksAreStale(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -150,7 +150,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:30:00Z
 last_modified: 2026-03-21T14:30:00Z
@@ -159,7 +159,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -175,6 +175,9 @@ source_design_approved_at: 2026-03-21T14:10:00Z
     - Verification: `+"`go test ./internal/spec`"+`
 `)
 
+	// The tasks approval was recorded against different design content.
+	overrideFrontmatterField(t, root, "todo-app-demo", "tasks.md", "source_design_fingerprint", spec.Fingerprint("some earlier design content"))
+
 	readiness, err := LoadExecutionReadiness(root, "todo-app-demo")
 	if err != nil {
 		t.Fatalf("expected readiness load to succeed, got %v", err)
@@ -186,7 +189,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 	if readiness.BlockingDocument != "tasks.md" {
 		t.Fatalf("expected tasks.md as blocking document, got %q", readiness.BlockingDocument)
 	}
-	assertContains(t, readiness.Blockers, "tasks.md is stale relative to design.md")
+	assertContains(t, readiness.Blockers, "tasks.md is stale relative to design.md: source fingerprint mismatch")
 	if readiness.NextAction != "Update tasks.md to match the latest approved design and return it to in-review" {
 		t.Fatalf("unexpected next action: %q", readiness.NextAction)
 	}
@@ -194,7 +197,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestLoadExecutionReadinessReportsNoRemainingRunnableTasks(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -202,7 +205,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -211,7 +214,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -249,7 +252,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskSelectsNextLeafTaskByDefault(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -257,7 +260,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -266,7 +269,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -304,7 +307,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskAllowsExplicitCurrentNextLeafTask(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -312,7 +315,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -321,7 +324,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -349,7 +352,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskRejectsMissingTask(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -357,7 +360,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -366,7 +369,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -391,7 +394,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskRejectsCompletedLeafTask(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -399,7 +402,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -408,7 +411,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -433,7 +436,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskRejectsParentTask(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -441,7 +444,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -450,7 +453,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -475,7 +478,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestStartTaskRejectsBlockedExplicitTaskWhenEarlierLeafIsIncomplete(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -483,7 +486,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -492,7 +495,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -521,7 +524,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteTaskRunsProofAndMarksLeafTaskComplete(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -529,7 +532,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -538,7 +541,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -601,7 +604,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteTaskRunsStructuredProofStepsWithoutShellInterpolation(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -609,7 +612,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -618,7 +621,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -664,7 +667,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteTaskLeavesTaskUncheckedWhenProofFails(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -672,7 +675,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -681,7 +684,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -724,7 +727,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteTaskLeavesTaskUncheckedWhenStructuredProofFails(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -732,7 +735,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -741,7 +744,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -789,7 +792,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteTaskReturnsParentAutoCompletionWhenLastChildCloses(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -797,7 +800,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -806,7 +809,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -859,7 +862,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteAllTasksRunsLeafTasksInOrderUntilPlanExhausts(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -867,7 +870,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -876,7 +879,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -930,7 +933,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func TestCompleteAllTasksStopsOnFirstFailedTaskAndPreservesEarlierCompletions(t *testing.T) {
 	root := t.TempDir()
-	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
 status: approved
 approved_at: 2026-03-21T14:00:00Z
 last_modified: 2026-03-21T14:00:00Z
@@ -938,7 +941,7 @@ last_modified: 2026-03-21T14:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: approved
 approved_at: 2026-03-21T14:10:00Z
 last_modified: 2026-03-21T14:10:00Z
@@ -947,7 +950,7 @@ source_requirements_approved_at: 2026-03-21T14:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
+	writeFreshFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: approved
 approved_at: 2026-03-21T14:20:00Z
 last_modified: 2026-03-21T14:20:00Z
@@ -1010,7 +1013,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 func setupApprovedFeature(t *testing.T, root, feature, tasksBody string) {
 	t.Helper()
-	writeFeatureDoc(t, root, feature, "requirements.md", `---
+	writeFreshFeatureDoc(t, root, feature, "requirements.md", `---
 status: approved
 approved_at: 2026-03-23T09:00:00Z
 last_modified: 2026-03-23T09:00:00Z
@@ -1018,7 +1021,7 @@ last_modified: 2026-03-23T09:00:00Z
 
 # Requirements Document
 `)
-	writeFeatureDoc(t, root, feature, "design.md", `---
+	writeFreshFeatureDoc(t, root, feature, "design.md", `---
 status: approved
 approved_at: 2026-03-23T09:30:00Z
 last_modified: 2026-03-23T09:30:00Z
@@ -1027,7 +1030,7 @@ source_requirements_approved_at: 2026-03-23T09:00:00Z
 
 # Feature Design
 `)
-	writeFeatureDoc(t, root, feature, "tasks.md", tasksBody)
+	writeFreshFeatureDoc(t, root, feature, "tasks.md", tasksBody)
 }
 
 func TestCompleteTaskSucceedsWhenExitCodeMatchesExpectExit(t *testing.T) {

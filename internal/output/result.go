@@ -9,26 +9,26 @@ import (
 
 // Result is the shared structured output model for CLI commands.
 type Result struct {
-	Summary               string           `json:"summary"`
-	CreatedFiles          []string         `json:"created_files,omitempty"`
-	UpdatedFiles          []string         `json:"updated_files,omitempty"`
-	ChangedFiles          []string         `json:"changed_files"`
-	SkippedFiles          []string         `json:"skipped_files"`
-	CompletedTasks        []string         `json:"completed_tasks,omitempty"`
-	AutoCompleted         []string         `json:"auto_completed,omitempty"`
-	ValidatedPhases       []string         `json:"validated_phases,omitempty"`
-	SkippedPhases         []string         `json:"skipped_phases,omitempty"`
-	GitInitialized        bool             `json:"git_initialized,omitempty"`
-	GitAlreadyInitialized bool             `json:"git_already_initialized,omitempty"`
-	CurrentPhase          string           `json:"current_phase,omitempty"`
-	BranchName            string           `json:"branch_name,omitempty"`
-	Document              string           `json:"document,omitempty"`
-	Documents             []DocumentStatus `json:"documents,omitempty"`
-	Task                  *TaskStatus      `json:"task,omitempty"`
-	Blockers              []string         `json:"blockers,omitempty"`
-	NextAction            string           `json:"next_action,omitempty"`
-	Warnings              []string         `json:"warnings"`
-	EARSValidation        []EARSCriterion  `json:"ears_validation,omitempty"`
+	Summary               string            `json:"summary"`
+	CreatedFiles          []string          `json:"created_files,omitempty"`
+	UpdatedFiles          []string          `json:"updated_files,omitempty"`
+	ChangedFiles          []string          `json:"changed_files"`
+	SkippedFiles          []string          `json:"skipped_files"`
+	CompletedTasks        []string          `json:"completed_tasks,omitempty"`
+	AutoCompleted         []string          `json:"auto_completed,omitempty"`
+	ValidatedPhases       []string          `json:"validated_phases,omitempty"`
+	SkippedPhases         []string          `json:"skipped_phases,omitempty"`
+	GitInitialized        bool              `json:"git_initialized,omitempty"`
+	GitAlreadyInitialized bool              `json:"git_already_initialized,omitempty"`
+	CurrentPhase          string            `json:"current_phase,omitempty"`
+	BranchName            string            `json:"branch_name,omitempty"`
+	Document              string            `json:"document,omitempty"`
+	Documents             []DocumentStatus  `json:"documents,omitempty"`
+	Task                  *TaskStatus       `json:"task,omitempty"`
+	Blockers              []string          `json:"blockers,omitempty"`
+	NextAction            string            `json:"next_action,omitempty"`
+	Warnings              []string          `json:"warnings"`
+	EARSValidation        []EARSCriterion   `json:"ears_validation,omitempty"`
 	Coverage              *CoverageReport   `json:"coverage,omitempty"`
 	EARSDistribution      *EARSDistribution `json:"ears_distribution,omitempty"`
 	ExitCode              int               `json:"exit_code"`
@@ -68,10 +68,12 @@ type EARSCriterion struct {
 
 // DocumentStatus is the shared output view for one Walden document.
 type DocumentStatus struct {
-	Name       string `json:"name"`
-	Status     string `json:"status"`
-	Fresh      bool   `json:"fresh"`
-	ApprovedAt string `json:"approved_at,omitempty"`
+	Name                string   `json:"name"`
+	Status              string   `json:"status"`
+	Fresh               bool     `json:"fresh"`
+	ApprovedAt          string   `json:"approved_at,omitempty"`
+	ApprovedFingerprint string   `json:"approved_fingerprint,omitempty"`
+	StaleCauses         []string `json:"stale_causes,omitempty"`
 }
 
 // TaskStatus is the shared output view for one execution task context.
@@ -157,6 +159,9 @@ func PrintText(w io.Writer, result Result) {
 			_, _ = fmt.Fprintf(w, "- %s: status=%s fresh=%t", document.Name, document.Status, document.Fresh)
 			if document.ApprovedAt != "" {
 				_, _ = fmt.Fprintf(w, " approved_at=%s", document.ApprovedAt)
+			}
+			if len(document.StaleCauses) > 0 {
+				_, _ = fmt.Fprintf(w, " causes: %s", strings.Join(document.StaleCauses, "; "))
 			}
 			_, _ = fmt.Fprintln(w)
 		}

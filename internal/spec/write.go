@@ -47,11 +47,11 @@ func SaveDocument(document Document) error {
 func orderedFrontmatterKeys(path string) ([]string, error) {
 	switch filepath.Base(path) {
 	case "requirements.md":
-		return []string{"status", "approved_at", "last_modified"}, nil
+		return []string{"status", "approved_at", "last_modified", "approved_fingerprint"}, nil
 	case "design.md":
-		return []string{"status", "approved_at", "last_modified", "source_requirements_approved_at"}, nil
+		return []string{"status", "approved_at", "last_modified", "approved_fingerprint", "source_requirements_approved_at", "source_requirements_fingerprint"}, nil
 	case "tasks.md":
-		return []string{"status", "approved_at", "last_modified", "source_design_approved_at"}, nil
+		return []string{"status", "approved_at", "last_modified", "approved_fingerprint", "source_design_approved_at", "source_design_fingerprint"}, nil
 	default:
 		return nil, fmt.Errorf("unsupported document path %q", path)
 	}

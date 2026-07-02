@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/andrearaponi/walden/internal/output"
+	"github.com/andrearaponi/walden/internal/spec"
 )
 
 func TestRunStatusPrintsHumanReadableState(t *testing.T) {
@@ -157,6 +158,8 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 
 # Implementation Plan
 `)
+	// The design approval was recorded against different requirements content.
+	overrideSpecFingerprintField(t, root, "todo-app-demo", "design.md", "source_requirements_fingerprint", spec.Fingerprint("some earlier requirements content"))
 
 	previousWD, err := os.Getwd()
 	if err != nil {
@@ -319,4 +322,6 @@ func writeStatusFeatureFile(t *testing.T, root, feature, name, content string) {
 	if err := os.WriteFile(filepath.Join(featureDir, name), []byte(content), 0o644); err != nil {
 		t.Fatalf("expected write for %q to succeed, got %v", name, err)
 	}
+
+	stampSpecFingerprint(t, root, feature, name)
 }

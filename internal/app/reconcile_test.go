@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -46,6 +47,17 @@ source_design_approved_at: 2026-03-21T14:10:00Z
     - Verification: `+"`go test ./internal/app ./internal/output`"+`
 `)
 
+	// Edit the approved requirements body without re-approval: the recorded
+	// approval fingerprint no longer matches.
+	requirementsPath := filepath.Join(root, ".walden", "specs", "todo-app-demo", "requirements.md")
+	tampered, err := os.ReadFile(requirementsPath)
+	if err != nil {
+		t.Fatalf("expected requirements read to succeed, got %v", err)
+	}
+	if err := os.WriteFile(requirementsPath, append(tampered, []byte("\nInjected after approval.\n")...), 0o644); err != nil {
+		t.Fatalf("expected tampered write to succeed, got %v", err)
+	}
+
 	previousWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("expected working directory lookup to succeed, got %v", err)
@@ -77,7 +89,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 		".walden/specs/todo-app-demo/design.md",
 		".walden/specs/todo-app-demo/tasks.md",
 		"Current phase: requirements",
-		"Next action: Approve requirements.md",
+		"Next action: Edit requirements.md and move it to in-review",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("expected output to contain %q, got %q", want, rendered)
@@ -88,8 +100,8 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 	if err != nil {
 		t.Fatalf("expected feature reload to succeed, got %v", err)
 	}
-	if feature.Requirements.Status != "in-review" {
-		t.Fatalf("expected requirements to be in-review, got %q", feature.Requirements.Status)
+	if feature.Requirements.Status != "draft" {
+		t.Fatalf("expected tampered requirements to reset to draft, got %q", feature.Requirements.Status)
 	}
 	if feature.Design.Status != "draft" {
 		t.Fatalf("expected design to be draft, got %q", feature.Design.Status)

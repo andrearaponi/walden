@@ -128,4 +128,6 @@ func writeReviewCommandFile(t *testing.T, root, feature, name, content string) {
 	if err := os.WriteFile(filepath.Join(featureDir, name), []byte(content), 0o644); err != nil {
 		t.Fatalf("expected write for %q to succeed, got %v", name, err)
 	}
+
+	stampSpecFingerprint(t, root, feature, name)
 }

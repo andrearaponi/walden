@@ -112,13 +112,13 @@ This stops on the first failing proof while preserving earlier completions.
 
 ## 6. Reconcile
 
-If you edit an approved document, downstream documents become stale. Reconcile before continuing:
+If you edit an approved document, its content no longer matches the `approved_fingerprint` recorded at approval: the document and everything downstream become stale. Reconcile before continuing:
 
 ```bash
 walden reconcile user-auth
 ```
 
-This resets stale downstream documents to draft and updates approval metadata.
+This resets the modified document and stale downstream documents to draft and clears their approval fingerprints; re-approval records fresh ones.
 
 ## 7. Lessons
 

@@ -90,6 +90,7 @@ Every document must begin with YAML frontmatter.
 status: draft
 approved_at:
 last_modified: 2026-03-19T10:00:00Z
+approved_fingerprint:
 ---
 ```
 
@@ -100,7 +101,9 @@ last_modified: 2026-03-19T10:00:00Z
 status: draft
 approved_at:
 last_modified: 2026-03-19T10:00:00Z
+approved_fingerprint:
 source_requirements_approved_at:
+source_requirements_fingerprint:
 ---
 ```
 
@@ -111,7 +114,9 @@ source_requirements_approved_at:
 status: draft
 approved_at:
 last_modified: 2026-03-19T10:00:00Z
+approved_fingerprint:
 source_design_approved_at:
+source_design_fingerprint:
 ---
 ```
 
@@ -119,13 +124,12 @@ Apply these rules consistently:
 
 - Set `status: draft` when first creating a document.
 - Set `status: in-review` immediately before presenting a revision to the user.
-- Set `status: approved` and populate `approved_at` only after explicit approval.
+- Set `status: approved` and populate `approved_at` only after explicit approval — prefer `walden review approve`, which also records the approval fingerprints.
 - Update `last_modified` on every edit.
-- If an approved document is edited later, set it back to `in-review` until it is re-approved.
-- When approving `design.md`, copy the current `requirements.md.approved_at` into `source_requirements_approved_at`.
-- When approving `tasks.md`, copy the current `design.md.approved_at` into `source_design_approved_at`.
-- If `requirements.md.approved_at` no longer matches `design.md.source_requirements_approved_at`, `design.md` and `tasks.md` are stale.
-- If `design.md.approved_at` no longer matches `tasks.md.source_design_approved_at`, `tasks.md` is stale.
+- Never hand-edit fingerprint fields (`approved_fingerprint`, `source_*_fingerprint`): they are computed and verified by the CLI. A fingerprint that does not match its document's content makes the document stale.
+- Freshness is decided by fingerprint comparison: an approved document is stale when its body no longer matches its `approved_fingerprint`, and a downstream document is stale when its `source_*_fingerprint` differs from the upstream's current `approved_fingerprint`. Timestamps remain as human-readable context.
+- If an approved document is edited later, it is stale until the chain is repaired: run `walden reconcile` (the document resets to draft) and take it through review again.
+- Approved documents that lack fingerprints (created by pre-fingerprint CLI versions) are stale by definition; `walden reconcile` plus one re-approval cycle migrates them.
 
 ## Phase Router
 
@@ -281,7 +285,7 @@ Design starts only from approved and non-stale requirements.
 - Include `## Options Considered`, `## Simplicity And Elegance Review`, `## Failure Modes And Tradeoffs`, and `## Verification Plan`.
 - Challenge the first draft once before showing it: ask whether a simpler shape, lower coupling, or fewer moving parts would satisfy the same requirements.
 - Use diagrams only when they clarify decisions.
-- Record the current `requirements.md.approved_at` in `source_requirements_approved_at` when the design is approved.
+- Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_requirements_approved_at`, `source_requirements_fingerprint`).
 - In the Requirement Coverage table, wrap every ID in backticks (e.g., `| `R1` |`, `| `NFR1` |`). The deterministic validator matches this exact format and will reject rows without backticks.
 
 ### `design.md` Template
@@ -291,7 +295,9 @@ Design starts only from approved and non-stale requirements.
 status: draft
 approved_at:
 last_modified: 2026-03-19T10:00:00Z
+approved_fingerprint:
 source_requirements_approved_at:
+source_requirements_fingerprint:
 ---
 
 # Feature Design
@@ -396,7 +402,7 @@ Task generation starts only from approved and non-stale design.
 - Reference design sections on every leaf task.
 - Add a `Verification:` block on every leaf task using the structured `command` format (Kubernetes pattern). The CLI executes commands via `exec.Command` without a shell, so use JSON arrays for exact argument control.
 - Optionally add a `covers:` field on proof steps to declare which acceptance criteria the proof demonstrates. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
-- Record the current `design.md.approved_at` in `source_design_approved_at` when the task list is approved.
+- Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
 
 ### Verification Format
 
@@ -449,7 +455,9 @@ Legacy single-line format (`Verification: go test ./...`) still works but does n
 status: draft
 approved_at:
 last_modified: 2026-03-19T10:00:00Z
+approved_fingerprint:
 source_design_approved_at:
+source_design_fingerprint:
 ---
 
 # Implementation Plan

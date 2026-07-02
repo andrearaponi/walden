@@ -974,10 +974,12 @@ func toOutputDocumentStatus(name string, document workflow.DocumentState) output
 	}
 
 	return output.DocumentStatus{
-		Name:       name,
-		Status:     status,
-		Fresh:      document.Exists && document.Fresh,
-		ApprovedAt: document.ApprovedAt,
+		Name:                name,
+		Status:              status,
+		Fresh:               document.Exists && document.Fresh,
+		ApprovedAt:          document.ApprovedAt,
+		ApprovedFingerprint: document.ApprovedFingerprint,
+		StaleCauses:         document.StaleCauses,
 	}
 }
 

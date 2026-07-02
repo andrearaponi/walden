@@ -13,15 +13,18 @@ var featureNamePattern = regexp.MustCompile(`[^a-z0-9]+`)
 
 // Document models a spec document loaded from disk.
 type Document struct {
-	Path                         string
-	Status                       string
-	ApprovedAt                   string
-	LastModified                 string
-	SourceRequirementsApprovedAt string
-	SourceDesignApprovedAt       string
-	Fields                       map[string]string
-	Exists                       bool
-	Body                         string
+	Path                          string
+	Status                        string
+	ApprovedAt                    string
+	LastModified                  string
+	ApprovedFingerprint           string
+	SourceRequirementsApprovedAt  string
+	SourceDesignApprovedAt        string
+	SourceRequirementsFingerprint string
+	SourceDesignFingerprint       string
+	Fields                        map[string]string
+	Exists                        bool
+	Body                          string
 }
 
 // Feature contains the document set for one Walden feature.
@@ -104,14 +107,17 @@ func loadDocument(path string) (Document, error) {
 	}
 
 	return Document{
-		Path:                         path,
-		Status:                       values.Status,
-		ApprovedAt:                   values.ApprovedAt,
-		LastModified:                 values.LastModified,
-		SourceRequirementsApprovedAt: values.SourceRequirementsApprovedAt,
-		SourceDesignApprovedAt:       values.SourceDesignApprovedAt,
-		Fields:                       values.Fields,
-		Exists:                       true,
-		Body:                         body,
+		Path:                          path,
+		Status:                        values.Status,
+		ApprovedAt:                    values.ApprovedAt,
+		LastModified:                  values.LastModified,
+		ApprovedFingerprint:           values.ApprovedFingerprint,
+		SourceRequirementsApprovedAt:  values.SourceRequirementsApprovedAt,
+		SourceDesignApprovedAt:        values.SourceDesignApprovedAt,
+		SourceRequirementsFingerprint: values.SourceRequirementsFingerprint,
+		SourceDesignFingerprint:       values.SourceDesignFingerprint,
+		Fields:                        values.Fields,
+		Exists:                        true,
+		Body:                          body,
 	}, nil
 }

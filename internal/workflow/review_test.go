@@ -5,18 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/andrearaponi/walden/internal/spec"
 )
 
 func TestOpenReviewTransitionsDocumentToInReviewAndReturnsContext(t *testing.T) {
 	root := t.TempDir()
-	writeReviewFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
-status: approved
-approved_at: 2026-03-21T14:00:00Z
-last_modified: 2026-03-21T14:00:00Z
----
-
-# Requirements Document
-`)
+	writeReviewFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
 	writeReviewFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: draft
 approved_at:
@@ -79,23 +74,9 @@ source_requirements_approved_at:
 
 func TestOpenReviewBlocksStaleUpstreamArtifact(t *testing.T) {
 	root := t.TempDir()
-	writeReviewFeatureDoc(t, root, "todo-app-demo", "requirements.md", `---
-status: approved
-approved_at: 2026-03-21T15:00:00Z
-last_modified: 2026-03-21T15:00:00Z
----
-
-# Requirements Document
-`)
-	writeReviewFeatureDoc(t, root, "todo-app-demo", "design.md", `---
-status: approved
-approved_at: 2026-03-21T14:10:00Z
-last_modified: 2026-03-21T14:10:00Z
-source_requirements_approved_at: 2026-03-21T14:00:00Z
----
-
-# Feature Design
-`)
+	writeReviewFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T15:00:00Z"))
+	// Approved against different requirements content: chain mismatch.
+	writeReviewFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("some earlier requirements content")))
 	writeReviewFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: draft
 approved_at:
