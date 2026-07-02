@@ -1,52 +1,63 @@
-## Walden v0.4.0
+## Walden v0.5.0
 
-Freshness gets teeth. Approval now binds to the exact content that was reviewed: staleness is proven by SHA-256 content fingerprints, not asserted by timestamps.
+The binary is now the whole distribution. The AI skill ships inside it, one command installs everything, and skill/CLI version drift is impossible by construction.
 
-### ⚠️ Breaking — read before upgrading
-
-**Existing specs report stale after upgrading.** Documents approved by v0.3.0 and earlier carry no approval fingerprint, so the new binary treats them as stale (`approval fingerprint missing`) and blocks execution on them. Migration is one deterministic cycle per feature:
+### Install in one line
 
 ```bash
-walden reconcile <feature>   # documents reset to draft; task checkboxes are preserved
-# then re-approve each phase:
-walden review open <feature> --phase requirements && walden review approve <feature> --phase requirements
-walden review open <feature> --phase design       && walden review approve <feature> --phase design
-walden review open <feature> --phase tasks        && walden review approve <feature> --phase tasks
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
 ```
 
-This strictness is deliberate: a grace mode that trusted fingerprint-less approvals would silently keep the old, falsifiable behavior.
+No Go toolchain, no clone: the installer detects your platform (darwin/linux × amd64/arm64), resolves the latest release, verifies the binary against the published SHA-256 checksums (fail-closed), installs it to `~/.local/bin/walden`, and offers to set up the AI skill for your coding agent. Flags pass through the pipe with `sh -s --`:
 
-**`task complete-all` exit code.** On a gate-blocked feature it now exits non-zero with the blocker (previously "no runnable tasks" with exit 0). Update CI scripts that relied on the old code.
+| Flag | Effect |
+| --- | --- |
+| `--skill <agent\|all>` | Install the skill non-interactively (`claude`, `codex`, `copilot`, `opencode`, `all`) |
+| `--version <tag>` | Pin a release instead of the latest |
+| `--no-verify` | Skip checksum verification (releases ≤ v0.4.0 predate `checksums.txt`) |
+| `--uninstall` | Remove the skill (all agents) and the binary |
 
-**Not breaking:** the JSON contract. The envelope is unchanged and the new fields (`stale_causes`, `approved_fingerprint`) are additive within `schema_version: v0beta1` — existing integrations keep working.
+This is the first release that publishes `checksums.txt` alongside the binaries.
 
-### What fingerprints change
+### The skill lives in the binary
 
-- `walden review approve` records a SHA-256 fingerprint of the approved body (`approved_fingerprint`) and, on downstream documents, the upstream's approval fingerprint (`source_requirements_fingerprint`, `source_design_fingerprint`).
-- **Tamper detection:** editing an approved document without re-approval makes it stale — no matter what its metadata claims. Missing or malformed fingerprints fail closed. Every verdict carries a named cause, in human output and in `--json` (`stale_causes`).
-- **Chain freshness by content identity:** a downstream document is fresh when its recorded source fingerprint equals the upstream's current approval fingerprint. Corollary: re-approving an upstream document *without changing its content* no longer stales the chain — timestamp noise is gone.
-- **Execution progress is not content:** fingerprint normalization treats task checkbox state (and line endings) as non-content, so completing tasks never invalidates the approved plan.
-- `walden reconcile` repairs everything deterministically: tampered, malformed, and legacy documents reset to `draft`, chain resets cascade, re-approval records fresh fingerprints.
-- Timestamps stay in frontmatter as human-readable context; fingerprints alone carry the verdict.
+`skill/walden/SKILL.md` is embedded at build time. Whatever channel delivers the binary — the one-liner, `go install`, a manual download — delivers the skill at the exact matching version. The new `walden skill` command group manages placement:
 
-No new commands, no new dependencies: the hardening rides `review approve`, `validate`, `status`, `task *`, and `reconcile`, pure Go standard library.
+```bash
+walden skill install claude            # user scope: ~/.claude/skills/walden/
+walden skill install claude --project  # project scope: commit it, your team gets the skill on clone
+walden skill install --all             # every supported agent
+walden skill status                    # in-sync / drifted, per agent and scope
+walden skill show > anywhere.md        # escape hatch for agents Walden does not model yet
+walden skill uninstall <agent>|--all
+```
+
+- **Drift is visible instead of silent:** installed skills carry a version stamp; `walden skill status` compares content against the embedded copy (stamp-normalized) and reports which binary version installed what — including diverging user/project installations.
+- **Codex stays clean:** the `AGENTS.md` marker block is byte-compatible with previous `setup.sh` installs, reinstalls replace it in place, and uninstall extracts only the block, preserving everything else.
+- **Atomic placement:** every write stages a temp file and renames — no failure path leaves a partial skill or binary behind.
+
+### Behavior notes (not breaking)
+
+- The JSON contract is unchanged: new `skills` and `content` result fields are additive within `schema_version: v0beta1`.
+- Reinstalling the Codex skill now **replaces** the existing block (previously `setup.sh` skipped it) — refreshing the skill on binary upgrade is the point of the embed.
+- `setup.sh` still works for building from a clone, but delegates all skill placement to the binary.
+
+### Upgrading from v0.4.0
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
+# or: go install github.com/andrearaponi/walden/cmd/walden@v0.5.0
+```
+
+Then refresh the skill for the agents you use — one command now:
+
+```bash
+walden skill install <agent>   # or --all
+walden skill status            # confirm everything reads in-sync
+```
 
 ### Built the Walden way
 
-This release was specified and executed through Walden's own gated ceremony. The gates caught two real defects during execution: the checkbox mutation gap (fixed by amending the approved requirements mid-execution, with a full gate re-run) and the `complete-all` silent success on blocked features. Verified by the full test suite, an end-to-end tamper → block → reconcile → restore lifecycle test, and a cross-agent field test: a different coding agent ran the complete ceremony and 22 proof-gated task completions against this build.
+Both features were specified and executed through Walden's own gated ceremony: two full Requirements → Design → Tasks cycles (65 EARS acceptance criteria total, 100% task and proof reference coverage), every task completed through `walden task complete` with passing proofs — including live smoke tests of the installer's fail-closed path against the historical v0.4.0 release.
 
-### Install
-
-```bash
-go install github.com/andrearaponi/walden/cmd/walden@v0.4.0
-
-# or: build the binary and optionally install the AI skill
-git clone https://github.com/andrearaponi/walden.git
-cd walden && ./setup.sh
-```
-
-Pre-built binaries for linux/darwin × amd64/arm64 are attached to this release.
-
-**Skill update:** `SKILL.md` documents the fingerprint model — re-run `./setup.sh` (or re-copy the skill) for the agents you use.
-
-Still zero external dependencies.
+Still zero external dependencies: `go:embed` is standard library.
