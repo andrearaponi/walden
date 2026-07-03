@@ -14,16 +14,19 @@ permissions:
   pages: write
   id-token: write
 
+# Allow one deployment at a time, but never cancel an in-progress one:
+# let a production deploy finish rather than leave Pages half-updated.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  # Build and deploy are separate jobs so that re-running only the failed
+  # deploy job (gh run rerun --failed) does NOT re-upload the artifact.
+  # Two artifacts named "github-pages" in one run make deploy-pages fail
+  # permanently — keeping upload in its own job avoids that.
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,6 +39,13 @@ jobs:
         with:
           path: site
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
