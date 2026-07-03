@@ -97,13 +97,13 @@ a { color: inherit; }
   padding: .5em .9em;
   border-radius: 3px;
   transition: background-color .2s ease;
+  display: inline-flex; align-items: center; gap: .5em;
 }
 .nav a.nav-cta:hover { background-color: var(--pine-bright); }
 .nav a.nav-cta:focus-visible { outline-color: var(--ink); }
 .nav-cursor {
-  display: inline-block; width: .45em; height: .95em;
-  background: var(--paper); margin-left: .5em;
-  vertical-align: text-bottom;
+  width: .45em; height: .9em;
+  background: var(--paper);
   animation: blink 1.6s steps(1) infinite;
 }
 @media (prefers-reduced-motion: reduce) { .nav-cursor { animation: none; } }
