@@ -87,7 +87,29 @@ a { color: inherit; }
   text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-soft);
 }
 .nav a.nav-gh { color: var(--pine); }
-@media (max-width: 620px) { .nav a:not(.nav-gh) { display: none; } }
+
+/* "How to use" is the adoption CTA: a pine pill carrying the prompt
+   cursor — the same one blinking inside the §04 frame. */
+.nav a.nav-cta {
+  background-image: none;           /* opt out of the underline trick */
+  background-color: var(--pine);
+  color: var(--paper);
+  padding: .5em .9em;
+  border-radius: 3px;
+  transition: background-color .2s ease;
+}
+.nav a.nav-cta:hover { background-color: var(--pine-bright); }
+.nav a.nav-cta:focus-visible { outline-color: var(--ink); }
+.nav-cursor {
+  display: inline-block; width: .45em; height: .95em;
+  background: var(--paper); margin-left: .5em;
+  vertical-align: text-bottom;
+  animation: blink 1.6s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) { .nav-cursor { animation: none; } }
+
+/* Mobile keeps the two links that matter: the CTA and GitHub. */
+@media (max-width: 620px) { .nav a:not(.nav-gh):not(.nav-cta) { display: none; } }
 
 /* ============================  HERO  ================================== */
 .hero {
