@@ -184,8 +184,8 @@
     <section class="howto" id="howto">
       <div class="section-label"><span>§ 04</span> How you use it</div>
       <p class="lede">
-        One prompt. No commands to memorize — describe the feature to your coding
-        agent, name Walden, and the ceremony starts.
+        One prompt in. A reviewed spec tree out — every gate passed, every proof
+        recorded, nothing typed but the intent.
       </p>
 
       <figure class="demo-frame howto-frame">
@@ -195,21 +195,60 @@
         </div>
         <div class="howto-stage">
           <p class="howto-label">you</p>
-          <p class="howto-prompt">We need to build a personal, single-user todo app.
-             Classic CRUD on tasks — each task has categories, a due date, a priority
-             level, and can of course be marked completed. We&rsquo;ll build it in
-             Go&nbsp;1.26, TDD fail-fast, SQLite as the database, OpenAPI for the APIs,
-             adopting RFC&nbsp;7807 problem details. The frontend will be embedded in
-             Go, using React and Tailwind&nbsp;v4. Authentication is out of scope for
-             now. <em>Let&rsquo;s use Walden.</em><span class="cursor" aria-hidden="true"></span></p>
+          <p class="howto-prompt">We need a small, single-user todo app on the command
+             line — add a task, list what&rsquo;s still pending, mark one done, all kept
+             in a plain-text file, POSIX shell only.
+             <em>Let&rsquo;s use Walden.</em><span class="cursor" aria-hidden="true"></span></p>
         </div>
       </figure>
 
+      <p class="explorer-lead">
+        The skill asks its questions, then drafts every artifact and stops at each
+        gate for your approval. This is what it left behind —
+        <span class="explorer-hint">open a spec file ↓</span>
+      </p>
+
+      <div class="explorer">
+        <div class="explorer-bar">
+          <span class="explorer-path">todo-app-demo</span>
+          <span class="explorer-meta">feature: todo-app · all gates passed</span>
+        </div>
+        <ul class="tree">
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>.walden</li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>specs</li>
+          <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>todo-app</li>
+          <li style="--lvl:3">
+            <button class="tree-row file file--spec" data-tab="req" type="button">
+              <span class="ico ico-doc"></span>requirements.md<span class="file-pill">approved</span>
+            </button>
+          </li>
+          <li style="--lvl:3">
+            <button class="tree-row file file--spec" data-tab="design" type="button">
+              <span class="ico ico-doc"></span>design.md<span class="file-pill">approved</span>
+            </button>
+          </li>
+          <li style="--lvl:3">
+            <button class="tree-row file file--spec" data-tab="tasks" type="button">
+              <span class="ico ico-doc"></span>tasks.md<span class="file-pill">approved</span>
+            </button>
+          </li>
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>src</li>
+          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>todo.sh<span class="file-tag">built from tasks</span></li>
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>tests</li>
+          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>test_todo.sh<span class="file-tag">the proof</span></li>
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>scripts</li>
+          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>verify.sh<span class="file-tag">runs each proof</span></li>
+          <li class="tree-row file file--src" style="--lvl:0"><span class="ico ico-file"></span>README.md</li>
+        </ul>
+      </div>
+
       <p class="howto-note">
-        What happens next: the skill asks its clarifying questions, then drafts —
-        EARS requirements, design, tasks with proofs — stopping at every gate for
-        your approval. <code>walden validate</code>, <code>walden review approve</code>,
-        <code>walden task complete</code> run underneath. You never type them.
+        Every spec above carries its own frontmatter — <code>status: approved</code>,
+        timestamps, the staleness chain. <code>walden validate</code>,
+        <code>walden review approve</code>, <code>walden task complete</code> ran
+        underneath to earn each of those badges. You never typed them.
+        The feature is a toy; the ceremony isn&rsquo;t — the same gates hold
+        for the stack you actually ship on.
       </p>
     </section>
 
@@ -312,6 +351,139 @@
     </nav>
   </footer>
 
+  <!-- ─────────────────────  SPEC VIEWER MODAL  ──────────────────────── -->
+  <div class="spec-modal" id="specModal" hidden>
+    <div class="spec-backdrop" data-close></div>
+    <div class="spec-dialog" role="dialog" aria-modal="true" aria-labelledby="specModalTitle">
+      <div class="spec-head">
+        <p class="spec-crumb">todo-app-demo / .walden / specs / todo-app</p>
+        <h3 class="spec-title" id="specModalTitle">requirements.md</h3>
+        <button class="spec-close" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <div class="spec-tabs">
+        <button class="spec-tab" data-tab="req" type="button">requirements</button>
+        <button class="spec-tab" data-tab="design" type="button">design</button>
+        <button class="spec-tab" data-tab="tasks" type="button">tasks</button>
+      </div>
+      <div class="spec-body" tabindex="0">
+
+        <!-- REQUIREMENTS -->
+        <article class="spec-pane" data-pane="req">
+          <div class="fm">
+            <span class="fm-status">status: approved</span>
+            <span class="fm-item">approved_at: 2026-03-22T12:00:00Z</span>
+          </div>
+          <div class="doc">
+            <p class="doc-muted">A minimal command-line todo application that demonstrates
+              the Walden workflow — a flat-file list with add, list, and complete operations.</p>
+
+            <div class="req">
+              <div class="req-head"><span class="ac-id">R1</span> Add a todo item</div>
+              <p class="req-story">As a user, I want to add a todo item, so that I can track tasks.</p>
+              <p class="ac"><span class="ac-id">R1.AC1</span> <b>WHEN</b> the user runs the add
+                command with a description, the system <b>SHALL</b> append the item to the todo
+                file and confirm the addition.</p>
+              <p class="ac"><span class="ac-id">R1.AC2</span> <b>IF</b> the todo file does not
+                exist, <b>THEN</b> the system <b>SHALL</b> create it before adding the item.</p>
+            </div>
+
+            <div class="req">
+              <div class="req-head"><span class="ac-id">R2</span> List todo items</div>
+              <p class="req-story">As a user, I want to list all todo items, so that I can see what needs to be done.</p>
+              <p class="ac"><span class="ac-id">R2.AC1</span> <b>WHEN</b> the user runs the list
+                command, the system <b>SHALL</b> display all items with their status and index.</p>
+              <p class="ac"><span class="ac-id">R2.AC2</span> <b>IF</b> no items exist, <b>THEN</b>
+                the system <b>SHALL</b> display a message indicating the list is empty.</p>
+            </div>
+
+            <div class="req">
+              <div class="req-head"><span class="ac-id">R3</span> Complete a todo item</div>
+              <p class="req-story">As a user, I want to mark a todo item as complete, so that I can track progress.</p>
+              <p class="ac"><span class="ac-id">R3.AC1</span> <b>WHEN</b> the user runs the complete
+                command with an item index, the system <b>SHALL</b> mark that item as done.</p>
+              <p class="ac"><span class="ac-id">R3.AC2</span> <b>IF</b> the index is out of range,
+                <b>THEN</b> the system <b>SHALL</b> display an error message.</p>
+            </div>
+
+            <h4 class="doc-h">Non-Functional</h4>
+            <p class="ac"><span class="ac-id">NFR1</span> The application <b>SHALL</b> use only
+              shell built-ins and standard POSIX utilities.</p>
+            <p class="ac"><span class="ac-id">C1</span> The application <b>MUST</b> store data in
+              a plain text file in the current directory.</p>
+          </div>
+        </article>
+
+        <!-- DESIGN -->
+        <article class="spec-pane" data-pane="design">
+          <div class="fm">
+            <span class="fm-status">status: approved</span>
+            <span class="fm-item">approved_at: 2026-03-22T12:10:00Z</span>
+            <span class="fm-chain">source_requirements_approved_at: 2026-03-22T12:00:00Z</span>
+          </div>
+          <div class="doc">
+            <h4 class="doc-h">Overview</h4>
+            <p class="doc-muted">A single shell script (<code>src/todo.sh</code>) implements add,
+              list, and complete subcommands. Data is stored in a plain text file
+              (<code>todos.txt</code>) with one item per line as <code>STATUS|DESCRIPTION</code>.</p>
+
+            <h4 class="doc-h">Options considered</h4>
+            <ul class="opts">
+              <li><b>Option A — chosen.</b> Single shell script with flat-file storage. Simplest
+                shape that satisfies every requirement with POSIX utilities only.</li>
+              <li><b>Option B — rejected.</b> Separate scripts per subcommand with a shared data
+                module. Adds file-coordination overhead for no benefit at this scale.</li>
+            </ul>
+
+            <h4 class="doc-h">Data model</h4>
+            <p class="doc-muted">Each line is <code>STATUS|DESCRIPTION</code>, where STATUS is
+              <code>TODO</code> or <code>DONE</code>.</p>
+
+            <h4 class="doc-h">Requirement coverage</h4>
+            <table class="cov">
+              <tr><td>R1</td><td>add subcommand · test_add</td></tr>
+              <tr><td>R2</td><td>list subcommand · test_list</td></tr>
+              <tr><td>R3</td><td>complete subcommand · test_complete</td></tr>
+              <tr><td>NFR1</td><td>POSIX-only implementation</td></tr>
+            </table>
+          </div>
+        </article>
+
+        <!-- TASKS -->
+        <article class="spec-pane" data-pane="tasks">
+          <div class="fm">
+            <span class="fm-status">status: approved</span>
+            <span class="fm-item">approved_at: 2026-03-22T12:20:00Z</span>
+            <span class="fm-chain">source_design_approved_at: 2026-03-22T12:10:00Z</span>
+          </div>
+          <div class="doc tasks">
+            <div class="task-grp">
+              <h4 class="doc-h">1 · Implement the todo CLI</h4>
+              <div class="task">
+                <p class="task-name">1.1 — Create src/todo.sh with add subcommand</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R1 · R1.AC1 · R1.AC2 · NFR1</p>
+                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "1.1"]</p>
+              </div>
+              <div class="task">
+                <p class="task-name">1.2 — Add list and complete subcommands</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R2 · R2.AC1 · R2.AC2 · R3 · R3.AC1 · R3.AC2 · NFR1</p>
+                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "1.2"]</p>
+              </div>
+            </div>
+            <div class="task-grp">
+              <h4 class="doc-h">2 · Write tests</h4>
+              <div class="task">
+                <p class="task-name">2.1 — Create tests/test_todo.sh covering add, list, complete</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R1–R3 · all acceptance criteria</p>
+                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "2.1"]</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </div>
+
   <script>
     // click-to-copy — restrained micro-interaction
     document.querySelectorAll('.copy').forEach(function (btn) {
@@ -334,9 +506,64 @@
           if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
         });
       }, { threshold: 0.18 });
-      document.querySelectorAll('.section-label, .lede, .claim-line, .claim-sub, .voice, .phase, .ears-sample, .ears-forms, .demo-frame, .howto-note, .recipe, .stack-note, .code-block, .install-alt, .thoreau, .name-note')
+      document.querySelectorAll('.section-label, .lede, .claim-line, .claim-sub, .voice, .phase, .ears-sample, .ears-forms, .demo-frame, .explorer-lead, .explorer, .howto-note, .recipe, .stack-note, .code-block, .install-alt, .thoreau, .name-note')
         .forEach(function (el) { el.classList.add('rise'); io.observe(el); });
     }
+
+    // spec viewer — open a real Walden artifact in a tabbed modal
+    (function () {
+      var modal  = document.getElementById('specModal');
+      if (!modal) return;
+      var dialog = modal.querySelector('.spec-dialog');
+      var title  = document.getElementById('specModalTitle');
+      var tabs   = Array.prototype.slice.call(modal.querySelectorAll('.spec-tab'));
+      var panes  = Array.prototype.slice.call(modal.querySelectorAll('.spec-pane'));
+      var labels = { req: 'requirements.md', design: 'design.md', tasks: 'tasks.md' };
+      var lastFocus = null;
+
+      function show(tab) {
+        tabs.forEach(function (t) { t.classList.toggle('is-on', t.dataset.tab === tab); });
+        panes.forEach(function (p) { p.classList.toggle('is-on', p.dataset.pane === tab); });
+        title.textContent = labels[tab] || 'requirements.md';
+      }
+      function open(tab) {
+        lastFocus = document.activeElement;
+        modal.hidden = false;
+        show(tab);
+        requestAnimationFrame(function () { modal.classList.add('is-open'); });
+        document.body.style.overflow = 'hidden';
+        var onTab = modal.querySelector('.spec-tab.is-on') || tabs[0];
+        if (onTab) onTab.focus();
+      }
+      function close() {
+        modal.classList.remove('is-open');
+        document.body.style.overflow = '';
+        setTimeout(function () { modal.hidden = true; }, 220);
+        if (lastFocus) lastFocus.focus();
+      }
+
+      document.querySelectorAll('.file--spec').forEach(function (btn) {
+        btn.addEventListener('click', function () { open(btn.dataset.tab); });
+      });
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () { show(t.dataset.tab); });
+      });
+      modal.querySelectorAll('[data-close]').forEach(function (el) {
+        el.addEventListener('click', close);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (modal.hidden) return;
+        if (e.key === 'Escape') { close(); return; }
+        if (e.key !== 'Tab') return;
+        // keep focus inside the dialog while it is open
+        var items = dialog.querySelectorAll('button, [tabindex="0"]');
+        var first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        else if (!dialog.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      });
+      if (dialog) dialog.addEventListener('click', function (e) { e.stopPropagation(); });
+    })();
   </script>
 </body>
 </html>

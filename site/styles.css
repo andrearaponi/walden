@@ -409,6 +409,166 @@ code {
 }
 .howto-note code { background: var(--paper-3); color: var(--pine-deep); }
 
+/* -----------------------  FILE EXPLORER  ---------------------------- */
+.explorer-lead {
+  margin: 2.6rem 0 1.1rem; max-width: var(--measure);
+  color: var(--ink-soft); font-size: 1.02rem;
+}
+.explorer-hint {
+  display: inline-block; margin-left: 0.35rem;
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.02em;
+  text-transform: uppercase; color: var(--pine-bright);
+}
+.explorer {
+  border: 1px solid var(--ink);
+  background: var(--paper-2);
+  box-shadow: 8px 8px 0 var(--pine);
+}
+.explorer-bar {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--ink);
+  background: var(--paper-3);
+  font-family: var(--mono); font-size: 0.78rem;
+}
+.explorer-path { font-weight: 600; color: var(--pine-deep); letter-spacing: 0.01em; }
+.explorer-meta { color: var(--ink-mute); font-size: 0.72rem; }
+.tree { list-style: none; margin: 0; padding: 0.5rem 0; }
+.tree > li { margin: 0; }
+.tree-row {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  padding: 0.34rem 1.1rem 0.34rem calc(1.1rem + var(--lvl, 0) * 1.35rem);
+  font-family: var(--mono); font-size: 0.83rem; line-height: 1.3;
+  color: var(--ink); text-align: left;
+}
+.tree-row.dir { color: var(--ink-soft); }
+.ico { flex: none; width: 1em; text-align: center; color: var(--pine); }
+.ico-dir::before  { content: "▸"; }
+.ico-doc::before  { content: "▪"; color: var(--pine-bright); }
+.ico-file::before { content: "▫"; color: var(--ink-mute); }
+button.tree-row {
+  background: none; border: 0; cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.file--spec { font-weight: 500; }
+.file--spec:hover, .file--spec:focus-visible {
+  background: var(--paper-3); color: var(--pine-deep); outline: none;
+}
+.file--spec:focus-visible { box-shadow: inset 3px 0 0 var(--pine); }
+.file-pill {
+  margin-left: auto;
+  font-size: 0.64rem; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 0.1rem 0.5rem; border-radius: 999px;
+  background: var(--pine); color: var(--paper);
+}
+.file--src { color: var(--ink-soft); }
+.file-tag {
+  margin-left: auto; font-size: 0.68rem; font-style: normal;
+  color: var(--ink-mute); letter-spacing: 0.01em;
+}
+
+/* -----------------------  SPEC MODAL  ------------------------------- */
+.spec-modal { position: fixed; inset: 0; z-index: 60; }
+.spec-modal[hidden] { display: none; }
+.spec-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(24, 22, 16, 0.42);
+  opacity: 0; transition: opacity 0.22s ease;
+}
+.spec-modal.is-open .spec-backdrop { opacity: 1; }
+.spec-dialog {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -46%);
+  width: min(760px, 100%); max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--paper); border: 1px solid var(--ink);
+  box-shadow: 10px 10px 0 var(--pine);
+  opacity: 0; transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.spec-modal.is-open .spec-dialog { opacity: 1; transform: translate(-50%, -50%); }
+.spec-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem;
+  padding: 1.1rem 1.4rem 0.9rem; border-bottom: 1px solid var(--ink);
+}
+.spec-crumb {
+  flex: 1 1 100%; margin: 0;
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.02em;
+  color: var(--ink-mute);
+}
+.spec-title { margin: 0; font-family: var(--mono); font-size: 1.05rem; color: var(--pine-deep); }
+.spec-close {
+  margin: -0.6rem -0.95rem -0.6rem auto; background: none; border: 0; cursor: pointer;
+  padding: 0.6rem 0.95rem;   /* ≥44px touch target — on mobile it is the only way out */
+  font-size: 1.6rem; line-height: 1; color: var(--ink-soft);
+}
+.spec-close:hover { color: var(--ink); }
+.spec-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--rule);
+  padding: 0 1.4rem; background: var(--paper-2);
+}
+.spec-tab {
+  background: none; border: 0; cursor: pointer;
+  padding: 0.7rem 0.9rem; margin-bottom: -1px;
+  font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+}
+.spec-tab:hover { color: var(--ink); }
+.spec-tab.is-on { color: var(--pine-deep); border-bottom-color: var(--pine); }
+.spec-body { overflow-y: auto; padding: 1.4rem; }
+.spec-pane { display: none; }
+.spec-pane.is-on { display: block; animation: specfade 0.22s ease; }
+@keyframes specfade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.fm {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem;
+  padding: 0.7rem 0.9rem; margin-bottom: 1.2rem;
+  background: var(--paper-3); border-left: 3px solid var(--pine);
+  font-family: var(--mono); font-size: 0.72rem;
+}
+.fm-status { color: var(--pine-deep); font-weight: 600; }
+.fm-status::before { content: "● "; color: var(--pine-bright); }
+.fm-item, .fm-chain { color: var(--ink-mute); }
+.doc { font-size: 0.94rem; line-height: 1.6; }
+.doc-muted { color: var(--ink-soft); }
+.doc code { font-family: var(--mono); font-size: 0.82em; background: var(--paper-3); padding: 0.05em 0.35em; color: var(--pine-deep); }
+.doc-h {
+  margin: 1.4rem 0 0.5rem; font-family: var(--mono);
+  font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.req { padding: 0.9rem 0; border-top: 1px solid var(--rule-soft); }
+.req:first-of-type { border-top: 0; }
+.req-head { font-family: var(--mono); font-size: 0.9rem; color: var(--pine-deep); }
+.req-story { margin: 0.3rem 0 0.6rem; color: var(--ink-soft); font-style: italic; }
+.ac { margin: 0.4rem 0; }
+.ac-id {
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  color: var(--pine-bright); margin-right: 0.4rem;
+}
+.ac b { font-family: var(--mono); font-size: 0.82em; color: var(--pine-deep); font-weight: 600; }
+.opts { margin: 0.4rem 0; padding-left: 1.1rem; }
+.opts li { margin: 0.4rem 0; color: var(--ink-soft); }
+.opts b { color: var(--pine-deep); }
+.cov { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.8rem; }
+.cov td { padding: 0.4rem 0.6rem; border-top: 1px solid var(--rule-soft); }
+.cov td:first-child { color: var(--pine-deep); font-weight: 600; width: 5rem; }
+.cov td:last-child { color: var(--ink-soft); }
+.tasks .task-grp { margin-bottom: 0.6rem; }
+.task { padding: 0.6rem 0.9rem; margin: 0.5rem 0; background: var(--paper-2); border-left: 3px solid var(--pine); }
+.task-name { margin: 0 0 0.35rem; font-family: var(--mono); font-size: 0.84rem; color: var(--pine-deep); }
+.task-meta { margin: 0.15rem 0; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); }
+.task-k { color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.03em; margin-right: 0.5rem; }
+
+@media (max-width: 640px) {
+  .spec-dialog {
+    top: 0; left: 0; transform: none; width: 100%; height: 100%; max-height: 100vh;
+  }
+  .spec-modal.is-open .spec-dialog { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spec-backdrop, .spec-dialog { transition: none; }
+  .spec-pane.is-on { animation: none; }
+}
+
 /* =========================  THE STACK  ================================ */
 .stack-grid {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -421,6 +581,7 @@ code {
   padding: 1.9rem 1.6rem 1.7rem;
   border-bottom: 1px solid var(--ink);
   border-right: 1px solid var(--rule);
+  min-width: 0;   /* let the nowrap .recipe-cmd scroll instead of widening the grid */
 }
 .recipe:nth-child(2n) { border-right: none; }
 @media (max-width: 680px) { .recipe { border-right: none; } }
@@ -459,7 +620,7 @@ code {
 }
 .code-block .c::before { content: "$ "; color: var(--pine-bright); }
 .install-alt { font-size: 1rem; color: var(--ink-soft); margin: 0; max-width: 60ch; }
-.install-alt code { background: var(--paper-3); color: var(--pine-deep); }
+.install-alt code { background: var(--paper-3); color: var(--pine-deep); overflow-wrap: anywhere; }
 
 /* ========================  ON THE NAME  ============================== */
 .name { position: relative; }
