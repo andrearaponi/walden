@@ -536,9 +536,16 @@ button.tree-row {
 .fm-status { color: var(--pine-deep); font-weight: 600; }
 .fm-status::before { content: "● "; color: var(--pine-bright); }
 .fm-item, .fm-chain { color: var(--ink-mute); }
+.fm-hash { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc { font-size: 0.94rem; line-height: 1.6; }
 .doc-muted { color: var(--ink-soft); }
 .doc code { font-family: var(--mono); font-size: 0.82em; background: var(--paper-3); padding: 0.05em 0.35em; color: var(--pine-deep); }
+.doc-pre {
+  margin: 0.6rem 0 0.9rem; padding: 0.8rem 1rem;
+  background: var(--paper-3); border-left: 3px solid var(--rule);
+  font-family: var(--mono); font-size: 0.74rem; line-height: 1.55;
+  overflow-x: auto; tab-size: 10;
+}
 .doc-h {
   margin: 1.4rem 0 0.5rem; font-family: var(--mono);
   font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase;
@@ -559,13 +566,20 @@ button.tree-row {
 .opts b { color: var(--pine-deep); }
 .cov { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.8rem; }
 .cov td { padding: 0.4rem 0.6rem; border-top: 1px solid var(--rule-soft); }
-.cov td:first-child { color: var(--pine-deep); font-weight: 600; width: 5rem; }
+.cov td:first-child { color: var(--pine-deep); font-weight: 600; width: 7rem; }
 .cov td:last-child { color: var(--ink-soft); }
 .tasks .task-grp { margin-bottom: 0.6rem; }
 .task { padding: 0.6rem 0.9rem; margin: 0.5rem 0; background: var(--paper-2); border-left: 3px solid var(--pine); }
 .task-name { margin: 0 0 0.35rem; font-family: var(--mono); font-size: 0.84rem; color: var(--pine-deep); }
 .task-meta { margin: 0.15rem 0; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); }
 .task-k { color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.03em; margin-right: 0.5rem; }
+.task-check { color: var(--pine-bright); font-weight: 700; margin-right: 0.45rem; }
+.doc code.task-cmd {   /* outranks the generic .doc code skin */
+  display: block; margin: 0.3rem 0 0.45rem; padding: 0.55rem 0.75rem;
+  background: var(--ink); color: var(--paper); border-radius: 3px;
+  font-size: 0.68rem; line-height: 1.6;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
 
 @media (max-width: 640px) {
   .spec-dialog {

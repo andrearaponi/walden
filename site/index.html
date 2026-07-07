@@ -211,14 +211,18 @@
 
       <div class="explorer">
         <div class="explorer-bar">
-          <span class="explorer-path">todo-app</span>
-          <span class="explorer-meta">feature: todo-app · all gates passed</span>
+          <span class="explorer-path">todo-cli</span>
+          <span class="explorer-meta">feature: todo-cli · all gates passed</span>
         </div>
         <ul class="tree">
-          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>todo-app</li>
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>todo-cli</li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>.github</li>
+          <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>workflows</li>
+          <li class="tree-row file file--src" style="--lvl:3"><span class="ico ico-file"></span>validate-walden.yml<span class="file-tag">the CI gate</span></li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>pull_request_template.md</li>
           <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>.walden</li>
           <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>specs</li>
-          <li class="tree-row dir" style="--lvl:3"><span class="ico ico-dir"></span>todo-app</li>
+          <li class="tree-row dir" style="--lvl:3"><span class="ico ico-dir"></span>todo-cli</li>
           <li style="--lvl:4">
             <button class="tree-row file file--spec" data-tab="req" type="button">
               <span class="ico ico-doc"></span>requirements.md<span class="file-pill">approved</span>
@@ -236,13 +240,9 @@
           </li>
           <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-doc"></span>constitution.md<span class="file-tag">project rules</span></li>
           <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-doc"></span>lessons.md<span class="file-tag">past lessons</span></li>
-          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>src</li>
-          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>todo.sh<span class="file-tag">built from tasks</span></li>
           <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>tests</li>
-          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>test_todo.sh<span class="file-tag">the proof</span></li>
-          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>scripts</li>
-          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>verify.sh<span class="file-tag">runs each proof</span></li>
-          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>README.md</li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>run.sh<span class="file-tag">the proof</span></li>
+          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>todo<span class="file-tag">built from tasks</span></li>
         </ul>
       </div>
 
@@ -361,7 +361,7 @@
     <div class="spec-backdrop" data-close></div>
     <div class="spec-dialog" role="dialog" aria-modal="true" aria-labelledby="specModalTitle">
       <div class="spec-head">
-        <p class="spec-crumb">todo-app / .walden / specs / todo-app</p>
+        <p class="spec-crumb">todo-cli / .walden / specs / todo-cli</p>
         <h3 class="spec-title" id="specModalTitle">requirements.md</h3>
         <button class="spec-close" type="button" data-close aria-label="Close">×</button>
       </div>
@@ -372,114 +372,481 @@
       </div>
       <div class="spec-body" tabindex="0">
 
-        <!-- REQUIREMENTS -->
+        <!-- REQUIREMENTS — the real file from the demo run -->
         <article class="spec-pane" data-pane="req">
           <div class="fm">
             <span class="fm-status">status: approved</span>
-            <span class="fm-item">approved_at: 2026-03-22T12:00:00Z</span>
+            <span class="fm-item">approved_at: 2026-07-07T17:34:27Z</span>
+            <span class="fm-item">last_modified: 2026-07-07T17:34:27Z</span>
+            <span class="fm-item fm-hash">approved_fingerprint: sha256:9f6fb6fd717741a839bb052952bfcff55793b260422c73cf1318823e01dd170d</span>
           </div>
           <div class="doc">
-            <p class="doc-muted">A minimal command-line todo application that demonstrates
-              the Walden workflow — a flat-file list with add, list, and complete operations.</p>
+            <h4 class="doc-h">Introduction</h4>
+            <p class="doc-muted">A single-user command-line todo manager for POSIX systems.
+              One person can add tasks, list the tasks still pending, and mark a task as
+              done. All state lives in a single plain-text file so it works with zero
+              dependencies on any POSIX shell and remains readable and hand-editable.</p>
 
             <div class="req">
-              <div class="req-head"><span class="ac-id">R1</span> Add a todo item</div>
-              <p class="req-story">As a user, I want to add a todo item, so that I can track tasks.</p>
-              <p class="ac"><span class="ac-id">R1.AC1</span> <b>WHEN</b> the user runs the add
-                command with a description, the system <b>SHALL</b> append the item to the todo
-                file and confirm the addition.</p>
-              <p class="ac"><span class="ac-id">R1.AC2</span> <b>IF</b> the todo file does not
-                exist, <b>THEN</b> the system <b>SHALL</b> create it before adding the item.</p>
+              <div class="req-head"><span class="ac-id">R1</span> Add a task</div>
+              <p class="req-story">As a user, I want to add a task from the command line, so that I can capture something I need to do.</p>
+              <p class="ac"><span class="ac-id">R1.AC1</span> <b>WHEN</b> the user runs
+                <code>todo add &lt;text&gt;</code> with non-empty text, the system <b>SHALL</b>
+                append a new task with status pending to the storage file.</p>
+              <p class="ac"><span class="ac-id">R1.AC2</span> <b>WHEN</b> the user runs
+                <code>todo add &lt;text&gt;</code>, the system <b>SHALL</b> assign the new task
+                an identifier that is unique among all tasks in the storage file.</p>
+              <p class="ac"><span class="ac-id">R1.AC3</span> <b>WHEN</b> a task is successfully
+                added, the system <b>SHALL</b> print a confirmation that includes the new
+                task's identifier.</p>
+              <p class="ac"><span class="ac-id">R1.AC4</span> <b>IF</b> the user runs
+                <code>todo add</code> with missing or empty text, <b>THEN</b> the system
+                <b>SHALL</b> print an error message and leave the storage file unchanged.</p>
             </div>
 
             <div class="req">
-              <div class="req-head"><span class="ac-id">R2</span> List todo items</div>
-              <p class="req-story">As a user, I want to list all todo items, so that I can see what needs to be done.</p>
-              <p class="ac"><span class="ac-id">R2.AC1</span> <b>WHEN</b> the user runs the list
-                command, the system <b>SHALL</b> display all items with their status and index.</p>
-              <p class="ac"><span class="ac-id">R2.AC2</span> <b>IF</b> no items exist, <b>THEN</b>
-                the system <b>SHALL</b> display a message indicating the list is empty.</p>
+              <div class="req-head"><span class="ac-id">R2</span> List pending tasks</div>
+              <p class="req-story">As a user, I want to list the tasks that are still pending, so that I can see what is left to do.</p>
+              <p class="ac"><span class="ac-id">R2.AC1</span> <b>WHEN</b> the user runs
+                <code>todo list</code>, the system <b>SHALL</b> display every task whose
+                status is pending.</p>
+              <p class="ac"><span class="ac-id">R2.AC2</span> <b>WHEN</b> the user runs
+                <code>todo list</code>, the system <b>SHALL</b> omit from the output every
+                task whose status is done.</p>
+              <p class="ac"><span class="ac-id">R2.AC3</span> <b>WHEN</b> the user runs
+                <code>todo list</code> for a pending task, the system <b>SHALL</b> show that
+                task's identifier and its text.</p>
+              <p class="ac"><span class="ac-id">R2.AC4</span> <b>WHILE</b> the storage file
+                contains no pending tasks, <b>WHEN</b> the user runs <code>todo list</code>,
+                the system <b>SHALL</b> print a message indicating there are no pending tasks.</p>
             </div>
 
             <div class="req">
-              <div class="req-head"><span class="ac-id">R3</span> Complete a todo item</div>
-              <p class="req-story">As a user, I want to mark a todo item as complete, so that I can track progress.</p>
-              <p class="ac"><span class="ac-id">R3.AC1</span> <b>WHEN</b> the user runs the complete
-                command with an item index, the system <b>SHALL</b> mark that item as done.</p>
-              <p class="ac"><span class="ac-id">R3.AC2</span> <b>IF</b> the index is out of range,
-                <b>THEN</b> the system <b>SHALL</b> display an error message.</p>
+              <div class="req-head"><span class="ac-id">R3</span> Mark a task done</div>
+              <p class="req-story">As a user, I want to mark a task as done by its identifier, so that it stops appearing in my pending list.</p>
+              <p class="ac"><span class="ac-id">R3.AC1</span> <b>WHEN</b> the user runs
+                <code>todo done &lt;id&gt;</code> for a pending task, the system <b>SHALL</b>
+                set that task's status to done in the storage file.</p>
+              <p class="ac"><span class="ac-id">R3.AC2</span> <b>WHEN</b> a task is successfully
+                marked done, the system <b>SHALL</b> print a confirmation that identifies the task.</p>
+              <p class="ac"><span class="ac-id">R3.AC3</span> <b>IF</b> the user runs
+                <code>todo done &lt;id&gt;</code> with an id that matches no task, <b>THEN</b>
+                the system <b>SHALL</b> print an error message and leave the storage file unchanged.</p>
+              <p class="ac"><span class="ac-id">R3.AC4</span> <b>IF</b> the user runs
+                <code>todo done</code> without an id, <b>THEN</b> the system <b>SHALL</b> print
+                an error message and leave the storage file unchanged.</p>
+              <p class="ac"><span class="ac-id">R3.AC5</span> <b>IF</b> the user runs
+                <code>todo done &lt;id&gt;</code> for a task already marked done, <b>THEN</b>
+                the system <b>SHALL</b> print a message that the task is already done and leave
+                the storage file unchanged.</p>
             </div>
 
-            <h4 class="doc-h">Non-Functional</h4>
-            <p class="ac"><span class="ac-id">NFR1</span> The application <b>SHALL</b> use only
-              shell built-ins and standard POSIX utilities.</p>
-            <p class="ac"><span class="ac-id">C1</span> The application <b>MUST</b> store data in
-              a plain text file in the current directory.</p>
+            <div class="req">
+              <div class="req-head"><span class="ac-id">R4</span> Persistent plain-text storage</div>
+              <p class="req-story">As a user, I want my tasks stored in one plain-text file, so that they persist between runs and I can inspect or edit them by hand.</p>
+              <p class="ac"><span class="ac-id">R4.AC1</span> The system <b>SHALL</b> persist all
+                tasks in a single plain-text file located at the path given by
+                <code>TODO_FILE</code>, defaulting to <code>$HOME/.todo</code>.</p>
+              <p class="ac"><span class="ac-id">R4.AC2</span> <b>WHEN</b> the user runs a
+                task-modifying command and the storage file does not yet exist, the system
+                <b>SHALL</b> create the storage file.</p>
+              <p class="ac"><span class="ac-id">R4.AC3</span> <b>IF</b> a write to the storage
+                file fails or is interrupted, <b>THEN</b> the system <b>SHALL</b> preserve the
+                previous contents of the storage file.</p>
+              <p class="ac"><span class="ac-id">R4.AC4</span> <b>IF</b> the storage file exists
+                but cannot be read or written, <b>THEN</b> the system <b>SHALL</b> print an
+                error message and exit without further changes.</p>
+            </div>
+
+            <div class="req">
+              <div class="req-head"><span class="ac-id">R5</span> Command dispatch and usage</div>
+              <p class="req-story">As a user, I want clear usage guidance, so that I know which subcommands exist and how to invoke them.</p>
+              <p class="ac"><span class="ac-id">R5.AC1</span> <b>WHEN</b> the user runs the
+                program with no arguments, the system <b>SHALL</b> print usage information that
+                lists the available subcommands.</p>
+              <p class="ac"><span class="ac-id">R5.AC2</span> <b>IF</b> the user runs the program
+                with an unrecognized subcommand, <b>THEN</b> the system <b>SHALL</b> print an
+                error message and the usage information.</p>
+            </div>
+
+            <h4 class="doc-h">Non-Functional Requirements</h4>
+            <p class="ac"><span class="ac-id">NFR1</span> The system <b>SHALL</b> run under any
+              POSIX-compliant <code>/bin/sh</code> without relying on Bash-specific features.</p>
+            <p class="ac"><span class="ac-id">NFR2</span> The system <b>SHALL</b> depend only on
+              the POSIX shell and standard POSIX utilities, with no third-party runtime dependencies.</p>
+            <p class="ac"><span class="ac-id">NFR3</span> The system <b>SHALL</b> tolerate
+              interruption of a task-modifying command without corrupting or partially writing
+              the storage file.</p>
+            <p class="ac"><span class="ac-id">NFR4</span> The system <b>SHALL</b> produce error
+              messages that name the problem and show the correct usage.</p>
+
+            <h4 class="doc-h">Constraints And Dependencies</h4>
+            <p class="ac"><span class="ac-id">C1</span> Implementation is POSIX shell only; no
+              Bash-specific syntax.</p>
+            <p class="ac"><span class="ac-id">C2</span> Storage is a single plain-text file; no
+              database or structured store.</p>
+            <p class="ac"><span class="ac-id">C3</span> Single-user and local; no concurrent
+              access or network is assumed or supported.</p>
+
+            <h4 class="doc-h">Out Of Scope</h4>
+            <ul class="opts">
+              <li>Editing the text of an existing task.</li>
+              <li>Deleting tasks or reusing freed identifiers.</li>
+              <li>A view of completed tasks, priorities, due dates, or tags.</li>
+              <li>Undo/redo and history.</li>
+              <li>Multi-user access, synchronization, or concurrency control.</li>
+            </ul>
           </div>
         </article>
 
-        <!-- DESIGN -->
+        <!-- DESIGN — the real file from the demo run -->
         <article class="spec-pane" data-pane="design">
           <div class="fm">
             <span class="fm-status">status: approved</span>
-            <span class="fm-item">approved_at: 2026-03-22T12:10:00Z</span>
-            <span class="fm-chain">source_requirements_approved_at: 2026-03-22T12:00:00Z</span>
+            <span class="fm-item">approved_at: 2026-07-07T17:37:01Z</span>
+            <span class="fm-item">last_modified: 2026-07-07T17:37:01Z</span>
+            <span class="fm-item fm-hash">approved_fingerprint: sha256:d275fbe0d04dbd5ad219b1dae3d332a4b02e2259dfdff2986e9d8f2eb62c993b</span>
+            <span class="fm-chain">source_requirements_approved_at: 2026-07-07T17:34:27Z</span>
+            <span class="fm-chain fm-hash">source_requirements_fingerprint: sha256:9f6fb6fd717741a839bb052952bfcff55793b260422c73cf1318823e01dd170d</span>
           </div>
           <div class="doc">
             <h4 class="doc-h">Overview</h4>
-            <p class="doc-muted">A single shell script (<code>src/todo.sh</code>) implements add,
-              list, and complete subcommands. Data is stored in a plain text file
-              (<code>todos.txt</code>) with one item per line as <code>STATUS|DESCRIPTION</code>.</p>
+            <p class="doc-muted">A single self-contained POSIX shell script named
+              <code>todo</code> implements the whole tool. It dispatches on the first argument
+              (<code>add</code>, <code>list</code>, <code>done</code>, or help) and reads/writes
+              one plain-text file. Each task is one line with three tab-separated fields: a
+              stable integer id, a status word, and the free-form text. Modifications are
+              written to a temporary file in the same directory and then renamed over the
+              storage file, so a failed or interrupted write never corrupts existing data.</p>
 
-            <h4 class="doc-h">Options considered</h4>
+            <h4 class="doc-h">Architecture</h4>
+            <p class="doc-muted">Single process, no daemon, no network. One script, invoked per command:</p>
+            <pre class="doc-pre">todo &lt;subcommand&gt; [args]
+        |
+        v
+   dispatch (case on $1)
+     |      |       |
+    add    list    done
+     \      |      /
+      storage layer  ---&gt;  $TODO_FILE (plain text, tab-delimited records)
+      (ensure / read / atomic write)</pre>
+            <p class="doc-muted">The storage layer is the only code that touches the file.
+              Command functions build the new set of lines and hand them to an atomic-write
+              helper; they never edit the file in place.</p>
+
+            <h4 class="doc-h">Options Considered</h4>
+            <div class="req">
+              <div class="req-head">Option A — single script, one tab-delimited file, atomic rename (preferred)</div>
+              <p class="ac"><b>Summary:</b> One <code>sh</code> script. Records are
+                <code>id&lt;TAB&gt;status&lt;TAB&gt;text</code>. Reads use <code>read -r</code>
+                with <code>IFS</code> set to tab; writes go to a <code>mktemp</code> file in the
+                storage directory and are <code>mv</code>'d over the target. The next id is
+                <code>max(existing id) + 1</code>.</p>
+              <p class="ac"><b>Why chosen:</b> Minimum moving parts that still satisfy every
+                requirement. Tab-delimited records parse safely with pure POSIX <code>read</code>
+                (text is the last field, so spaces and even tabs inside it survive).
+                Temp-plus-rename gives atomic writes with only standard utilities, satisfying
+                NFR2 and NFR3. Stable ids fall out naturally because ids are stored, not positional.</p>
+            </div>
+            <div class="req">
+              <div class="req-head">Option B — structured store (JSON) or one-file-per-status</div>
+              <p class="ac"><b>Summary:</b> Keep tasks as JSON, or keep pending and done tasks
+                in two separate files.</p>
+              <p class="ac"><b>Why rejected:</b> JSON needs <code>jq</code> or hand-rolled
+                parsing, breaking the zero-dependency and plain-text constraints (C2, NFR2) and
+                hurting hand-editability (R4). Splitting into two files multiplies the write
+                paths and the ways they can drift out of sync, for no user-visible benefit
+                against a single-user tool.</p>
+            </div>
+            <div class="req">
+              <div class="req-head">Option C — positional (line-number) ids</div>
+              <p class="ac"><b>Summary:</b> Do not store ids; number pending tasks 1..N at list time.</p>
+              <p class="ac"><b>Why rejected:</b> The user explicitly chose stable ids; positional
+                numbering makes a task's id change whenever another task is completed, which
+                would break R1.AC2's "unique, stable" intent.</p>
+            </div>
+
+            <h4 class="doc-h">Simplicity And Elegance Review</h4>
             <ul class="opts">
-              <li><b>Option A — chosen.</b> Single shell script with flat-file storage. Simplest
-                shape that satisfies every requirement with POSIX utilities only.</li>
-              <li><b>Option B — rejected.</b> Separate scripts per subcommand with a shared data
-                module. Adds file-coordination overhead for no benefit at this scale.</li>
+              <li><b>Simplest viable shape:</b> one script, one data file, one write path. Each
+                subcommand is a small function; the only shared machinery is
+                ensure-file / read / atomic-write.</li>
+              <li><b>Coupling check:</b> command functions depend on the storage layer through
+                two points only — reading lines and replacing the whole file. No global mutable
+                state beyond <code>$TODO_FILE</code>; no in-place edits.</li>
+              <li><b>Future-proofing:</b> intentionally deferred — delete/edit, done-task views,
+                priorities, tags. The record format leaves room (fields are positional and a
+                fourth field could be appended) but nothing is built for it now.</li>
             </ul>
 
-            <h4 class="doc-h">Data model</h4>
-            <p class="doc-muted">Each line is <code>STATUS|DESCRIPTION</code>, where STATUS is
-              <code>TODO</code> or <code>DONE</code>.</p>
+            <h4 class="doc-h">Components And Interfaces</h4>
+            <div class="req">
+              <div class="req-head">Dispatcher (<code>main</code> / <code>case "$1"</code>)</div>
+              <p class="ac"><b>Purpose:</b> Route the subcommand; print usage when none or unknown.</p>
+              <p class="ac"><b>Inputs/Outputs:</b> Reads <code>$1..$n</code>; exits non-zero with
+                usage on unknown/no command, zero on success.</p>
+              <p class="ac"><b>Requirements:</b> <code>R5.AC1</code>, <code>R5.AC2</code></p>
+            </div>
+            <div class="req">
+              <div class="req-head"><code>cmd_add</code></div>
+              <p class="ac"><b>Purpose:</b> Append a new pending task with a fresh id.</p>
+              <p class="ac"><b>Inputs/Outputs:</b> Task text from <code>"$*"</code> after the
+                subcommand; prints confirmation with the new id; error on empty text.</p>
+              <p class="ac"><b>Requirements:</b> <code>R1.AC1</code>, <code>R1.AC2</code>,
+                <code>R1.AC3</code>, <code>R1.AC4</code></p>
+            </div>
+            <div class="req">
+              <div class="req-head"><code>cmd_list</code></div>
+              <p class="ac"><b>Purpose:</b> Print pending tasks, or an empty-state message.</p>
+              <p class="ac"><b>Inputs/Outputs:</b> No args; prints <code>id  text</code> per
+                pending task to stdout.</p>
+              <p class="ac"><b>Requirements:</b> <code>R2.AC1</code>, <code>R2.AC2</code>,
+                <code>R2.AC3</code>, <code>R2.AC4</code></p>
+            </div>
+            <div class="req">
+              <div class="req-head"><code>cmd_done</code></div>
+              <p class="ac"><b>Purpose:</b> Flip a task's status to done by id.</p>
+              <p class="ac"><b>Inputs/Outputs:</b> One id arg; prints confirmation; distinct
+                errors for missing id, unknown id, and already-done.</p>
+              <p class="ac"><b>Requirements:</b> <code>R3.AC1</code>, <code>R3.AC2</code>,
+                <code>R3.AC3</code>, <code>R3.AC4</code>, <code>R3.AC5</code></p>
+            </div>
+            <div class="req">
+              <div class="req-head">Storage layer (<code>ensure_file</code>, <code>read</code> loop, <code>atomic_write</code>)</div>
+              <p class="ac"><b>Purpose:</b> Own all file access. Create the file on demand; read
+                records; replace the file atomically.</p>
+              <p class="ac"><b>Inputs/Outputs:</b> <code>ensure_file</code> creates
+                <code>$TODO_FILE</code> and parent dir if absent; <code>atomic_write</code>
+                takes new content on stdin, writes a sibling <code>mktemp</code>, then
+                <code>mv</code>s it over <code>$TODO_FILE</code>.</p>
+              <p class="ac"><b>Requirements:</b> <code>R4.AC1</code>, <code>R4.AC2</code>,
+                <code>R4.AC3</code>, <code>R4.AC4</code>, <code>NFR1</code>, <code>NFR2</code>,
+                <code>NFR3</code></p>
+            </div>
 
-            <h4 class="doc-h">Requirement coverage</h4>
+            <h4 class="doc-h">Data Models</h4>
+            <p class="doc-muted">Storage file: <code>${TODO_FILE:-$HOME/.todo}</code>. One record per line:</p>
+            <pre class="doc-pre">&lt;id&gt;\t&lt;status&gt;\t&lt;text&gt;</pre>
+            <ul class="opts">
+              <li><code>id</code>: positive integer, unique, never reused. Next id = highest
+                existing id + 1 (0 when the file is empty).</li>
+              <li><code>status</code>: the literal word <code>pending</code> or <code>done</code>.</li>
+              <li><code>text</code>: everything after the second tab; may contain spaces. Read
+                with <code>IFS=&lt;tab&gt; read -r id status text</code>, so <code>text</code>
+                absorbs the remainder intact.</li>
+            </ul>
+            <pre class="doc-pre">1	pending	buy milk
+2	done	call bank
+3	pending	write report</pre>
+            <p class="doc-muted">Input handling: task text is taken verbatim except that any
+              embedded tab or newline in the provided text is replaced with a space before
+              storage, to keep one record on one line and protect the field delimiter.</p>
+
+            <h4 class="doc-h">Error Handling</h4>
+            <ul class="opts">
+              <li>Empty/missing add text (<code>R1.AC4</code>): print
+                <code>error: task text is required</code> plus usage to stderr, exit 1, no write.</li>
+              <li>Missing done id (<code>R3.AC4</code>): print
+                <code>error: task id is required</code>, exit 1.</li>
+              <li>Unknown done id (<code>R3.AC3</code>): print
+                <code>error: no task with id &lt;id&gt;</code>, exit 1, no write.</li>
+              <li>Already-done (<code>R3.AC5</code>): print
+                <code>task &lt;id&gt; is already done</code>, exit 0, no write.</li>
+              <li>Unreadable/unwritable file (<code>R4.AC4</code>): test readability/writability
+                before acting; on failure print <code>error: cannot access &lt;path&gt;</code>
+                to stderr, exit 1.</li>
+              <li>Unknown/absent subcommand (<code>R5</code>): print usage, exit non-zero.</li>
+              <li>The script runs under <code>set -eu</code>; a <code>trap</code> removes the
+                temp file on any exit so a failed write leaves the original file untouched
+                (<code>R4.AC3</code>).</li>
+            </ul>
+
+            <h4 class="doc-h">Security Considerations</h4>
+            <p class="doc-muted">Local single-user tool; no network, no privilege boundary. The
+              temp file is created with <code>mktemp</code> in the same directory as the storage
+              file (mode 600 by default) so task text is not exposed via a world-readable temp path.</p>
+
+            <h4 class="doc-h">Failure Modes And Tradeoffs</h4>
+            <ul class="opts">
+              <li><b>Write interrupted (crash, full disk, SIGINT) mid-save.</b> Mitigation:
+                write to a sibling temp file, then atomic <code>mv</code>; the original is
+                replaced only if the temp write fully succeeded. Tradeoff: needs free space for
+                a second copy of the file momentarily — acceptable for a personal todo list.</li>
+              <li><b>Two <code>todo</code> invocations write concurrently.</b> Mitigation: none
+                beyond atomic rename; last writer wins, but neither leaves a corrupt file.
+                Tradeoff: no locking, matching the single-user constraint (C3).</li>
+              <li><b>User hand-edits the file into a malformed line.</b> Mitigation: lines
+                without a parseable integer id are skipped by list and cannot be targeted by
+                done; the tool does not crash on them. Tradeoff: silently ignoring garbage lines
+                rather than repairing them.</li>
+            </ul>
+
+            <h4 class="doc-h">Testing Strategy</h4>
+            <p class="doc-muted">A single POSIX test script <code>tests/run.sh</code> drives the
+              real <code>todo</code> script against an isolated <code>TODO_FILE</code> in a temp
+              directory (no writes to <code>$HOME</code>). It runs end-to-end scenarios and
+              asserts on output and on file contents. Tests run under <code>dash</code>
+              (<code>/bin/dash</code>) to enforce POSIX behavior (NFR1). No third-party test
+              framework is used (NFR2); assertions are plain <code>sh</code> with a small
+              pass/fail helper.</p>
+
+            <h4 class="doc-h">Verification Plan</h4>
+            <ul class="opts">
+              <li><b>Requirement proof:</b> each acceptance criterion maps to a labelled scenario
+                in <code>tests/run.sh</code>; running the suite under <code>dash</code>
+                demonstrates R1–R5.</li>
+              <li><b>Test evidence:</b> <code>dash tests/run.sh</code> exits 0 with all scenarios
+                passing; the atomic-write scenario proves R4.AC3/NFR3 by forcing a write error
+                and re-reading the untouched file.</li>
+              <li><b>Operational evidence:</b> not applicable (local CLI, no runtime services).</li>
+            </ul>
+
+            <h4 class="doc-h">Requirement Coverage</h4>
             <table class="cov">
-              <tr><td>R1</td><td>add subcommand · test_add</td></tr>
-              <tr><td>R2</td><td>list subcommand · test_list</td></tr>
-              <tr><td>R3</td><td>complete subcommand · test_complete</td></tr>
-              <tr><td>NFR1</td><td>POSIX-only implementation</td></tr>
+              <tr><td>R1</td><td>cmd_add</td></tr>
+              <tr><td>R2</td><td>cmd_list</td></tr>
+              <tr><td>R3</td><td>cmd_done</td></tr>
+              <tr><td>R4</td><td>Storage layer</td></tr>
+              <tr><td>R5</td><td>Dispatcher</td></tr>
+              <tr><td>R1.AC1</td><td>cmd_add + atomic append</td></tr>
+              <tr><td>R1.AC2</td><td>cmd_add next-id = max+1</td></tr>
+              <tr><td>R1.AC3</td><td>cmd_add confirmation output</td></tr>
+              <tr><td>R1.AC4</td><td>cmd_add empty-text guard</td></tr>
+              <tr><td>R2.AC1</td><td>cmd_list pending filter</td></tr>
+              <tr><td>R2.AC2</td><td>cmd_list pending filter</td></tr>
+              <tr><td>R2.AC3</td><td>cmd_list id + text formatting</td></tr>
+              <tr><td>R2.AC4</td><td>cmd_list empty-state branch</td></tr>
+              <tr><td>R3.AC1</td><td>cmd_done status flip + atomic write</td></tr>
+              <tr><td>R3.AC2</td><td>cmd_done confirmation output</td></tr>
+              <tr><td>R3.AC3</td><td>cmd_done unknown-id branch</td></tr>
+              <tr><td>R3.AC4</td><td>cmd_done missing-id branch</td></tr>
+              <tr><td>R3.AC5</td><td>cmd_done already-done branch</td></tr>
+              <tr><td>R4.AC1</td><td>Storage layer $TODO_FILE path</td></tr>
+              <tr><td>R4.AC2</td><td>ensure_file</td></tr>
+              <tr><td>R4.AC3</td><td>atomic_write temp + rename, trap cleanup</td></tr>
+              <tr><td>R4.AC4</td><td>Storage layer readability/writability check</td></tr>
+              <tr><td>R5.AC1</td><td>Dispatcher usage on no args</td></tr>
+              <tr><td>R5.AC2</td><td>Dispatcher usage on unknown subcommand</td></tr>
+              <tr><td>NFR1</td><td>Runs under dash; test suite enforces POSIX</td></tr>
+              <tr><td>NFR2</td><td>Only POSIX utilities; no framework/deps</td></tr>
+              <tr><td>NFR3</td><td>atomic_write + trap; atomic-write test</td></tr>
+              <tr><td>NFR4</td><td>Error messages name problem + usage</td></tr>
             </table>
           </div>
         </article>
 
-        <!-- TASKS -->
+        <!-- TASKS — the real file from the demo run -->
         <article class="spec-pane" data-pane="tasks">
           <div class="fm">
             <span class="fm-status">status: approved</span>
-            <span class="fm-item">approved_at: 2026-03-22T12:20:00Z</span>
-            <span class="fm-chain">source_design_approved_at: 2026-03-22T12:10:00Z</span>
+            <span class="fm-item">approved_at: 2026-07-07T17:40:32Z</span>
+            <span class="fm-item">last_modified: 2026-07-07T17:44:27Z</span>
+            <span class="fm-item fm-hash">approved_fingerprint: sha256:7a00b6422fe54c3db6655157eedf54cc1932dbbb5a647251fa97d6e67e6015fd</span>
+            <span class="fm-chain">source_design_approved_at: 2026-07-07T17:37:01Z</span>
+            <span class="fm-chain fm-hash">source_design_fingerprint: sha256:d275fbe0d04dbd5ad219b1dae3d332a4b02e2259dfdff2986e9d8f2eb62c993b</span>
           </div>
           <div class="doc tasks">
             <div class="task-grp">
-              <h4 class="doc-h">1 · Implement the todo CLI</h4>
+              <h4 class="doc-h"><span class="task-check">✓</span>1 · Script skeleton, dispatcher, and usage</h4>
               <div class="task">
-                <p class="task-name">1.1 — Create src/todo.sh with add subcommand</p>
-                <p class="task-meta"><span class="task-k">Requirements</span> R1 · R1.AC1 · R1.AC2 · NFR1</p>
-                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "1.1"]</p>
-              </div>
-              <div class="task">
-                <p class="task-name">1.2 — Add list and complete subcommands</p>
-                <p class="task-meta"><span class="task-k">Requirements</span> R2 · R2.AC1 · R2.AC2 · R3 · R3.AC1 · R3.AC2 · NFR1</p>
-                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "1.2"]</p>
+                <p class="task-name"><span class="task-check">✓</span>1.1 — Create the <code>todo</code>
+                  script at the repo root with a <code>#!/bin/sh</code> shebang,
+                  <code>set -eu</code>, <code>TODO_FILE</code> resolution
+                  (<code>${TODO_FILE:-$HOME/.todo}</code>), a <code>usage()</code> function
+                  listing <code>add</code>/<code>list</code>/<code>done</code>, and a
+                  <code>case "$1"</code> dispatcher that prints usage and exits non-zero on no
+                  argument or an unknown subcommand. Make the file executable.</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R5.AC1 · R5.AC2 · R4.AC1</p>
+                <p class="task-meta"><span class="task-k">Design</span> Overview; Architecture; Components And Interfaces / Dispatcher</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); dash ./todo &gt;\"$d/o\" 2&gt;&amp;1 &amp;&amp; exit 1; grep -qi usage \"$d/o\" || exit 1; dash ./todo nope &gt;\"$d/e\" 2&gt;&amp;1 &amp;&amp; exit 1; grep -qi usage \"$d/e\""]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R5.AC1", "R5.AC2"]</p>
               </div>
             </div>
             <div class="task-grp">
-              <h4 class="doc-h">2 · Write tests</h4>
+              <h4 class="doc-h"><span class="task-check">✓</span>2 · Storage layer and the <code>add</code> command</h4>
               <div class="task">
-                <p class="task-name">2.1 — Create tests/test_todo.sh covering add, list, complete</p>
-                <p class="task-meta"><span class="task-k">Requirements</span> R1–R3 · all acceptance criteria</p>
-                <p class="task-meta"><span class="task-k">Verification</span> command: ["scripts/verify.sh", "2.1"]</p>
+                <p class="task-name"><span class="task-check">✓</span>2.1 — Implement the storage
+                  layer (<code>ensure_file</code> to create <code>$TODO_FILE</code> and its
+                  parent dir on demand, and <code>atomic_write</code> that reads new content on
+                  stdin, writes a sibling <code>mktemp</code> file, then <code>mv</code>s it over
+                  <code>$TODO_FILE</code>, with a <code>trap</code> cleaning the temp on exit)
+                  and <code>cmd_add</code>: reject empty text with an error to stderr and no
+                  write; otherwise compute the next id as highest-existing-id + 1, append an
+                  <code>id&lt;TAB&gt;pending&lt;TAB&gt;text</code> record atomically, and print a
+                  confirmation containing the new id. Strip embedded tabs/newlines from the text
+                  before storing.</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R1.AC1 · R1.AC2 · R1.AC3 · R1.AC4 · R4.AC2 · R4.AC3</p>
+                <p class="task-meta"><span class="task-k">Design</span> Components And Interfaces / cmd_add, Storage layer; Data Models; Error Handling</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); export TODO_FILE=\"$d/t\"; dash ./todo add \"buy milk\" &gt;\"$d/a1\" || exit 1; test -f \"$TODO_FILE\" || exit 1; grep -q \"buy milk\" \"$TODO_FILE\" || exit 1; grep -q 1 \"$d/a1\" || exit 1; dash ./todo add \"call bank\" &gt;\"$d/a2\" || exit 1; grep -q 2 \"$d/a2\" || exit 1; b=$(cat \"$TODO_FILE\"); dash ./todo add \"\" &gt;\"$d/a3\" 2&gt;&amp;1 &amp;&amp; exit 1; [ \"$b\" = \"$(cat \"$TODO_FILE\")\" ]"]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R1.AC1", "R1.AC2", "R1.AC3", "R1.AC4", "R4.AC2"]</p>
+              </div>
+            </div>
+            <div class="task-grp">
+              <h4 class="doc-h"><span class="task-check">✓</span>3 · The <code>list</code> command</h4>
+              <div class="task">
+                <p class="task-name"><span class="task-check">✓</span>3.1 — Implement
+                  <code>cmd_list</code>: read records with
+                  <code>IFS=&lt;tab&gt; read -r id status text</code>, print <code>id</code> and
+                  <code>text</code> for every <code>pending</code> record, skip malformed lines,
+                  and print a "no pending tasks" message when none are pending.</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R2.AC1 · R2.AC3 · R2.AC4</p>
+                <p class="task-meta"><span class="task-k">Design</span> Components And Interfaces / cmd_list; Data Models; Error Handling</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); export TODO_FILE=\"$d/t\"; dash ./todo list &gt;\"$d/l0\" 2&gt;&amp;1 || exit 1; grep -qi \"no pending\" \"$d/l0\" || exit 1; dash ./todo add \"buy milk\" &gt;/dev/null || exit 1; dash ./todo add \"write report\" &gt;/dev/null || exit 1; dash ./todo list &gt;\"$d/l1\" || exit 1; grep -q \"buy milk\" \"$d/l1\" || exit 1; grep -q \"write report\" \"$d/l1\" || exit 1; grep -q 1 \"$d/l1\""]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R2.AC1", "R2.AC3", "R2.AC4"]</p>
+              </div>
+            </div>
+            <div class="task-grp">
+              <h4 class="doc-h"><span class="task-check">✓</span>4 · The <code>done</code> command</h4>
+              <div class="task">
+                <p class="task-name"><span class="task-check">✓</span>4.1 — Implement
+                  <code>cmd_done</code>: require an id (error on missing), error when no record
+                  matches the id, print "already done" and exit 0 (no write) when the matched
+                  record is already done, otherwise flip its status to <code>done</code> via an
+                  atomic write and print a confirmation naming the id. Verify a subsequently
+                  listed task marked done no longer appears in <code>list</code> (R2.AC2).</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R3.AC1 · R3.AC2 · R3.AC3 · R3.AC4 · R3.AC5 · R2.AC2</p>
+                <p class="task-meta"><span class="task-k">Design</span> Components And Interfaces / cmd_done, cmd_list; Error Handling</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); export TODO_FILE=\"$d/t\"; dash ./todo add \"buy milk\" &gt;/dev/null || exit 1; dash ./todo add \"call bank\" &gt;/dev/null || exit 1; dash ./todo done &gt;\"$d/e1\" 2&gt;&amp;1 &amp;&amp; exit 1; grep -qi id \"$d/e1\" || exit 1; dash ./todo done 999 &gt;\"$d/e2\" 2&gt;&amp;1 &amp;&amp; exit 1; grep -qi \"no task\" \"$d/e2\" || exit 1; dash ./todo done 1 &gt;\"$d/d1\" || exit 1; grep -q 1 \"$d/d1\" || exit 1; dash ./todo list &gt;\"$d/l\" || exit 1; grep -q \"buy milk\" \"$d/l\" &amp;&amp; exit 1; grep -q \"call bank\" \"$d/l\" || exit 1; dash ./todo done 1 &gt;\"$d/d2\" 2&gt;&amp;1 || exit 1; grep -qi \"already done\" \"$d/d2\""]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R3.AC1", "R3.AC2", "R3.AC3", "R3.AC4", "R3.AC5", "R2.AC2"]</p>
+              </div>
+            </div>
+            <div class="task-grp">
+              <h4 class="doc-h"><span class="task-check">✓</span>5 · File-access errors and write-failure durability</h4>
+              <div class="task">
+                <p class="task-name"><span class="task-check">✓</span>5.1 — Add a
+                  readability/writability guard so that when <code>$TODO_FILE</code> exists but
+                  cannot be read or written the tool prints
+                  <code>error: cannot access &lt;path&gt;</code> to stderr and exits non-zero
+                  without changes, and confirm the atomic write leaves the prior contents intact
+                  when the write cannot complete (temp/rename failure).</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R4.AC4 · R4.AC3 · NFR3</p>
+                <p class="task-meta"><span class="task-k">Design</span> Error Handling; Failure Modes And Tradeoffs; Storage layer</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); f=\"$d/t\"; printf '1\\tpending\\tx\\n' &gt;\"$f\"; chmod 000 \"$f\"; TODO_FILE=\"$f\" dash ./todo list &gt;\"$d/o\" 2&gt;&amp;1 &amp;&amp; { chmod 644 \"$f\"; exit 1; }; chmod 644 \"$f\"; grep -qi \"cannot access\" \"$d/o\""]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R4.AC4"]</p>
+                <code class="task-cmd">command: ["sh", "-c", "d=$(mktemp -d); s=\"$d/s\"; mkdir \"$s\"; f=\"$s/t\"; printf '1\\tpending\\tbuy milk\\n' &gt;\"$f\"; export TODO_FILE=\"$f\"; b=$(cat \"$f\"); chmod 500 \"$s\"; dash ./todo done 1 &gt;\"$d/o\" 2&gt;&amp;1; rc=$?; chmod 700 \"$s\"; [ \"$b\" = \"$(cat \"$f\")\" ] || exit 1; [ \"$rc\" -ne 0 ]"]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R4.AC3"]</p>
+              </div>
+            </div>
+            <div class="task-grp">
+              <h4 class="doc-h"><span class="task-check">✓</span>6 · Durable POSIX regression suite</h4>
+              <div class="task">
+                <p class="task-name"><span class="task-check">✓</span>6.1 — Create
+                  <code>tests/run.sh</code>, a POSIX <code>sh</code> script with a small
+                  pass/fail helper that consolidates the scenarios from tasks 1–5 (add/list/done
+                  happy paths, empty text, missing/unknown/already-done ids, empty-state, done
+                  hidden from list, file created on first use, write-failure preservation)
+                  against an isolated <code>TODO_FILE</code> under a <code>mktemp -d</code>,
+                  exiting non-zero on any failed assertion.</p>
+                <p class="task-meta"><span class="task-k">Requirements</span> R1.AC1 · R2.AC1 · R3.AC1 · R4.AC2 · NFR1 · NFR2</p>
+                <p class="task-meta"><span class="task-k">Design</span> Testing Strategy; Verification Plan</p>
+                <p class="task-meta"><span class="task-k">Verification</span></p>
+                <code class="task-cmd">command: ["dash", "tests/run.sh"]</code>
+                <p class="task-meta"><span class="task-k">covers</span> ["R1.AC1", "R2.AC1", "R3.AC1", "R4.AC2", "NFR1", "NFR2"]</p>
               </div>
             </div>
           </div>
