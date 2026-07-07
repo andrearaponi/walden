@@ -192,10 +192,11 @@
         <div class="demo-bar">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
           <span class="demo-bar-title">claude code — new session</span>
+          <button class="copy" data-copy="#howto-prompt-text" aria-label="Copy the prompt">Copy</button>
         </div>
         <div class="howto-stage">
           <p class="howto-label">you</p>
-          <p class="howto-prompt">We need a small, single-user todo app on the command
+          <p class="howto-prompt" id="howto-prompt-text">We need a small, single-user todo app on the command
              line — add a task, list what&rsquo;s still pending, mark one done, all kept
              in a plain-text file, POSIX shell only.
              <em>Let&rsquo;s use Walden.</em><span class="cursor" aria-hidden="true"></span></p>
@@ -210,43 +211,47 @@
 
       <div class="explorer">
         <div class="explorer-bar">
-          <span class="explorer-path">todo-app-demo</span>
+          <span class="explorer-path">todo-app</span>
           <span class="explorer-meta">feature: todo-app · all gates passed</span>
         </div>
         <ul class="tree">
-          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>.walden</li>
-          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>specs</li>
-          <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>todo-app</li>
-          <li style="--lvl:3">
+          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>todo-app</li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>.walden</li>
+          <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>specs</li>
+          <li class="tree-row dir" style="--lvl:3"><span class="ico ico-dir"></span>todo-app</li>
+          <li style="--lvl:4">
             <button class="tree-row file file--spec" data-tab="req" type="button">
               <span class="ico ico-doc"></span>requirements.md<span class="file-pill">approved</span>
             </button>
           </li>
-          <li style="--lvl:3">
+          <li style="--lvl:4">
             <button class="tree-row file file--spec" data-tab="design" type="button">
               <span class="ico ico-doc"></span>design.md<span class="file-pill">approved</span>
             </button>
           </li>
-          <li style="--lvl:3">
+          <li style="--lvl:4">
             <button class="tree-row file file--spec" data-tab="tasks" type="button">
               <span class="ico ico-doc"></span>tasks.md<span class="file-pill">approved</span>
             </button>
           </li>
-          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>src</li>
-          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>todo.sh<span class="file-tag">built from tasks</span></li>
-          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>tests</li>
-          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>test_todo.sh<span class="file-tag">the proof</span></li>
-          <li class="tree-row dir" style="--lvl:0"><span class="ico ico-dir"></span>scripts</li>
-          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>verify.sh<span class="file-tag">runs each proof</span></li>
-          <li class="tree-row file file--src" style="--lvl:0"><span class="ico ico-file"></span>README.md</li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-doc"></span>constitution.md<span class="file-tag">project rules</span></li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-doc"></span>lessons.md<span class="file-tag">past lessons</span></li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>src</li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>todo.sh<span class="file-tag">built from tasks</span></li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>tests</li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>test_todo.sh<span class="file-tag">the proof</span></li>
+          <li class="tree-row dir" style="--lvl:1"><span class="ico ico-dir"></span>scripts</li>
+          <li class="tree-row file file--src" style="--lvl:2"><span class="ico ico-file"></span>verify.sh<span class="file-tag">runs each proof</span></li>
+          <li class="tree-row file file--src" style="--lvl:1"><span class="ico ico-file"></span>README.md</li>
         </ul>
       </div>
 
       <p class="howto-note">
         Every spec above carries its own frontmatter — <code>status: approved</code>,
-        timestamps, the staleness chain. <code>walden validate</code>,
-        <code>walden review approve</code>, <code>walden task complete</code> ran
-        underneath to earn each of those badges. You never typed them.
+        timestamps, the staleness chain. <code>walden feature init</code>,
+        <code>walden validate</code>, <code>walden review approve</code>,
+        <code>walden task complete</code> ran underneath to earn each of those
+        badges. You never typed them.
         The feature is a toy; the ceremony isn&rsquo;t — the same gates hold
         for the stack you actually ship on.
       </p>
@@ -356,7 +361,7 @@
     <div class="spec-backdrop" data-close></div>
     <div class="spec-dialog" role="dialog" aria-modal="true" aria-labelledby="specModalTitle">
       <div class="spec-head">
-        <p class="spec-crumb">todo-app-demo / .walden / specs / todo-app</p>
+        <p class="spec-crumb">todo-app / .walden / specs / todo-app</p>
         <h3 class="spec-title" id="specModalTitle">requirements.md</h3>
         <button class="spec-close" type="button" data-close aria-label="Close">×</button>
       </div>

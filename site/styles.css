@@ -349,6 +349,15 @@ code {
   font-family: var(--mono); font-size: .7rem; letter-spacing: 0.06em;
   color: rgba(242,238,228,.5); margin-left: .6rem;
 }
+/* copy button variant for the dark terminal bar */
+.demo-bar .copy {
+  margin-left: auto;
+  border: 1px solid rgba(242,238,228,.25);
+  background: transparent; color: rgba(242,238,228,.8);
+  padding: .3rem .7rem; border-radius: 3px;
+}
+.demo-bar .copy:hover { background: var(--pine); border-color: var(--pine); color: var(--paper); }
+.demo-bar .copy.is-copied { background: var(--pine-bright); border-color: var(--pine-bright); color: var(--paper); }
 .demo-stage {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: .9rem;
@@ -430,7 +439,7 @@ code {
   background: var(--paper-3);
   font-family: var(--mono); font-size: 0.78rem;
 }
-.explorer-path { font-weight: 600; color: var(--pine-deep); letter-spacing: 0.01em; }
+.explorer-path { font-weight: 600; color: var(--pine-deep); letter-spacing: 0.01em; white-space: nowrap; }
 .explorer-meta { color: var(--ink-mute); font-size: 0.72rem; }
 .tree { list-style: none; margin: 0; padding: 0.5rem 0; }
 .tree > li { margin: 0; }
