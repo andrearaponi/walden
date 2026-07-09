@@ -81,6 +81,20 @@ a { color: inherit; }
 }
 .wordmark .mark { color: var(--pine); margin-left: .12em; font-weight: 400; }
 
+.brand { display: flex; align-items: baseline; gap: .8rem; min-width: 0; }
+.version-tag {
+  font-family: var(--mono); font-size: .62rem; font-weight: 500;
+  letter-spacing: .1em;
+  color: var(--ink-mute);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: .25em .55em;
+  white-space: nowrap;
+  transition: color .2s ease, border-color .2s ease;
+}
+.version-tag:hover { color: var(--pine); border-color: var(--pine); }
+
 .nav { display: flex; gap: clamp(1rem, 3vw, 2.4rem); align-items: baseline; }
 .nav a {
   font-family: var(--mono); font-size: .72rem; font-weight: 500;
@@ -109,7 +123,10 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) { .nav-cursor { animation: none; } }
 
 /* Mobile keeps the two links that matter: the CTA and GitHub. */
-@media (max-width: 620px) { .nav a:not(.nav-gh):not(.nav-cta) { display: none; } }
+@media (max-width: 620px) {
+  .nav a:not(.nav-gh):not(.nav-cta) { display: none; }
+  .version-tag { display: none; }
+}
 
 /* ============================  HERO  ================================== */
 .hero {
