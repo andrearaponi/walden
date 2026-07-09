@@ -151,7 +151,9 @@ Apply this protocol during Phase 1, 2, and 3 drafting. Do not apply during Phase
 
 **Bifurcation Test:** a decision merits a `[decision: <question>]` checkpoint if and only if choosing differently would require discarding or substantially rewriting document content produced after the choice. When in doubt, default to autonomous resolution.
 
-**On TRUE — checkpoint detected:** emit `[decision: <question>]` in the document, explain the fork in plain language, and stop generating further content. Wait for the user's response. On receiving a response, state how the answer will be applied to the document before resuming content generation in the same conversation turn. If the user's response surfaces a previously unidentified bifurcation-significant decision, emit a new `[decision: <question>]` marker for the newly identified fork before generating content that depends on it.
+**Explore before asking:** when a decision passes the Bifurcation Test, check whether the codebase, the constitution, or approved upstream documents already answer the question before emitting a checkpoint. If they do, resolve autonomously and record the assumption with its source: `<!-- assumed: <choice> (source: <file or document>) -->`.
+
+**On TRUE — checkpoint detected:** emit `[decision: <question>]` in the document, explain the fork in plain language, and state your recommended option with a one-line rationale — if no option is defensibly better, present the fork without a recommendation. Stop generating further content. Wait for the user's response. On receiving a response, state how the answer will be applied to the document before resuming content generation in the same conversation turn. If the user's response surfaces a previously unidentified bifurcation-significant decision, emit a new `[decision: <question>]` marker for the newly identified fork before generating content that depends on it.
 
 **On FALSE — autonomous resolution:** record the chosen assumption as `<!-- assumed: <choice> -->` inline in the document and continue drafting without interruption.
 
