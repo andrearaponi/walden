@@ -23,7 +23,10 @@
   <div class="grain" aria-hidden="true"></div>
 
   <header class="site-head">
-    <a class="wordmark" href="#top">Walden<span class="mark">§</span></a>
+    <div class="brand">
+      <a class="wordmark" href="#top">Walden<span class="mark">§</span></a>
+      <a class="version-tag" id="version-tag" href="https://github.com/andrearaponi/walden/releases/latest" aria-label="Latest release">v0.6.0</a>
+    </div>
     <nav class="nav" aria-label="Primary">
       <a href="#workflow">Workflow</a>
       <a class="nav-cta" href="#howto">How to use<span class="nav-cursor" aria-hidden="true"></span></a>
@@ -857,6 +860,16 @@
   </div>
 
   <script>
+    // version tag — static fallback, refreshed from the latest GitHub release
+    (function () {
+      var tag = document.getElementById('version-tag');
+      if (!tag || !window.fetch) return;
+      fetch('https://api.github.com/repos/andrearaponi/walden/releases/latest')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (rel) { if (rel && rel.tag_name) tag.textContent = rel.tag_name; })
+        .catch(function () {});
+    })();
+
     // click-to-copy — restrained micro-interaction
     document.querySelectorAll('.copy').forEach(function (btn) {
       btn.addEventListener('click', function () {
