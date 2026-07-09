@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-09
+
+### Changed
+
+- **Decision Checkpoint Protocol refined in the embedded skill:**
+  - Every `[decision:]` checkpoint now arrives with the skill's recommended option and a one-line rationale; when no option is defensibly better, the fork is presented without a fabricated preference.
+  - New **Explore before asking** rule: when a decision passes the Bifurcation Test, the skill checks whether the codebase, the constitution, or approved upstream documents already answer the question before interrupting; repository-sourced resolutions are recorded inline as `<!-- assumed: <choice> (source: <file or document>) -->` (additive marker suffix — existing `assumed` markers stay valid).
+  - Protocol invariants are untouched: five-checkpoint budget per phase, draft status on unresolved checkpoints, autonomous resolution as the default when in doubt.
+- Prompt-only release: no CLI behavior or JSON contract changes (`schema_version: v0beta1` unchanged). Refresh installed skills with `walden skill install <agent>`; `walden skill status` reports stale installs as drifted.
+
 ## [0.5.0] - 2026-07-02
 
 ### Added
