@@ -1,45 +1,51 @@
-## Walden v0.7.0
+## Walden v0.7.1
 
-The last release you install by hand. From here on, updating Walden is one command:
+The first release you install with Walden itself:
 
 ```bash
 walden update
 ```
 
-### Self-update, fail-closed
+A hardening patch driven by an external technical review of the kernel. The verdict on the core held — fingerprint freshness, phase gates, proof execution all stood up to adversarial reproduction — but the review caught the surfaces around them leaking. This release seals them. Nothing changes in fingerprint semantics, the document schema, or the workflow model: existing approved chains stay fresh.
 
-`walden update` resolves the latest release (or a pinned `--version <tag>` — downgrades and rollbacks included), downloads the binary for your platform, and verifies its SHA-256 against the release's `checksums.txt` before anything touches your install. There is no bypass flag: an artifact that cannot be positively verified is never installed. The swap is atomic, and a post-install smoke test restores the previous binary if the new one fails to run — no path ends without a working executable.
+### The JSON contract now survives failure
 
-### Skills follow the binary
-
-An update re-installs every skill installation it finds, so your agents pick up the embedded skill matching the new binary. The drift `walden skill status` used to report after every upgrade now heals itself; when something cannot be re-synced, it degrades to a warning and `walden skill install <agent>` repairs it.
-
-### Check mode for humans and agents
-
-`walden update --check` reports what would change and writes nothing — exit 0 either way, with a machine-readable `update` block under `--json` (additive within `schema_version: v0beta1`):
+Every `--json` command returns the versioned envelope on workflow and input errors — `ok:false`, the canonical command name, the blocking cause in the summary — instead of plain text on stderr with an empty stdout. Agents and CI pipelines parse exactly the errors they most need to handle: stale chains, missing prerequisites, blocked gates.
 
 ```json
-"update": {
-  "current_version": "v0.6.0",
-  "target_version": "v0.7.0",
-  "update_available": true,
-  "applied": false
+{
+  "schema_version": "v0beta1",
+  "command": "review-approve",
+  "ok": false,
+  "result": {
+    "summary": "requirements.md must be in-review before approval",
+    "exit_code": 1
+  }
 }
 ```
 
-### The kernel stays offline
+All error rendering flows through one shared renderer, and a per-command contract-test matrix keeps it that way.
 
-Networking is confined to this one explicit command. No other command checks for updates, phones home, or touches the network — determinism, air-gapped CI, and agent pipelines stay exactly as they were. As a bonus, `go install` binaries now report their real version instead of `dev`.
+### No failure can truncate a spec
 
-### Upgrading (one last time by hand)
+Document writes are staged and renamed atomically — interruption, full disk, or permission errors leave the previous approved content untouched, never a half-written file.
+
+### The demo is now a fixture
+
+The shipped todo-app demo predated content fingerprints and reported stale under every release since v0.4.0 — the first thing an evaluator touched contradicted the README. It now carries a fresh approval chain, and CI smoke-tests it with a freshly built binary on every change: future strict migrations break in Walden's CI, not in your repository.
+
+### Generated CI is pinned
+
+`walden repo init` stamps its own version into the validation workflow it generates. A new Walden release can no longer change your pull-request checks without a change in your repository; re-run `repo init` after `walden update` to move the pin deliberately.
+
+### Upgrading
 
 ```bash
+walden update                  # from v0.7.0
+# older installs, one last time:
 curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
-# or: go install github.com/andrearaponi/walden/cmd/walden@v0.7.0
 ```
-
-Next time, it's `walden update`.
 
 ### Built the Walden way
 
-Specified and shipped through Walden's own gated ceremony: Requirements → Design → Tasks with 33 EARS acceptance criteria, 100% task and proof reference coverage, and every task completed through `walden task complete` with passing proofs — including a repo-wide proof that `net/http` stays confined to the update path.
+Specified and shipped through Walden's own gated ceremony: 7 EARS requirements with 20 acceptance criteria, 100% task and proof reference coverage, every task closed through `walden task complete` — including one proof that failed fail-closed mid-execution and forced the plan to get more honest before the checkbox moved.

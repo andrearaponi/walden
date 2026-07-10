@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-10
+
+Hardening patch driven by an external technical review of the kernel: the core guarantees stood, the surfaces around them leaked. No change to fingerprint semantics, the document schema, or the workflow model — existing approved chains stay fresh.
+
+### Fixed
+
+- **The JSON contract now survives failure.** Every `--json` command returns the versioned envelope on workflow and input errors — `ok:false`, canonical `command` name, blocking cause in the summary — instead of plain text on stderr with an empty stdout. `review open`/`review approve` and the whole `skill` group were affected; `task` commands already complied. All error rendering now flows through one shared renderer, and a per-command contract-test matrix locks the envelope shape. Unknown commands and subcommands keep plain usage text.
+- **Spec document writes are atomic.** Documents are staged in a temp file inside their directory and renamed into place: interruption, full disk, or permission failures can no longer truncate an approved spec. Failed writes leave the previous content untouched.
+- **The shipped todo-app demo reported stale** under every release since v0.4.0 (its approvals predate content fingerprints), contradicting its own README on first contact. It is migrated to a fresh fingerprinted chain and now doubles as a compatibility fixture: CI builds the binary and smoke-tests the demo on every change, so future strict migrations break there first.
+- **`repo init` pins the generated CI workflow** to the walden version that generated it (`validate-walden.yml` installed `@latest`, so a new Walden release could break user CI without any repository change). Release builds stamp an exact pin, source builds fall back to `@latest`; re-running `repo init` after `walden update` refreshes the pin.
+
+### Changed
+
+- Argument-validation errors on recognized commands (for example `validate` with no feature name) return a precise message — and an envelope under `--json` — instead of the generic usage dump.
+- Repository CI gained `go vet`, race-detector, and demo-smoke gates; the real process runner and the embedded template filesystems gained direct test suites; the public roadmap now reflects the v0.7.x line.
+
 ## [0.7.0] - 2026-07-10
 
 ### Added
