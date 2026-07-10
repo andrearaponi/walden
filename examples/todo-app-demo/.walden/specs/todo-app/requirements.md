@@ -1,7 +1,8 @@
 ---
 status: approved
-approved_at: 2026-03-22T12:00:00Z
-last_modified: 2026-03-22T12:00:00Z
+approved_at: 2026-07-10T17:57:14Z
+last_modified: 2026-07-10T17:57:14Z
+approved_fingerprint: sha256:a3da471ec0241fe0027c1b3be7ad775dc8c5f6caa1d51ebb9070d26b51ca0530
 ---
 
 # Requirements Document

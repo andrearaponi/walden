@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -131,14 +132,12 @@ func runRepo(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(positional) == 1 && positional[0] == "init" {
 		root, err := os.Getwd()
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-			return 1
+			return emitResult("repo-init", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 		}
 
-		report, err := repo.Init(root)
+		report, err := repo.Init(root, effectiveVersion())
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "%v\n", err)
-			return 1
+			return emitResult("repo-init", errorResult(err), jsonMode, stdout, stderr)
 		}
 
 		result := output.Result{
@@ -180,17 +179,19 @@ func runFeature(args []string, stdout io.Writer, stderr io.Writer) int {
 		positional = append(positional, arg)
 	}
 
+	if len(positional) == 1 && positional[0] == "init" {
+		return emitResult("feature-init", errorResult(errors.New("feature init requires a feature name")), jsonMode, stdout, stderr)
+	}
+
 	if len(positional) >= 2 && positional[0] == "init" {
 		root, err := os.Getwd()
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-			return 1
+			return emitResult("feature-init", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 		}
 
 		report, err := repo.InitFeature(root, strings.Join(positional[1:], " "))
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "%v\n", err)
-			return 1
+			return emitResult("feature-init", errorResult(err), jsonMode, stdout, stderr)
 		}
 
 		summary := fmt.Sprintf("feature scaffold initialized for %s", report.FeatureName)
@@ -244,15 +245,12 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 1 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: validate %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("validate", errorResult(errors.New("validate requires exactly one feature name")), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("validate", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	scope := validation.ScopeCurrentPhase
@@ -262,8 +260,7 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	result, err := validation.ValidateFeatureWithScope(root, positional[0], scope)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "validate feature: %v\n", err)
-		return 1
+		return emitResult("validate", errorResult(fmt.Errorf("validate feature: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	exitCode := 0
@@ -349,21 +346,17 @@ func runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 1 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: status %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("status", errorResult(errors.New("status requires exactly one feature name")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("status", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("status", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	state, err := workflow.LoadFeatureState(root, featureName)
@@ -406,21 +399,17 @@ func runReconcile(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 1 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: reconcile %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("reconcile", errorResult(errors.New("reconcile requires exactly one feature name")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("reconcile", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("reconcile", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	reconcileResult, err := workflow.ReconcileFeature(root, featureName)
@@ -505,21 +494,17 @@ func runTaskStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 1 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: task status %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("task-status", errorResult(errors.New("task status requires exactly one feature name")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("task-status", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("task-status", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	readiness, err := workflow.LoadExecutionReadiness(root, featureName)
@@ -560,9 +545,7 @@ func runLessonLog(args []string, stdout io.Writer, stderr io.Writer) int {
 			continue
 		}
 		if !strings.HasPrefix(arg, "--") || index+1 >= len(args) {
-			_, _ = fmt.Fprintf(stderr, "unknown command: lesson log %s\n\n", strings.Join(args, " "))
-			printUsage(stderr)
-			return 1
+			return emitResult("lesson-log", errorResult(fmt.Errorf("lesson log cannot parse argument %q", arg)), jsonMode, stdout, stderr)
 		}
 
 		values[strings.TrimPrefix(arg, "--")] = args[index+1]
@@ -571,15 +554,13 @@ func runLessonLog(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	for _, required := range []string{"feature", "phase", "trigger", "lesson", "guardrail"} {
 		if strings.TrimSpace(values[required]) == "" {
-			_, _ = fmt.Fprintf(stderr, "lesson log requires --feature, --phase, --trigger, --lesson, and --guardrail\n")
-			return 1
+			return emitResult("lesson-log", errorResult(errors.New("lesson log requires --feature, --phase, --trigger, --lesson, and --guardrail")), jsonMode, stdout, stderr)
 		}
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("lesson-log", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	entry, lessonsPath, err := spec.AppendLesson(root, spec.LessonEntry{
@@ -628,15 +609,12 @@ func runTaskStart(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) < 1 || len(positional) > 2 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: task start %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("task-start", errorResult(errors.New("task start requires a feature name and an optional task id")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("task-start", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	taskID := ""
@@ -646,8 +624,7 @@ func runTaskStart(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("task-start", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	context, err := workflow.StartTask(root, featureName, taskID)
@@ -689,21 +666,17 @@ func runTaskComplete(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 2 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: task complete %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("task-complete", errorResult(errors.New("task complete requires a feature name and a task id")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("task-complete", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("task-complete", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	resultData, err := workflow.CompleteTask(context.Background(), root, featureName, positional[1], commandRunner)
@@ -745,21 +718,17 @@ func runTaskCompleteAll(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) != 1 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: task complete-all %s\n\n", strings.Join(args, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("task-complete-all", errorResult(errors.New("task complete-all requires exactly one feature name")), jsonMode, stdout, stderr)
 	}
 
 	featureName, err := spec.NormalizeFeatureName(positional[0])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("task-complete-all", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("task-complete-all", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	resultData, err := workflow.CompleteAllTasks(context.Background(), root, featureName, commandRunner)
@@ -802,9 +771,7 @@ func runReviewOpen(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) < 3 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: review open %s\n\n", strings.Join(positional, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("review-open", errorResult(errors.New("review open requires a feature and --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
 	featureName := positional[0]
@@ -817,26 +784,22 @@ func runReviewOpen(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if phaseName == "" {
-		_, _ = fmt.Fprintf(stderr, "review open requires --phase requirements|design|tasks\n")
-		return 1
+		return emitResult("review-open", errorResult(errors.New("review open requires --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
 	phase, err := workflow.ParsePhase(phaseName)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("review-open", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("review-open", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	context, err := workflow.OpenReview(root, featureName, phase)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("review-open", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	result := output.Result{
@@ -871,9 +834,7 @@ func runReviewApprove(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(positional) < 3 {
-		_, _ = fmt.Fprintf(stderr, "unknown command: review approve %s\n\n", strings.Join(positional, " "))
-		printUsage(stderr)
-		return 1
+		return emitResult("review-approve", errorResult(errors.New("review approve requires a feature and --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
 	featureName := positional[0]
@@ -886,26 +847,22 @@ func runReviewApprove(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if phaseName == "" {
-		_, _ = fmt.Fprintf(stderr, "review approve requires --phase requirements|design|tasks\n")
-		return 1
+		return emitResult("review-approve", errorResult(errors.New("review approve requires --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
 	phase, err := workflow.ParsePhase(phaseName)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("review-approve", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve working directory: %v\n", err)
-		return 1
+		return emitResult("review-approve", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
 	approveResult, err := workflow.ApproveReview(root, featureName, phase)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("review-approve", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	result := output.Result{

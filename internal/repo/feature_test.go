@@ -10,7 +10,7 @@ func TestInitFeatureNormalizesNameAndCreatesSpecDocuments(t *testing.T) {
 	root := t.TempDir()
 	mustMkdir(t, filepath.Join(root, ".git"))
 
-	if _, err := Init(root); err != nil {
+	if _, err := Init(root, "v0.7.1"); err != nil {
 		t.Fatalf("expected repo init to succeed, got %v", err)
 	}
 
@@ -50,7 +50,7 @@ func TestInitFeatureSkipsExistingScaffoldWithoutOverwriting(t *testing.T) {
 	root := t.TempDir()
 	mustMkdir(t, filepath.Join(root, ".git"))
 
-	if _, err := Init(root); err != nil {
+	if _, err := Init(root, "v0.7.1"); err != nil {
 		t.Fatalf("expected repo init to succeed, got %v", err)
 	}
 	if _, err := InitFeature(root, "todo-app-demo"); err != nil {

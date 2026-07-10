@@ -11,7 +11,7 @@ func TestInitCreatesBaselineWaldenFiles(t *testing.T) {
 	root := t.TempDir()
 	mustMkdir(t, filepath.Join(root, ".git"))
 
-	report, err := Init(root)
+	report, err := Init(root, "v0.7.1")
 	if err != nil {
 		t.Fatalf("expected init to succeed, got %v", err)
 	}
@@ -57,7 +57,7 @@ func TestInitAutoInitializesGitBeforeWritingFiles(t *testing.T) {
 		gitInitRunner = previousRunner
 	})
 
-	report, err := Init(root)
+	report, err := Init(root, "v0.7.1")
 	if err != nil {
 		t.Fatalf("expected init to auto-bootstrap git, got %v", err)
 	}
@@ -87,7 +87,7 @@ func TestInitFailsWithoutPartialWritesWhenGitBootstrapFails(t *testing.T) {
 		gitInitRunner = previousRunner
 	})
 
-	_, err := Init(root)
+	_, err := Init(root, "v0.7.1")
 	if err == nil {
 		t.Fatal("expected init to fail when git bootstrap fails")
 	}
@@ -106,11 +106,11 @@ func TestInitIsIdempotentOnSecondRun(t *testing.T) {
 	root := t.TempDir()
 	mustMkdir(t, filepath.Join(root, ".git"))
 
-	if _, err := Init(root); err != nil {
+	if _, err := Init(root, "v0.7.1"); err != nil {
 		t.Fatalf("expected first init to succeed, got %v", err)
 	}
 
-	report, err := Init(root)
+	report, err := Init(root, "v0.7.1")
 	if err != nil {
 		t.Fatalf("expected second init to succeed, got %v", err)
 	}
