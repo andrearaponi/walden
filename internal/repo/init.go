@@ -36,8 +36,14 @@ var repoBootstrapFiles = []bootstrapFile{
 
 var gitInitRunner = runGitInit
 
-// Init bootstraps a repository with the baseline Walden file layout.
-func Init(root string) (InitReport, error) {
+// versionToken marks where bootstrap templates receive the generating
+// binary's version, so generated CI installs the exact CLI that wrote it.
+const versionToken = "{{WALDEN_VERSION}}"
+
+// Init bootstraps a repository with the baseline Walden file layout. The
+// version is stamped into templates carrying the version token: release
+// versions become exact pins, source builds fall back to "latest".
+func Init(root string, version string) (InitReport, error) {
 	report := InitReport{}
 
 	gitState, err := ensureGitRepository(root)
@@ -58,6 +64,7 @@ func Init(root string) (InitReport, error) {
 		if err != nil {
 			return InitReport{}, fmt.Errorf("read bootstrap template %q: %w", file.Source, err)
 		}
+		content = []byte(strings.ReplaceAll(string(content), versionToken, installPin(version)))
 
 		state, err := writeManagedFile(root, file, content)
 		if err != nil {
@@ -75,6 +82,15 @@ func Init(root string) (InitReport, error) {
 	}
 
 	return report, nil
+}
+
+// installPin maps the generating binary's version to the go install target:
+// an exact release pin, or "latest" for source builds with no release info.
+func installPin(version string) string {
+	if version == "" || version == "dev" {
+		return "latest"
+	}
+	return version
 }
 
 type gitRepositoryState struct {
