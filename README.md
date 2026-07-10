@@ -108,6 +108,16 @@ walden skill status
 
 `walden skill status` reports where the skill is installed and whether it matches the binary's embedded copy.
 
+### Update
+
+```bash
+walden update                    # update to the latest release and re-sync installed skills
+walden update --check            # report what would change, write nothing
+walden update --version v0.6.0   # pin a release, downgrade, or roll back
+```
+
+`walden update` downloads the release binary for your platform, verifies its SHA-256 checksum against the release's `checksums.txt` (fail-closed — there is no bypass), swaps the executable atomically, and smoke-tests the result, restoring the previous binary if the new one fails to run. It then reinstalls every skill installation it finds, so your agents pick up the embedded skill matching the new binary. Source builds (`walden version` reporting `dev`) refuse to update — rebuild from your clone instead. Networking stays confined to this one explicit command: no other command ever checks for updates or touches the network.
+
 ### Uninstall
 
 ```bash
@@ -190,6 +200,7 @@ walden lesson log --feature user-auth --phase execute \
 | `reconcile <feature> [--json]` | Repair stale approval chains after upstream edits |
 | `lesson log [--json]` | Append a lesson to `.walden/lessons.md` |
 | `version [--json]` | Print build version and schema version |
+| `update [--check] [--version <tag>] [--json]` | Update the binary from GitHub releases and re-sync installed skills |
 
 ## Spec Model
 

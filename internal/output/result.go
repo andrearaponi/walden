@@ -32,8 +32,17 @@ type Result struct {
 	Coverage              *CoverageReport   `json:"coverage,omitempty"`
 	EARSDistribution      *EARSDistribution `json:"ears_distribution,omitempty"`
 	Skills                []SkillStatus     `json:"skills,omitempty"`
+	Update                *UpdateStatus     `json:"update,omitempty"`
 	Content               string            `json:"content,omitempty"`
 	ExitCode              int               `json:"exit_code"`
+}
+
+// UpdateStatus is the JSON output view of an update check or run.
+type UpdateStatus struct {
+	CurrentVersion  string `json:"current_version"`
+	TargetVersion   string `json:"target_version"`
+	UpdateAvailable bool   `json:"update_available"`
+	Applied         bool   `json:"applied"`
 }
 
 // SkillStatus is the shared output view for one skill installation slot.
@@ -207,6 +216,11 @@ func PrintText(w io.Writer, result Result) {
 			}
 			_, _ = fmt.Fprintln(w)
 		}
+	}
+
+	if result.Update != nil {
+		_, _ = fmt.Fprintf(w, "Update: current=%s target=%s available=%t applied=%t\n",
+			result.Update.CurrentVersion, result.Update.TargetVersion, result.Update.UpdateAvailable, result.Update.Applied)
 	}
 
 	if len(result.Blockers) > 0 {
