@@ -31,6 +31,7 @@ type commandUsage struct {
 
 var commandUsages = []commandUsage{
 	{"version [--json]", "Print the CLI and schema version"},
+	{"update [--check] [--version <tag>] [--json]", "Update the walden binary from GitHub releases and re-sync installed skills"},
 	{"repo init [--json]", "Initialize Walden in the current repository"},
 	{"feature init <name> [--json]", "Scaffold a new feature spec"},
 	{"status <feature> [--json]", "Show a feature's phase, blockers, and next action"},
@@ -64,6 +65,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 0
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
+	case "update":
+		return runUpdate(args[1:], stdout, stderr)
 	case "repo":
 		return runRepo(args[1:], stdout, stderr)
 	case "feature":
@@ -98,7 +101,7 @@ func runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	result := output.Result{
-		Summary:  fmt.Sprintf("walden %s (schema %s)", Version, "v0beta1"),
+		Summary:  fmt.Sprintf("walden %s (schema %s)", effectiveVersion(), "v0beta1"),
 		ExitCode: 0,
 	}
 
