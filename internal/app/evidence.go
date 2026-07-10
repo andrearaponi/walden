@@ -1,0 +1,80 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/andrearaponi/walden/internal/output"
+	"github.com/andrearaponi/walden/internal/workflow"
+)
+
+func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "status" {
+		return runEvidenceStatus(args[1:], stdout, stderr)
+	}
+
+	_, _ = fmt.Fprintf(stderr, "unknown command: evidence %s\n\n", strings.Join(args, " "))
+	printUsage(stderr)
+	return 1
+}
+
+func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
+	jsonMode := false
+	positional := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--json" {
+			jsonMode = true
+			continue
+		}
+		positional = append(positional, arg)
+	}
+
+	if len(positional) != 1 {
+		return emitResult("evidence-status", errorResult(errors.New("evidence status requires exactly one feature name")), jsonMode, stdout, stderr)
+	}
+
+	root, err := os.Getwd()
+	if err != nil {
+		return emitResult("evidence-status", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
+	}
+
+	featureName, entries, err := workflow.EvidenceReport(context.Background(), root, positional[0])
+	if err != nil {
+		return emitResult("evidence-status", errorResult(err), jsonMode, stdout, stderr)
+	}
+
+	counts := map[string]int{}
+	rendered := make([]output.EvidenceStatus, 0, len(entries))
+	for _, entry := range entries {
+		counts[entry.State]++
+		rendered = append(rendered, output.EvidenceStatus{
+			TaskID:           entry.TaskID,
+			State:            entry.State,
+			RecordedIdentity: entry.RecordedIdentity,
+			CurrentIdentity:  entry.CurrentIdentity,
+		})
+	}
+
+	summaryParts := []string{}
+	for _, state := range []string{"verified", "failed", "stale-spec", "stale-code", "unrecorded", "pending"} {
+		if counts[state] > 0 {
+			summaryParts = append(summaryParts, fmt.Sprintf("%d %s", counts[state], state))
+		}
+	}
+	summary := fmt.Sprintf("evidence status for %s", featureName)
+	if len(summaryParts) > 0 {
+		summary = fmt.Sprintf("evidence status for %s: %s", featureName, strings.Join(summaryParts, ", "))
+	}
+
+	// Evidence status is a report, not a gate: derived states never change
+	// the exit code.
+	result := output.Result{Summary: summary, Evidence: rendered, ExitCode: 0}
+	if counts["stale-spec"]+counts["stale-code"]+counts["failed"]+counts["unrecorded"] > 0 {
+		result.NextAction = fmt.Sprintf("Run walden verify %s to re-prove the current code", featureName)
+	}
+	return emitResult("evidence-status", result, jsonMode, stdout, stderr)
+}

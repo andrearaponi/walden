@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/shell"
 	"github.com/andrearaponi/walden/internal/spec"
 )
@@ -38,6 +39,10 @@ type ExecutionReadiness struct {
 	// exhausted implementation plan: gates must fail commands, a finished
 	// plan must not.
 	GateBlocked bool
+	// EvidenceWarnings surface completed tasks whose evidence is not
+	// verified — the honest answer to "the plan is complete" after specs
+	// or code moved underneath it.
+	EvidenceWarnings []string
 }
 
 // TaskStartContext is the deterministic execution context returned when a task starts.
@@ -56,6 +61,7 @@ type TaskCompletionResult struct {
 	CompletedTasks []string
 	ProofCommand   string
 	NextAction     string
+	Warnings       []string
 }
 
 // BatchCompletionResult is the deterministic outcome of completing multiple runnable leaf tasks in order.
@@ -77,7 +83,62 @@ func LoadExecutionReadiness(root, featureName string) (ExecutionReadiness, error
 		return ExecutionReadiness{}, err
 	}
 
-	return ResolveExecutionReadiness(feature)
+	readiness, err := ResolveExecutionReadiness(feature)
+	if err != nil {
+		return ExecutionReadiness{}, err
+	}
+	if !readiness.GateBlocked {
+		readiness.EvidenceWarnings = evidenceWarnings(context.Background(), root, feature)
+	}
+	return readiness, nil
+}
+
+// evidenceWarnings derives the evidence states of completed tasks and
+// summarizes every non-verified one. Gate blockers already tell the chain
+// story, so this runs only on an unblocked chain.
+func evidenceWarnings(ctx context.Context, root string, feature spec.Feature) []string {
+	tree, err := spec.ParseTaskTree(feature.Tasks)
+	if err != nil {
+		return nil
+	}
+
+	leafs := []evidence.LeafTask{}
+	anyCompleted := false
+	for _, task := range tree.LeafTasks() {
+		if task.Completed {
+			anyCompleted = true
+		}
+		leafs = append(leafs, evidence.LeafTask{
+			ID:          task.ID,
+			Completed:   task.Completed,
+			Fingerprint: executableTaskFingerprint(toExecutableTask(task)),
+		})
+	}
+	if !anyCompleted {
+		return nil
+	}
+
+	ledger, err := evidence.Load(root, feature.Name)
+	if err != nil {
+		return nil
+	}
+	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
+	current := evidence.ChainFingerprints{
+		Requirements: feature.Requirements.Fields["approved_fingerprint"],
+		Design:       feature.Design.Fields["approved_fingerprint"],
+	}
+
+	notVerified := []string{}
+	for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
+		if derived.State == evidence.StateVerified || derived.State == evidence.StatePending {
+			continue
+		}
+		notVerified = append(notVerified, fmt.Sprintf("%s (%s)", derived.TaskID, derived.State))
+	}
+	if len(notVerified) == 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("evidence: %d completed task(s) not verified — %s; run `walden verify %s`", len(notVerified), strings.Join(notVerified, ", "), feature.Name)}
 }
 
 // ResolveExecutionReadiness determines whether execution can start and which task is next.
@@ -241,6 +302,11 @@ func nextRunnableTask(tree spec.TaskTree) *ExecutableTask {
 	return nil
 }
 
+// identityRunner executes the read-only git invocations behind the code
+// identity. It is a seam so tests control identity outcomes without
+// consuming the proof runner's scripted responses.
+var identityRunner shell.Runner = shell.NewExecRunner()
+
 // CompleteTask runs the declared proof for a leaf task and marks it complete only if the proof succeeds.
 func CompleteTask(ctx context.Context, root, featureName, taskID string, runner shell.Runner) (TaskCompletionResult, error) {
 	if runner == nil {
@@ -252,30 +318,9 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		return TaskCompletionResult{}, err
 	}
 
-	proofCommands, proofCommand, err := resolveProofCommands(startContext.Task)
+	stepResults, proofCommand, err := executeProof(ctx, runner, startContext.Task)
 	if err != nil {
 		return TaskCompletionResult{}, err
-	}
-
-	for _, proofStep := range proofCommands {
-		response, err := runner.Run(ctx, proofStep.Name, proofStep.Args...)
-		if err != nil {
-			hint := ""
-			if strings.Contains(err.Error(), "executable file not found") {
-				hint = " (hint: shell operators require command: [\"sh\", \"-c\", \"...\"])"
-			}
-			return TaskCompletionResult{}, fmt.Errorf("verification failed for task %q: %w%s", startContext.Task.ID, err, hint)
-		}
-		if response.ExitCode != proofStep.ExpectExit {
-			detail := strings.TrimSpace(response.Stderr)
-			if detail == "" {
-				detail = strings.TrimSpace(response.Stdout)
-			}
-			if detail != "" {
-				return TaskCompletionResult{}, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d): %s", startContext.Task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, detail)
-			}
-			return TaskCompletionResult{}, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)", startContext.Task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit)
-		}
 	}
 
 	feature, err := spec.LoadFeature(root, featureName)
@@ -284,6 +329,33 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 	}
 
 	completedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+
+	// Evidence is recorded before the checkbox moves: a completion the
+	// ledger cannot remember is a completion that did not happen.
+	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
+	warnings := []string{}
+	if !identityOK {
+		warnings = append(warnings, "code identity unavailable (git not usable here); evidence recorded without it")
+	}
+
+	ledger, err := evidence.Load(root, feature.Name)
+	if err != nil {
+		return TaskCompletionResult{}, err
+	}
+	ledger.Feature = feature.Name
+	ledger.Tasks[startContext.Task.ID] = evidence.Record{
+		TaskFingerprint:         executableTaskFingerprint(startContext.Task),
+		RequirementsFingerprint: feature.Requirements.Fields["approved_fingerprint"],
+		DesignFingerprint:       feature.Design.Fields["approved_fingerprint"],
+		TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
+		CodeIdentity:            identity,
+		Steps:                   stepResults,
+		Result:                  evidence.ResultPassed,
+		VerifiedAt:              completedAt,
+	}
+	if err := evidence.Save(root, ledger); err != nil {
+		return TaskCompletionResult{}, fmt.Errorf("record evidence before completion: %w", err)
+	}
 	updatedTasks, completedTasks, err := spec.MarkTaskCompleteWithCascade(feature.Tasks, startContext.Task.ID, completedAt)
 	if err != nil {
 		return TaskCompletionResult{}, err
@@ -305,6 +377,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		CompletedTasks: completedTasks,
 		ProofCommand:   proofCommand,
 		NextAction:     readiness.NextAction,
+		Warnings:       warnings,
 	}, nil
 }
 
@@ -369,10 +442,11 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 }
 
 type proofCommand struct {
-	Name       string
-	Args       []string
-	Display    string
-	ExpectExit int
+	Name         string
+	Args         []string
+	Display      string
+	ExpectExit   int
+	ExpectOutput string
 }
 
 func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
@@ -386,11 +460,16 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 			if step.ExpectExit != nil {
 				expectExit = *step.ExpectExit
 			}
+			expectOutput := ""
+			if step.ExpectOutput != nil {
+				expectOutput = *step.ExpectOutput
+			}
 			commands = append(commands, proofCommand{
-				Name:       step.Argv[0],
-				Args:       append([]string(nil), step.Argv[1:]...),
-				Display:    formatCommandProofStep(step.Argv),
-				ExpectExit: expectExit,
+				Name:         step.Argv[0],
+				Args:         append([]string(nil), step.Argv[1:]...),
+				Display:      formatCommandProofStep(step.Argv),
+				ExpectExit:   expectExit,
+				ExpectOutput: expectOutput,
 			})
 		}
 		return commands, task.Verification, nil
@@ -401,6 +480,63 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 		return nil, "", err
 	}
 	return []proofCommand{{Name: name, Args: args, Display: display}}, display, nil
+}
+
+// executableTaskFingerprint bridges the execution view back to the spec
+// task-definition fingerprint.
+func executableTaskFingerprint(task ExecutableTask) string {
+	return spec.TaskDefinitionFingerprint(&spec.Task{
+		ID:           task.ID,
+		Title:        task.Title,
+		Requirements: task.Requirements,
+		DesignRefs:   task.DesignRefs,
+		Verification: task.Verification,
+	})
+}
+
+// executeProof runs every proof step in order, enforcing exit-code and
+// output expectations, and returns per-step outcomes for the evidence
+// record along with the human-readable proof command.
+func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask) ([]evidence.StepResult, string, error) {
+	proofCommands, display, err := resolveProofCommands(task)
+	if err != nil {
+		return nil, "", err
+	}
+
+	results := make([]evidence.StepResult, 0, len(proofCommands))
+	for _, proofStep := range proofCommands {
+		response, err := runner.Run(ctx, proofStep.Name, proofStep.Args...)
+		if err != nil {
+			hint := ""
+			if strings.Contains(err.Error(), "executable file not found") {
+				hint = " (hint: shell operators require command: [\"sh\", \"-c\", \"...\"])"
+			}
+			return results, display, fmt.Errorf("verification failed for task %q: %w%s", task.ID, err, hint)
+		}
+
+		combined := response.Stdout + response.Stderr
+		results = append(results, evidence.StepResult{
+			Command:      append([]string{proofStep.Name}, proofStep.Args...),
+			ExpectedExit: proofStep.ExpectExit,
+			ActualExit:   response.ExitCode,
+			OutputDigest: evidence.DigestOutput(combined),
+		})
+
+		if response.ExitCode != proofStep.ExpectExit {
+			detail := strings.TrimSpace(response.Stderr)
+			if detail == "" {
+				detail = strings.TrimSpace(response.Stdout)
+			}
+			if detail != "" {
+				return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d): %s", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, detail)
+			}
+			return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit)
+		}
+		if proofStep.ExpectOutput != "" && !strings.Contains(combined, proofStep.ExpectOutput) {
+			return results, display, fmt.Errorf("verification failed for task %q: command %q output does not contain expected content %q", task.ID, proofStep.Display, proofStep.ExpectOutput)
+		}
+	}
+	return results, display, nil
 }
 
 func parseVerificationCommand(verification string) (string, []string, string, error) {

@@ -37,13 +37,13 @@ func SaveDocument(document Document) error {
 		builder.WriteString("\n")
 	}
 
-	return writeAtomically(document.Path, []byte(builder.String()))
+	return WriteFileAtomic(document.Path, []byte(builder.String()))
 }
 
-// writeAtomically stages the content in a temp file inside the target's
+// WriteFileAtomic stages the content in a temp file inside the target's
 // directory and renames it into place, so no failure path — interruption,
-// full disk, permission error — can leave the document truncated or lost.
-func writeAtomically(path string, content []byte) error {
+// full disk, permission error — can leave the target truncated or lost.
+func WriteFileAtomic(path string, content []byte) error {
 	staged, err := os.CreateTemp(filepath.Dir(path), ".walden-doc-*")
 	if err != nil {
 		return fmt.Errorf("stage document %s: %w", path, err)

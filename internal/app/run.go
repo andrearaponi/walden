@@ -42,6 +42,8 @@ var commandUsages = []commandUsage{
 	{"task start <feature> [task-id] [--json]", "Resolve normalized execution context for a task"},
 	{"task complete <feature> <task-id> [--json]", "Run a task's proofs and mark it complete"},
 	{"task complete-all <feature> [--json]", "Complete all runnable tasks in order"},
+	{"verify <feature> [--all] [--check] [--json]", "Re-prove completed tasks against the current code and refresh evidence"},
+	{"evidence status <feature> [--json]", "Report each completed task's derived execution-evidence state"},
 	{"validate <feature> [--all] [--json]", "Check EARS, traceability, and freshness"},
 	{"review open <feature> --phase <phase> [--json]", "Open the review gate (move to in-review)"},
 	{"review approve <feature> --phase <phase> [--json]", "Approve the review gate (move to approved)"},
@@ -82,6 +84,10 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runTask(args[1:], stdout, stderr)
 	case "validate":
 		return runValidate(args[1:], stdout, stderr)
+	case "verify":
+		return runVerify(args[1:], stdout, stderr)
+	case "evidence":
+		return runEvidence(args[1:], stdout, stderr)
 	case "review":
 		return runReview(args[1:], stdout, stderr)
 	case "skill":
@@ -961,6 +967,7 @@ func taskStatusSuccessResult(readiness workflow.ExecutionReadiness) output.Resul
 	if readiness.NextTask != nil {
 		result.Task = toOutputTaskStatus(*readiness.NextTask)
 	}
+	result.Warnings = append(result.Warnings, readiness.EvidenceWarnings...)
 
 	return result
 }
@@ -1069,8 +1076,9 @@ func taskCompleteSuccessResult(result workflow.TaskCompletionResult) output.Resu
 		Summary:      fmt.Sprintf("task completed for %s", result.Feature),
 		CurrentPhase: string(result.CurrentPhase),
 		Task:         toOutputTaskStatus(result.Task),
-		ChangedFiles: []string{".walden/specs/" + result.Feature + "/tasks.md"},
+		ChangedFiles: []string{".walden/specs/" + result.Feature + "/tasks.md", ".walden/evidence/" + result.Feature + ".json"},
 		NextAction:   result.NextAction,
+		Warnings:     result.Warnings,
 		ExitCode:     0,
 	}
 }

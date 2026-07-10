@@ -29,6 +29,7 @@ type InitReport struct {
 
 var repoBootstrapFiles = []bootstrapFile{
 	{Source: "walden/constitution.md", Target: ".walden/constitution.md"},
+	{Source: "walden/gitignore", Target: ".walden/.gitignore"},
 	{Source: "walden/lessons.md", Target: ".walden/lessons.md"},
 	{Source: "github/pull_request_template.md", Target: ".github/pull_request_template.md"},
 	{Source: "github/workflows/validate-walden.yml", Target: ".github/workflows/validate-walden.yml"},
