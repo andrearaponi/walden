@@ -2,17 +2,19 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.4.0
+## Current Release: v0.7.x
 
 The open source core today includes:
 
 - Deterministic CLI with all core commands
 - Content-fingerprint freshness chain: tamper detection and provable approval binding on every spec document
-- Versioned JSON output contract (`v0beta1`)
-- Public skill bundle for Claude Code, Codex, Copilot, and OpenCode (model-invoked Agent Skill on Claude Code)
+- Versioned JSON output contract (`v0beta1`), honored on success and error paths alike
+- AI skill embedded in the binary (`walden skill install|status|show`) for Claude Code, Codex, Copilot, and OpenCode, with drift detection against the embedded copy
+- One-liner installer consuming checksum-verified release binaries
+- Self-update from GitHub releases (`walden update`) with fail-closed verification, rollback, and skill re-sync
 - Documentation pack (concepts, workflow, boundaries)
-- Example project with shell-safe verification
-- Repository bootstrap and feature scaffolding templates
+- Example project with shell-safe verification, validated in CI as a compatibility fixture
+- Repository bootstrap and feature scaffolding templates (generated CI pinned to the generating version)
 - Apache-2.0 license
 
 ## Near-Term (Open Source)
