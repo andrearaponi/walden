@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-10
+
+### Added
+
+- **`walden update` — self-update from GitHub releases.** One explicit command brings the installed binary to a target release and re-syncs installed skills:
+  - Resolves the latest release through the `releases/latest` redirect (no GitHub API, no rate limits); `--version <tag>` pins a release for downgrades and rollbacks.
+  - Downloads the platform asset and verifies its SHA-256 against the release's `checksums.txt` — fail-closed with no bypass flag: a missing checksums file, a missing entry, or a digest mismatch aborts with staging cleaned up. Releases ≤ v0.4.0 predate checksums and cannot be installed by `walden update`.
+  - Swaps the executable atomically (staged in the install directory, which doubles as the writability probe and fails before any download), then smoke-tests the new binary and restores the previous one if it fails to run — no path ends without a working executable. Symlinked installs replace the resolved target.
+  - Re-installs every detected skill installation through the new binary, so agents pick up the embedded skill matching the installed release. Re-sync failures degrade to warnings (`walden skill install <agent>` repairs), and targets below v0.5.0 skip re-sync with a warning.
+  - `walden update --check` reports the current version, the target version, and availability without writing anything — a report, not a gate: exit 0 either way.
+  - New additive `update` block in JSON output (`current_version`, `target_version`, `update_available`, `applied`) within `schema_version: v0beta1` — the envelope is unchanged and existing integrations keep working.
+- Networking stays confined to the explicit update command: `net/http` lives only under `internal/selfupdate`, and no other command checks for updates or touches the network.
+
+### Fixed
+
+- `walden version` on `go install` binaries now reports the real module version from Go build info instead of `dev` (release ldflags still win when present). True source builds keep reporting `dev` and refuse `walden update`, with guidance to rebuild from the clone.
+
 ## [0.6.0] - 2026-07-09
 
 ### Changed
