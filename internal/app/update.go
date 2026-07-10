@@ -50,7 +50,7 @@ func runUpdate(args []string, stdout io.Writer, stderr io.Writer) int {
 			NextAction: "Rebuild from your clone (./setup.sh) or install a release: curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh",
 			ExitCode:   1,
 		}
-		return emitUpdateResult(result, jsonMode, stdout, stderr)
+		return emitResult("update", result, jsonMode, stdout, stderr)
 	}
 
 	opts, err := updateOptions(current)
@@ -69,7 +69,7 @@ func runUpdate(args []string, stdout io.Writer, stderr io.Writer) int {
 func runUpdateCheck(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Writer) int {
 	status, err := selfupdate.Check(opts)
 	if err != nil {
-		return emitUpdateResult(output.Result{Summary: err.Error(), ExitCode: 1}, jsonMode, stdout, stderr)
+		return emitResult("update", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	// Check mode is a report, not a gate: exit 0 either way.
@@ -86,13 +86,13 @@ func runUpdateCheck(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Wr
 		result.Summary = fmt.Sprintf("update available: %s -> %s", status.CurrentVersion, status.TargetVersion)
 		result.NextAction = fmt.Sprintf("Run `walden update` to install %s", status.TargetVersion)
 	}
-	return emitUpdateResult(result, jsonMode, stdout, stderr)
+	return emitResult("update", result, jsonMode, stdout, stderr)
 }
 
 func runUpdateApply(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Writer) int {
 	report, err := selfupdate.Apply(context.Background(), opts)
 	if err != nil {
-		return emitUpdateResult(output.Result{Summary: err.Error(), ExitCode: 1}, jsonMode, stdout, stderr)
+		return emitResult("update", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	if report.AlreadyUpToDate {
@@ -104,7 +104,7 @@ func runUpdateApply(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Wr
 			},
 			ExitCode: 0,
 		}
-		return emitUpdateResult(result, jsonMode, stdout, stderr)
+		return emitResult("update", result, jsonMode, stdout, stderr)
 	}
 
 	changed := []string{report.ExecutablePath}
@@ -125,24 +125,5 @@ func runUpdateApply(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Wr
 		NextAction:   fmt.Sprintf("Release notes: %s", report.ReleaseNotesURL),
 		ExitCode:     0,
 	}
-	return emitUpdateResult(result, jsonMode, stdout, stderr)
-}
-
-// emitUpdateResult renders a result following the repo convention: JSON goes
-// to stdout with ok reflecting the exit code, text errors go to stderr.
-func emitUpdateResult(result output.Result, jsonMode bool, stdout, stderr io.Writer) int {
-	if jsonMode {
-		if err := output.PrintJSON(stdout, "update", result); err != nil {
-			_, _ = fmt.Fprintf(stderr, "render json output: %v\n", err)
-			return 1
-		}
-		return result.ExitCode
-	}
-
-	if result.ExitCode != 0 {
-		output.PrintText(stderr, result)
-		return result.ExitCode
-	}
-	output.PrintText(stdout, result)
-	return 0
+	return emitResult("update", result, jsonMode, stdout, stderr)
 }

@@ -40,8 +40,7 @@ func runSkillStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	opts, err := skillOptions()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-status", errorResult(err), jsonMode, stdout, stderr)
 	}
 
 	statuses, warnings := skilldist.Status(opts)
@@ -144,14 +143,12 @@ func runSkillInstall(args []string, stdout io.Writer, stderr io.Writer) int {
 	flags := parseSkillFlags(args)
 	agent, err := resolveSkillTarget("install", flags)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-install", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	opts, err := skillOptions()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-install", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	var reports []skilldist.Report
@@ -167,8 +164,7 @@ func runSkillInstall(args []string, stdout io.Writer, stderr io.Writer) int {
 		reports = []skilldist.Report{report}
 	}
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-install", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	result := installResult(flags, reports)
@@ -208,14 +204,12 @@ func runSkillUninstall(args []string, stdout io.Writer, stderr io.Writer) int {
 	flags := parseSkillFlags(args)
 	agent, err := resolveSkillTarget("uninstall", flags)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-uninstall", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	opts, err := skillOptions()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-uninstall", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	var reports []skilldist.Report
@@ -231,8 +225,7 @@ func runSkillUninstall(args []string, stdout io.Writer, stderr io.Writer) int {
 		reports = []skilldist.Report{report}
 	}
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%v\n", err)
-		return 1
+		return emitResult("skill-uninstall", errorResult(err), flags.jsonMode, stdout, stderr)
 	}
 
 	result := uninstallResult(flags, reports)
