@@ -30,9 +30,13 @@ func (f *fakeGit) Run(_ context.Context, name string, args ...string) (shell.Res
 	}
 	if sub == "hash-object" {
 		// Content-derived fake blob id: sha256 of the file, mirroring how
-		// real blob ids are stable functions of content.
+		// real blob ids are stable functions of content. Absolute paths
+		// (the staged symlink-target copies) are honored as git does.
 		root, path := args[1], args[len(args)-1]
-		content, err := os.ReadFile(filepath.Join(root, path))
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(root, path)
+		}
+		content, err := os.ReadFile(path)
 		if err != nil {
 			return shell.Response{ExitCode: 128, Stderr: err.Error()}, nil
 		}
@@ -214,5 +218,43 @@ func TestIdentitySurvivesTheCommitTransition(t *testing.T) {
 	}
 	if before != after {
 		t.Fatalf("committing unchanged content moved the identity: %s vs %s", before, after)
+	}
+}
+
+func TestIdentitySurvivesTheSymlinkCommitTransition(t *testing.T) {
+	// Git stores a symlink blob as its target string; following the link
+	// would hash the target's content instead. Both layers must agree.
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "Makefile"), []byte("build:\n\ttrue\n"), 0o644); err != nil {
+		t.Fatalf("seed target: %v", err)
+	}
+	if err := os.Symlink("Makefile", filepath.Join(root, "link.mk")); err != nil {
+		t.Fatalf("seed symlink: %v", err)
+	}
+	targetBlob := sha256.Sum256([]byte("Makefile"))
+	linkBlobID := hex.EncodeToString(targetBlob[:])
+	fileBlob := sha256.Sum256([]byte("build:\n\ttrue\n"))
+	fileBlobID := hex.EncodeToString(fileBlob[:])
+
+	untracked := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? Makefile\x00?? link.mk\x00"},
+		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+	}}
+	committed := &fakeGit{responses: map[string]shell.Response{
+		"status": {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob " + fileBlobID + "\tMakefile\n" +
+			"120000 blob " + linkBlobID + "\tlink.mk\n"},
+	}}
+
+	before, ok := Identity(context.Background(), untracked, root)
+	if !ok {
+		t.Fatal("untracked identity not computed")
+	}
+	after, ok := Identity(context.Background(), committed, root)
+	if !ok {
+		t.Fatal("committed identity not computed")
+	}
+	if before != after {
+		t.Fatalf("committing an unchanged symlink moved the identity: %s vs %s", before, after)
 	}
 }

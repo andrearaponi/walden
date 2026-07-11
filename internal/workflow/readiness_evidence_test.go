@@ -127,3 +127,23 @@ func TestReadinessEvidenceFlagsUnrecordedLegacyCompletions(t *testing.T) {
 func removeEvidence(root, feature string) error {
 	return os.Remove(evidence.DocumentPath(root, feature))
 }
+
+func TestReadinessEvidenceWarnsOnUnreadableLedger(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, identityYielding("100644 blob aaa\tmain.go\n"))
+	completeBoth(t, root)
+
+	path := evidence.DocumentPath(root, "todo-app-demo")
+	if err := os.WriteFile(path, []byte("{truncated"), 0o644); err != nil {
+		t.Fatalf("corrupt ledger: %v", err)
+	}
+
+	readiness, err := LoadExecutionReadiness(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("LoadExecutionReadiness: %v", err)
+	}
+	if len(readiness.EvidenceWarnings) != 1 || !strings.Contains(readiness.EvidenceWarnings[0], "unreadable") {
+		t.Fatalf("corrupt ledger did not surface a warning: %v", readiness.EvidenceWarnings)
+	}
+}

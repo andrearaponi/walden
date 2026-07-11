@@ -120,7 +120,7 @@ func evidenceWarnings(ctx context.Context, root string, feature spec.Feature) []
 
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return nil
+		return []string{fmt.Sprintf("evidence: ledger unreadable (%v) — remove %s and run `walden verify %s --all` to regenerate it", err, evidence.DocumentPath(root, feature.Name), feature.Name)}
 	}
 	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
 	current := evidence.ChainFingerprints{

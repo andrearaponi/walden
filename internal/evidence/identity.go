@@ -88,12 +88,41 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 			continue
 		}
 
-		if _, err := os.Stat(filepath.Join(root, path)); os.IsNotExist(err) {
+		info, err := os.Lstat(filepath.Join(root, path))
+		if os.IsNotExist(err) {
 			delete(blobs, path)
 			continue
 		}
+		if err != nil {
+			return false
+		}
 
-		hashed, err := runner.Run(ctx, "git", "-C", root, "hash-object", "--", path)
+		hashPath := path
+		if info.Mode()&os.ModeSymlink != 0 {
+			// Git stores a symlink as a blob of its target string, while
+			// hash-object on the link path would follow it and hash the
+			// target's content — a representation split that would make the
+			// untracked→committed transition read as a code change. Hash a
+			// staged copy of the target string instead.
+			target, err := os.Readlink(filepath.Join(root, path))
+			if err != nil {
+				return false
+			}
+			staged, err := os.CreateTemp("", ".walden-linkblob-*")
+			if err != nil {
+				return false
+			}
+			if _, err := staged.WriteString(target); err != nil {
+				_ = staged.Close()
+				_ = os.Remove(staged.Name())
+				return false
+			}
+			_ = staged.Close()
+			defer func(name string) { _ = os.Remove(name) }(staged.Name())
+			hashPath = staged.Name()
+		}
+
+		hashed, err := runner.Run(ctx, "git", "-C", root, "hash-object", "--", hashPath)
 		if err != nil || hashed.ExitCode != 0 {
 			return false
 		}

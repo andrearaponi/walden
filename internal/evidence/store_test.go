@@ -102,3 +102,23 @@ func TestEvidenceStoreWritesAtomicallyInsideWalden(t *testing.T) {
 		t.Fatalf("evidence dir holds %d entries, want 1", len(entries))
 	}
 }
+
+func TestEvidenceStoreRejectsUnknownSchema(t *testing.T) {
+	root := t.TempDir()
+	if err := Save(root, Document{Feature: "f", Tasks: map[string]Record{"1.1": sampleRecord()}}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	path := DocumentPath(root, "f")
+	data, _ := os.ReadFile(path)
+	if err := os.WriteFile(path, []byte(strings.Replace(string(data), SchemaVersion, "v9alpha9", 1)), 0o644); err != nil {
+		t.Fatalf("tamper schema: %v", err)
+	}
+
+	_, err := Load(root, "f")
+	if err == nil {
+		t.Fatal("unknown evidence schema accepted silently")
+	}
+	if !strings.Contains(err.Error(), "v9alpha9") || !strings.Contains(err.Error(), SchemaVersion) {
+		t.Fatalf("error %q does not name both schemas", err)
+	}
+}

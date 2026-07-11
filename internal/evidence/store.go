@@ -32,6 +32,9 @@ func Load(root, feature string) (Document, error) {
 	if err := json.Unmarshal(data, &document); err != nil {
 		return Document{}, fmt.Errorf("parse evidence document %s: %w", DocumentPath(root, feature), err)
 	}
+	if document.SchemaVersion != "" && document.SchemaVersion != SchemaVersion {
+		return Document{}, fmt.Errorf("evidence document %s carries schema %s; this binary speaks %s (upgrade walden, or remove the file and rerun `walden verify --all`)", DocumentPath(root, feature), document.SchemaVersion, SchemaVersion)
+	}
 	if document.Tasks == nil {
 		document.Tasks = map[string]Record{}
 	}
