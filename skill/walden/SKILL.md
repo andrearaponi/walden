@@ -40,6 +40,7 @@ Walden is an open source spec-driven delivery kernel. It is not a complete enter
 - Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
 - Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything.
 - Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
+- Use `walden release check [<feature-name>] [--strict] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing.
 - Use `walden reconcile <feature-name> [--json]` when approved upstream documents changed or the approval chain is stale.
 - Use `walden lesson log --feature <feature-name> --phase requirements|design|tasks|execute|release --trigger "<event>" --lesson "<pattern>" --guardrail "<rule>" [--json]` after meaningful corrections, failed validation, or execution surprises.
 - Use `walden version [--json]` to check the installed CLI version and schema version.
@@ -537,6 +538,15 @@ Execution is for approved specs only.
 - After reconciliation and re-approval, run `walden verify <feature-name>`: completed tasks whose evidence went stale-spec must be re-proven against the updated contract, not assumed.
 - Log a lesson if the gap came from a missed pattern, missing guardrail, or design blind spot.
 - Do not silently rewrite approved requirements or design during implementation.
+
+## Release Certification
+
+- When the user asks whether the work is releasable — or before any tag, release branch, or delivery hand-off — run `walden release check` and report its verdict; do not assemble the answer from separate status checks.
+- The gate certifies and never releases: approved fresh chains, full-spec validation, decision markers in approved documents, execution evidence, and a clean worktree outside `.walden/` fold into one exit code. Tags, changelogs, and publishing stay with you and the user, after certification passes.
+- Read a failed certification as a work list: every blocker names its remedy. Apply the remedies and rerun the gate; never edit state by hand to silence a blocker.
+- Planned-but-unexecuted tasks are informational and never block; pass `--strict` only when the user wants plans-complete certification.
+- The dirty-worktree blocker has no bypass by design: the remedy is committing the work. Do not look for a flag.
+- Compose production and judgment: `walden verify <feature-name>` re-proves execution, then `walden release check` judges the result. In CI, gate the pipeline on the exit code and use `--json` for structure.
 
 ## Self-Improvement Loop
 

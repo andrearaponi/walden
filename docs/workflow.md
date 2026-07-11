@@ -168,7 +168,7 @@ All `--json` commands return a versioned envelope:
 }
 ```
 
-## 6. Verify
+## 8. Verify
 
 Execution leaves evidence behind: every completed task's proof is recorded in `.walden/evidence/<feature>.json`, bound to the approved chain and to a code identity of the working tree. When the code or the specs move, `walden task status` warns that completed tasks are no longer verified.
 
@@ -180,3 +180,22 @@ walden verify <feature> --check    # CI mode: report only, write nothing
 ```
 
 A code-only bugfix needs no spec ceremony: the evidence goes `stale-code`, and one `verify` proves the acceptance criteria still hold — or names the task whose proof broke.
+
+## 9. Certify
+
+`walden release check` folds everything above into one deterministic verdict per feature — approved fresh chain, full-spec validation, no unresolved `[decision:]` markers in approved documents, execution evidence verified — plus one repository-level criterion: a clean worktree outside `.walden/`. Exit zero iff no blocker exists. It executes no proofs and writes nothing: verify produces evidence, release check judges it.
+
+```bash
+walden release check               # certify every feature
+walden release check <feature>     # certify one feature
+walden release check --strict      # planned-but-unexecuted tasks block too
+```
+
+The CI recipe composes the two:
+
+```bash
+walden verify <feature>            # re-prove execution on the current tree
+walden release check --json        # certify; gate the pipeline on the exit code
+```
+
+Planned work never blocks a release (`--strict` opts into plans-complete). Uncommitted code outside `.walden/` always blocks with no bypass flag — what you certify is what you tag — while dirty `.walden/` only warns, since a refreshed ledger legitimately precedes its own commit. Every blocker names its remedy.

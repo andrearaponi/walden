@@ -34,8 +34,38 @@ type Result struct {
 	Skills                []SkillStatus     `json:"skills,omitempty"`
 	Evidence              []EvidenceStatus  `json:"evidence,omitempty"`
 	Update                *UpdateStatus     `json:"update,omitempty"`
+	Release               *ReleaseStatus    `json:"release,omitempty"`
 	Content               string            `json:"content,omitempty"`
 	ExitCode              int               `json:"exit_code"`
+}
+
+// ReleaseStatus is the JSON output view of a release certification run.
+type ReleaseStatus struct {
+	Releasable bool             `json:"releasable"`
+	Strict     bool             `json:"strict"`
+	Features   []ReleaseFeature `json:"features"`
+	Worktree   ReleaseWorktree  `json:"worktree"`
+}
+
+// ReleaseFeature is one feature's per-criterion certification outcome.
+type ReleaseFeature struct {
+	Feature  string             `json:"feature"`
+	Criteria []ReleaseCriterion `json:"criteria"`
+	Pending  []string           `json:"pending,omitempty"`
+}
+
+// ReleaseCriterion is a single certification criterion's verdict.
+type ReleaseCriterion struct {
+	Name     string   `json:"name"`
+	Passed   bool     `json:"passed"`
+	Blockers []string `json:"blockers,omitempty"`
+}
+
+// ReleaseWorktree is the repository-level worktree criterion's outcome.
+type ReleaseWorktree struct {
+	Blockers    []string `json:"blockers,omitempty"`
+	WaldenDirty []string `json:"walden_dirty,omitempty"`
+	GitSkipped  bool     `json:"git_skipped"`
 }
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
@@ -243,6 +273,32 @@ func PrintText(w io.Writer, result Result) {
 	if result.Update != nil {
 		_, _ = fmt.Fprintf(w, "Update: current=%s target=%s available=%t applied=%t\n",
 			result.Update.CurrentVersion, result.Update.TargetVersion, result.Update.UpdateAvailable, result.Update.Applied)
+	}
+
+	if result.Release != nil {
+		_, _ = fmt.Fprintln(w, "Release:")
+		for _, feature := range result.Release.Features {
+			_, _ = fmt.Fprintf(w, "- %s:", feature.Feature)
+			for _, criterion := range feature.Criteria {
+				verdict := "pass"
+				if !criterion.Passed {
+					verdict = "FAIL"
+				}
+				_, _ = fmt.Fprintf(w, " %s=%s", criterion.Name, verdict)
+			}
+			if len(feature.Pending) > 0 {
+				_, _ = fmt.Fprintf(w, " pending: %s", strings.Join(feature.Pending, ", "))
+			}
+			_, _ = fmt.Fprintln(w)
+		}
+		switch {
+		case result.Release.Worktree.GitSkipped:
+			_, _ = fmt.Fprintln(w, "- worktree: skipped (no usable git)")
+		case len(result.Release.Worktree.Blockers) > 0:
+			_, _ = fmt.Fprintf(w, "- worktree: %d uncommitted path(s)\n", len(result.Release.Worktree.Blockers))
+		default:
+			_, _ = fmt.Fprintln(w, "- worktree: clean")
+		}
 	}
 
 	if len(result.Blockers) > 0 {

@@ -155,6 +155,11 @@ func TestJSONErrorContract(t *testing.T) {
 			args:        []string{"evidence", "status", "!!!", "--json"},
 			wantCommand: "evidence-status",
 		},
+		{
+			name:        "release check with invalid feature name",
+			args:        []string{"release", "check", "!!!", "--json"},
+			wantCommand: "release-check",
+		},
 	}
 
 	for _, tc := range cases {

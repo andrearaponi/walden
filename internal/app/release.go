@@ -1,0 +1,136 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/andrearaponi/walden/internal/output"
+	"github.com/andrearaponi/walden/internal/release"
+)
+
+func runRelease(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "check" {
+		return runReleaseCheck(args[1:], stdout, stderr)
+	}
+
+	_, _ = fmt.Fprintf(stderr, "unknown command: release %s\n\n", strings.Join(args, " "))
+	printUsage(stderr)
+	return 1
+}
+
+func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
+	// --json is resolved first so even flag errors honor the envelope contract.
+	jsonMode := false
+	for _, arg := range args {
+		if arg == "--json" {
+			jsonMode = true
+		}
+	}
+
+	strict := false
+	positional := make([]string, 0, len(args))
+	for _, arg := range args {
+		switch arg {
+		case "--json":
+		case "--strict":
+			strict = true
+		default:
+			if strings.HasPrefix(arg, "--") {
+				// Certification has no bypasses by design (R3.AC2): every
+				// unrecognized flag is rejected, never ignored.
+				return emitResult("release-check", errorResult(fmt.Errorf("unknown flag %s: release check accepts only --strict and --json", arg)), jsonMode, stdout, stderr)
+			}
+			positional = append(positional, arg)
+		}
+	}
+
+	if len(positional) > 1 {
+		return emitResult("release-check", errorResult(errors.New("release check takes at most one feature name")), jsonMode, stdout, stderr)
+	}
+	featureName := ""
+	if len(positional) == 1 {
+		featureName = positional[0]
+	}
+
+	root, err := os.Getwd()
+	if err != nil {
+		return emitResult("release-check", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
+	}
+
+	report, err := release.ReleaseCheck(context.Background(), root, featureName, strict)
+	if err != nil {
+		return emitResult("release-check", errorResult(err), jsonMode, stdout, stderr)
+	}
+
+	result := releaseCheckResult(report)
+	if jsonMode {
+		return emitResult("release-check", result, jsonMode, stdout, stderr)
+	}
+	if result.ExitCode != 0 {
+		// A failed certification is a work list, not an invocation error:
+		// render the full report, mirroring validate's convention.
+		output.PrintText(stderr, result)
+		return result.ExitCode
+	}
+	output.PrintText(stdout, result)
+	return 0
+}
+
+func releaseCheckResult(report release.ReleaseReport) output.Result {
+	status := &output.ReleaseStatus{
+		Releasable: report.Releasable(),
+		Strict:     report.Strict,
+		Worktree: output.ReleaseWorktree{
+			Blockers:    append([]string(nil), report.WorktreeBlockers...),
+			WaldenDirty: append([]string(nil), report.WaldenDirty...),
+			GitSkipped:  report.GitSkipped,
+		},
+	}
+
+	result := output.Result{ExitCode: 0}
+	pendingTotal := 0
+	for _, feature := range report.Features {
+		view := output.ReleaseFeature{
+			Feature: feature.Feature,
+			Pending: append([]string(nil), feature.Pending...),
+		}
+		pendingTotal += len(feature.Pending)
+		for _, criterion := range feature.Criteria {
+			view.Criteria = append(view.Criteria, output.ReleaseCriterion{
+				Name:     criterion.Name,
+				Passed:   criterion.Passed,
+				Blockers: append([]string(nil), criterion.Blockers...),
+			})
+			for _, blocker := range criterion.Blockers {
+				result.Blockers = append(result.Blockers, fmt.Sprintf("%s: %s", feature.Feature, blocker))
+			}
+		}
+		status.Features = append(status.Features, view)
+	}
+	result.Blockers = append(result.Blockers, report.WorktreeBlockers...)
+	result.Release = status
+
+	for _, path := range report.WaldenDirty {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("uncommitted under .walden/ (not blocking): %s", path))
+	}
+	if report.GitSkipped {
+		result.Warnings = append(result.Warnings, "worktree criterion skipped: no usable git repository")
+	}
+
+	if report.Releasable() {
+		result.Summary = fmt.Sprintf("RELEASABLE — %d feature(s) certified", len(report.Features))
+		if pendingTotal > 0 {
+			result.Summary += fmt.Sprintf(", %d task(s) still planned", pendingTotal)
+		}
+		return result
+	}
+
+	result.Summary = fmt.Sprintf("NOT RELEASABLE — %d blocker(s)", report.BlockerCount())
+	result.NextAction = "Resolve the blockers above (each names its remedy) and rerun walden release check"
+	result.ExitCode = 1
+	return result
+}
