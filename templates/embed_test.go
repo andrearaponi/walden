@@ -12,6 +12,7 @@ func TestRepoFSExposesBootstrapTemplates(t *testing.T) {
 	// Paths are relative to the "repo" subtree, so the "repo/" prefix is gone.
 	want := []string{
 		"walden/constitution.md",
+		"walden/gitignore",
 		"walden/lessons.md",
 		"github/pull_request_template.md",
 		"github/workflows/validate-walden.yml",

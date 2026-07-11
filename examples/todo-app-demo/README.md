@@ -64,3 +64,14 @@ scripts/verify.sh 1.1
 - **Verification proofs use wrapper scripts** — `scripts/verify.sh` takes a task ID and runs the appropriate check. This avoids shell-quoting issues in task definitions.
 - **Tasks reference requirements and design** — every leaf task traces back to its source requirement and design section.
 - **Documents are approved** — this example ships with all phases approved so you can focus on the execution flow.
+
+## Evidence
+
+Every completion above records execution evidence in `.walden/evidence/todo-app.json`, bound to the spec fingerprints and to a code identity of this directory. Try it:
+
+```bash
+walden evidence status todo-app    # verified / stale-code / unrecorded per task
+walden verify todo-app --check     # re-run every proof against the current code, write nothing
+```
+
+Break something the proofs cover, and `walden task status` stops claiming the plan is complete.

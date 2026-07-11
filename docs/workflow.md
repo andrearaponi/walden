@@ -167,3 +167,16 @@ All `--json` commands return a versioned envelope:
   }
 }
 ```
+
+## 6. Verify
+
+Execution leaves evidence behind: every completed task's proof is recorded in `.walden/evidence/<feature>.json`, bound to the approved chain and to a code identity of the working tree. When the code or the specs move, `walden task status` warns that completed tasks are no longer verified.
+
+```bash
+walden evidence status <feature>   # derived state per task, always exit 0
+walden verify <feature>            # re-prove what is no longer verified
+walden verify <feature> --all      # re-prove everything
+walden verify <feature> --check    # CI mode: report only, write nothing
+```
+
+A code-only bugfix needs no spec ceremony: the evidence goes `stale-code`, and one `verify` proves the acceptance criteria still hold — or names the task whose proof broke.

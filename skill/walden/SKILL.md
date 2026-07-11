@@ -38,6 +38,8 @@ Walden is an open source spec-driven delivery kernel. It is not a complete enter
 - Use `walden review open <feature-name> --phase requirements|design|tasks` and `walden review approve <feature-name> --phase requirements|design|tasks` for deterministic review-state transitions.
 - Use `walden task status <feature-name> [--json]`, `walden task start <feature-name> [task-id] [--json]`, and `walden task complete <feature-name> <task-id> [--json]` for deterministic execution flow.
 - Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
+- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything.
+- Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
 - Use `walden reconcile <feature-name> [--json]` when approved upstream documents changed or the approval chain is stale.
 - Use `walden lesson log --feature <feature-name> --phase requirements|design|tasks|execute|release --trigger "<event>" --lesson "<pattern>" --guardrail "<rule>" [--json]` after meaningful corrections, failed validation, or execution surprises.
 - Use `walden version [--json]` to check the installed CLI version and schema version.
@@ -403,7 +405,8 @@ Task generation starts only from approved and non-stale design.
 - Reference acceptance criteria IDs (e.g., `R1.AC1`, `R1.AC2`) on every leaf task, not just parent requirement IDs.
 - Reference design sections on every leaf task.
 - Add a `Verification:` block on every leaf task using the structured `command` format (Kubernetes pattern). The CLI executes commands via `exec.Command` without a shell, so use JSON arrays for exact argument control.
-- Optionally add a `covers:` field on proof steps to declare which acceptance criteria the proof demonstrates. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
+- Optionally add a `covers:` field on proof steps to declare which acceptance criteria the proof demonstrates.
+- Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
 
 ### Verification Format
@@ -421,6 +424,14 @@ For negative assertions (command must fail), use `expect_exit`:
     - Verification:
       - command: ["grep", "-rq", "old_pattern", "."]
         expect_exit: 1
+```
+
+For output assertions — and to prevent vacuous passes where a test pattern matches zero tests — add `expect_output`:
+
+```markdown
+    - Verification:
+      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
+        expect_output: "--- PASS: TestExample"
 ```
 
 For shell operators (pipes, &&, globbing), use the Kubernetes shell pattern:
@@ -511,6 +522,8 @@ Execution is for approved specs only.
 - Write thorough tests for the task.
 - Run targeted tests for the changed area. Do not run the full suite unless the user asks.
 - Treat the task's `Verification:` line as mandatory proof. Prefer `walden task complete <feature-name> <task-id>` so proof execution and checkbox mutation remain deterministic.
+- Task completion records execution evidence in `.walden/evidence/<feature-name>.json`; commit it with the work — it is shared repository state, reviewed like the specs it proves.
+- If `walden task status` warns that completed tasks are no longer verified (stale-spec, stale-code, failed, unrecorded), run `walden verify <feature-name>` before building on top of them; never dismiss an evidence warning.
 - If a test fails or the proof is weaker than expected, stop and re-plan instead of hand-waving the result.
 - Before closing the execution step, report `Lesson Decision: none|logged`.
 - Stop after the requested task or batch and wait for review.
@@ -521,6 +534,7 @@ Execution is for approved specs only.
 - Update the earliest affected document.
 - Re-run the approval gate from that phase forward.
 - Prefer `walden reconcile <feature-name>` when upstream approval metadata or freshness is no longer valid.
+- After reconciliation and re-approval, run `walden verify <feature-name>`: completed tasks whose evidence went stale-spec must be re-proven against the updated contract, not assumed.
 - Log a lesson if the gap came from a missed pattern, missing guardrail, or design blind spot.
 - Do not silently rewrite approved requirements or design during implementation.
 

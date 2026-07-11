@@ -32,9 +32,20 @@ type Result struct {
 	Coverage              *CoverageReport   `json:"coverage,omitempty"`
 	EARSDistribution      *EARSDistribution `json:"ears_distribution,omitempty"`
 	Skills                []SkillStatus     `json:"skills,omitempty"`
+	Evidence              []EvidenceStatus  `json:"evidence,omitempty"`
 	Update                *UpdateStatus     `json:"update,omitempty"`
 	Content               string            `json:"content,omitempty"`
 	ExitCode              int               `json:"exit_code"`
+}
+
+// EvidenceStatus is the JSON output view of one task's execution evidence.
+type EvidenceStatus struct {
+	TaskID           string `json:"task_id"`
+	State            string `json:"state"`
+	Passed           *bool  `json:"passed,omitempty"`
+	Failure          string `json:"failure,omitempty"`
+	RecordedIdentity string `json:"recorded_identity,omitempty"`
+	CurrentIdentity  string `json:"current_identity,omitempty"`
 }
 
 // UpdateStatus is the JSON output view of an update check or run.
@@ -213,6 +224,17 @@ func PrintText(w io.Writer, result Result) {
 			}
 			if skill.Installed {
 				_, _ = fmt.Fprintf(w, " path=%s", skill.Path)
+			}
+			_, _ = fmt.Fprintln(w)
+		}
+	}
+
+	if len(result.Evidence) > 0 {
+		_, _ = fmt.Fprintln(w, "Evidence:")
+		for _, entry := range result.Evidence {
+			_, _ = fmt.Fprintf(w, "- %s: %s", entry.TaskID, entry.State)
+			if entry.Failure != "" {
+				_, _ = fmt.Fprintf(w, " (%s)", entry.Failure)
 			}
 			_, _ = fmt.Fprintln(w)
 		}

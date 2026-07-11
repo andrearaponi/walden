@@ -1,0 +1,388 @@
+package evidence
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/andrearaponi/walden/internal/shell"
+)
+
+// fakeGit answers git subcommands from a canned map keyed by the second
+// argument after -C <root> (e.g. "status", "ls-tree").
+type fakeGit struct {
+	responses map[string]shell.Response
+	errors    map[string]error
+}
+
+func (f *fakeGit) Run(_ context.Context, name string, args ...string) (shell.Response, error) {
+	if name != "git" || len(args) < 3 {
+		return shell.Response{}, errors.New("unexpected invocation")
+	}
+	sub := args[2]
+	if err, exists := f.errors[sub]; exists {
+		return shell.Response{}, err
+	}
+	if sub == "hash-object" {
+		// Content-derived fake blob ids, one line per path after "--",
+		// mirroring git's batched output. Absolute paths (staged symlink
+		// targets) are honored as git does.
+		root := args[1]
+		separator := -1
+		for i, a := range args {
+			if a == "--" {
+				separator = i
+				break
+			}
+		}
+		lines := ""
+		for _, path := range args[separator+1:] {
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(root, path)
+			}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return shell.Response{ExitCode: 128, Stderr: err.Error()}, nil
+			}
+			sum := sha256.Sum256(content)
+			lines += hex.EncodeToString(sum[:]) + "\n"
+		}
+		return shell.Response{ExitCode: 0, Stdout: lines}, nil
+	}
+	if resp, exists := f.responses[sub]; exists {
+		return resp, nil
+	}
+	return shell.Response{ExitCode: 0}, nil
+}
+
+func lsTreeListing(lines ...string) string {
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func TestIdentityCleanTreeExcludesWalden(t *testing.T) {
+	root := t.TempDir()
+
+	withEvidence := &fakeGit{responses: map[string]shell.Response{
+		"status": {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing(
+			"100644 blob aaa\tmain.go",
+			"100644 blob bbb\t.walden/evidence/f.json",
+		)},
+	}}
+	withoutEvidence := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing("100644 blob aaa\tmain.go")},
+	}}
+	differentCode := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing("100644 blob ccc\tmain.go")},
+	}}
+
+	first, ok := Identity(context.Background(), withEvidence, root)
+	if !ok {
+		t.Fatal("identity not computed")
+	}
+	second, ok := Identity(context.Background(), withoutEvidence, root)
+	if !ok {
+		t.Fatal("identity not computed")
+	}
+	third, ok := Identity(context.Background(), differentCode, root)
+	if !ok {
+		t.Fatal("identity not computed")
+	}
+
+	if first != second {
+		t.Fatalf("committing .walden content changed the identity: %s vs %s", first, second)
+	}
+	if first == third {
+		t.Fatal("a code change did not change the identity")
+	}
+	if !strings.HasPrefix(first, "sha256:") {
+		t.Fatalf("identity %q lacks the sha256 prefix", first)
+	}
+}
+
+func TestIdentityDirtyOverlayIsOrderIndependent(t *testing.T) {
+	root := t.TempDir()
+	for name, content := range map[string]string{"a.go": "alpha", "b.go": "beta"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("seed %s: %v", name, err)
+		}
+	}
+
+	orderAB := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: " M a.go\x00?? b.go\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing("100644 blob aaa\tmain.go")},
+	}}
+	orderBA := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? b.go\x00 M a.go\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing("100644 blob aaa\tmain.go")},
+	}}
+
+	first, _ := Identity(context.Background(), orderAB, root)
+	second, _ := Identity(context.Background(), orderBA, root)
+	if first != second {
+		t.Fatalf("status ordering changed the identity: %s vs %s", first, second)
+	}
+}
+
+func TestIdentityTracksUntrackedContent(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "new.go")
+	if err := os.WriteFile(path, []byte("v1"), 0o644); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? new.go\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: ""},
+	}}
+
+	before, _ := Identity(context.Background(), git, root)
+	if err := os.WriteFile(path, []byte("v2"), 0o644); err != nil {
+		t.Fatalf("rewrite file: %v", err)
+	}
+	after, _ := Identity(context.Background(), git, root)
+
+	if before == after {
+		t.Fatal("untracked content change did not change the identity")
+	}
+}
+
+func TestIdentityHandlesDeletedFiles(t *testing.T) {
+	root := t.TempDir()
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: " D gone.go\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: lsTreeListing("100644 blob aaa\tgone.go")},
+	}}
+
+	identity, ok := Identity(context.Background(), git, root)
+	if !ok || identity == "" {
+		t.Fatal("deleted file broke identity computation")
+	}
+}
+
+func TestIdentityUnbornHeadUsesOverlayAlone(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "first.go"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? first.go\x00"},
+		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+	}}
+
+	identity, ok := Identity(context.Background(), git, root)
+	if !ok || identity == "" {
+		t.Fatal("unborn HEAD did not degrade to the overlay")
+	}
+}
+
+func TestIdentityGitFailureReturnsAbsent(t *testing.T) {
+	root := t.TempDir()
+
+	cases := []*fakeGit{
+		{responses: map[string]shell.Response{"status": {ExitCode: 128, Stderr: "fatal: not a git repository"}}},
+		{errors: map[string]error{"status": errors.New("executable file not found")}},
+	}
+	for _, git := range cases {
+		if identity, ok := Identity(context.Background(), git, root); ok || identity != "" {
+			t.Fatalf("git failure yielded identity %q ok=%t, want absent", identity, ok)
+		}
+	}
+}
+
+func TestIdentitySurvivesTheCommitTransition(t *testing.T) {
+	// The serpent's little sibling: an untracked file and the same file
+	// committed must produce the same identity — layer transitions are not
+	// content changes.
+	root := t.TempDir()
+	content := []byte("#!/bin/sh\necho 5\n")
+	if err := os.WriteFile(filepath.Join(root, "calc.sh"), content, 0o755); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+	blob := sha256.Sum256(content)
+	blobID := hex.EncodeToString(blob[:])
+
+	untracked := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? calc.sh\x00"},
+		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+	}}
+	committed := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: "100755 blob " + blobID + "\tcalc.sh\n"},
+	}}
+
+	before, ok := Identity(context.Background(), untracked, root)
+	if !ok {
+		t.Fatal("untracked identity not computed")
+	}
+	after, ok := Identity(context.Background(), committed, root)
+	if !ok {
+		t.Fatal("committed identity not computed")
+	}
+	if before != after {
+		t.Fatalf("committing unchanged content moved the identity: %s vs %s", before, after)
+	}
+}
+
+func TestIdentitySurvivesTheSymlinkCommitTransition(t *testing.T) {
+	// Git stores a symlink blob as its target string; following the link
+	// would hash the target's content instead. Both layers must agree.
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "Makefile"), []byte("build:\n\ttrue\n"), 0o644); err != nil {
+		t.Fatalf("seed target: %v", err)
+	}
+	if err := os.Symlink("Makefile", filepath.Join(root, "link.mk")); err != nil {
+		t.Fatalf("seed symlink: %v", err)
+	}
+	targetBlob := sha256.Sum256([]byte("Makefile"))
+	linkBlobID := hex.EncodeToString(targetBlob[:])
+	fileBlob := sha256.Sum256([]byte("build:\n\ttrue\n"))
+	fileBlobID := hex.EncodeToString(fileBlob[:])
+
+	untracked := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "?? Makefile\x00?? link.mk\x00"},
+		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+	}}
+	committed := &fakeGit{responses: map[string]shell.Response{
+		"status": {ExitCode: 0},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob " + fileBlobID + "\tMakefile\n" +
+			"120000 blob " + linkBlobID + "\tlink.mk\n"},
+	}}
+
+	before, ok := Identity(context.Background(), untracked, root)
+	if !ok {
+		t.Fatal("untracked identity not computed")
+	}
+	after, ok := Identity(context.Background(), committed, root)
+	if !ok {
+		t.Fatal("committed identity not computed")
+	}
+	if before != after {
+		t.Fatalf("committing an unchanged symlink moved the identity: %s vs %s", before, after)
+	}
+}
+
+// countingGit wraps fakeGit and counts hash-object invocations.
+type countingGit struct {
+	inner      *fakeGit
+	hashSpawns int
+}
+
+func (c *countingGit) Run(ctx context.Context, name string, args ...string) (shell.Response, error) {
+	if len(args) >= 3 && args[2] == "hash-object" {
+		c.hashSpawns++
+	}
+	return c.inner.Run(ctx, name, args...)
+}
+
+func TestIdentityBatchesDirtyHashing(t *testing.T) {
+	root := t.TempDir()
+	porcelain := ""
+	for _, name := range []string{"a.go", "b.go", "c.go", "d.go"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(name), 0o644); err != nil {
+			t.Fatalf("seed %s: %v", name, err)
+		}
+		porcelain += "?? " + name + "\x00"
+	}
+
+	counting := &countingGit{inner: &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: porcelain},
+		"ls-tree": {ExitCode: 0, Stdout: ""},
+	}}}
+
+	if _, ok := Identity(context.Background(), counting, root); !ok {
+		t.Fatal("identity not computed")
+	}
+	if counting.hashSpawns != 1 {
+		t.Fatalf("hash-object spawned %d times for 4 dirty files, want 1 batched call", counting.hashSpawns)
+	}
+}
+
+func TestIdentityTracksModeChanges(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "run.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\ntrue\n"), 0o644); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: " M run.sh\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob aaa\trun.sh\n"},
+	}}
+
+	plain, _ := Identity(context.Background(), git, root)
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	executable, _ := Identity(context.Background(), git, root)
+
+	if plain == executable {
+		t.Fatal("an executable-bit flip did not move the identity: the mode is code")
+	}
+}
+
+func TestIdentityHandlesPathologicalFilenames(t *testing.T) {
+	root := t.TempDir()
+	names := []string{"file with spaces.txt", "città-über.txt"}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("v1:"+name), 0o644); err != nil {
+			t.Fatalf("seed %q: %v", name, err)
+		}
+	}
+
+	porcelain := "?? file with spaces.txt\x00?? città-über.txt\x00"
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: porcelain},
+		"ls-tree": {ExitCode: 0, Stdout: ""},
+	}}
+
+	first, ok := Identity(context.Background(), git, root)
+	if !ok {
+		t.Fatal("identity not computed with pathological names")
+	}
+	second, _ := Identity(context.Background(), git, root)
+	if first != second {
+		t.Fatal("identity unstable across runs with pathological names")
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "città-über.txt"), []byte("v2"), 0o644); err != nil {
+		t.Fatalf("rewrite: %v", err)
+	}
+	third, _ := Identity(context.Background(), git, root)
+	if first == third {
+		t.Fatal("unicode filename content change did not move the identity")
+	}
+}
+
+func TestIdentityHandlesRenameEntries(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "renamed.txt"), []byte("content"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Porcelain -z rename entries carry the source path as a separate
+	// NUL field, which the parser must consume without hashing it.
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "R  renamed.txt\x00original.txt\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob aaa\toriginal.txt\n"},
+	}}
+
+	identity, ok := Identity(context.Background(), git, root)
+	if !ok {
+		t.Fatal("identity not computed on a rename")
+	}
+
+	// The old path stays in the map only via the listing; the source field
+	// must not be treated as a live file (it does not exist on disk).
+	if identity == "" {
+		t.Fatal("empty identity")
+	}
+}

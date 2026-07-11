@@ -13,6 +13,7 @@ var (
 	metadataLinePattern = regexp.MustCompile(`^ {4}- (Requirements|Design|Verification):(.*)$`)
 	commandStepPattern  = regexp.MustCompile(`^ {6}- (?:command|argv): (\[.+\])\s*$`)
 	expectExitPattern   = regexp.MustCompile(`^ {8}expect_exit: ([0-9]+)\s*$`)
+	expectOutputPattern = regexp.MustCompile(`^ {8}expect_output: (.+?)\s*$`)
 	coversPattern       = regexp.MustCompile(`^ {8}covers: (\[.+\])\s*$`)
 	backtickRefPattern  = regexp.MustCompile("`([^`]+)`")
 )
@@ -26,9 +27,10 @@ type VerificationSpec struct {
 // VerificationStep is one structured proof step executed without shell interpolation.
 // Uses the Kubernetes command pattern: command: ["executable", "arg1", "arg2"].
 type VerificationStep struct {
-	Argv       []string
-	ExpectExit *int
-	Covers     []string
+	Argv         []string
+	ExpectExit   *int
+	ExpectOutput *string
+	Covers       []string
 }
 
 // Empty reports whether the verification spec contains any executable proof.
@@ -125,6 +127,21 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 					return TaskTree{}, fmt.Errorf("line %d: invalid expect_exit value: %w", index+1, err)
 				}
 				steps[len(steps)-1].ExpectExit = &exitCode
+				continue
+			}
+			if match := expectOutputPattern.FindStringSubmatch(line); match != nil {
+				steps := pendingVerificationTask.Proof.Steps
+				if len(steps) == 0 {
+					return TaskTree{}, fmt.Errorf("line %d: expect_output declared before any command step for task %q", index+1, pendingVerificationTask.ID)
+				}
+				expected := strings.TrimSpace(match[1])
+				if len(expected) >= 2 && strings.HasPrefix(expected, "\"") && strings.HasSuffix(expected, "\"") {
+					expected = expected[1 : len(expected)-1]
+				}
+				if expected == "" {
+					return TaskTree{}, fmt.Errorf("line %d: expect_output requires non-empty content for task %q", index+1, pendingVerificationTask.ID)
+				}
+				steps[len(steps)-1].ExpectOutput = &expected
 				continue
 			}
 			if match := coversPattern.FindStringSubmatch(line); match != nil {

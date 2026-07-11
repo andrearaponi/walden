@@ -159,6 +159,7 @@ You don't need to remember a single CLI command. `walden validate`, `walden revi
 | Designs architecture, evaluates alternatives | AC traceability (100% coverage required) |
 | Generates implementation tasks with proofs | Verification proofs on every task |
 | Reviews lessons before similar work | Stale document detection and reconciliation |
+| Runs `walden verify` when evidence goes stale | Execution evidence: derived states bound to spec fingerprints and code identity |
 
 Human review and approval remain your responsibility. The skill drafts and proposes — it never approves on your behalf.
 
@@ -197,6 +198,8 @@ walden lesson log --feature user-auth --phase execute \
 | `task start <feature> [task-id] [--json]` | Get execution context for the next or a specific task |
 | `task complete <feature> <task-id> [--json]` | Run verification proof and mark task complete |
 | `task complete-all <feature> [--json]` | Complete all runnable tasks in order, stop on first failure |
+| `verify <feature> [--all] [--check] [--json]` | Re-prove completed tasks against the current code and refresh evidence |
+| `evidence status <feature> [--json]` | Report each task's derived execution-evidence state |
 | `reconcile <feature> [--json]` | Repair stale approval chains after upstream edits |
 | `lesson log [--json]` | Append a lesson to `.walden/lessons.md` |
 | `version [--json]` | Print build version and schema version |
@@ -313,6 +316,16 @@ For pipes, `&&`, or globbing, use the Kubernetes shell pattern:
   - command: ["sh", "-c", "test -d .walden && go test ./..."]
 ```
 
+### Output Assertions
+
+`expect_output` requires the step's combined output to contain the declared content — closing the vacuous-pass hole where a test command matching zero tests exits 0:
+
+```markdown
+- Verification:
+  - command: ["go", "test", "-run", "TestAuth", "./internal/auth/"]
+    expect_output: "--- PASS: TestAuth"
+```
+
 ### Multi-Step Verification
 
 Steps run in order, stopping on first failure:
@@ -330,6 +343,31 @@ Single-line format is deprecated. It does not support quotes, pipes, or shell op
 ```markdown
 - Verification: go test ./...
 ```
+
+## Evidence
+
+Completing a task records durable execution evidence in `.walden/evidence/<feature>.json`: the proof's steps (argv, exit codes, output digests) bound to the approved chain fingerprints and to a **code identity** — a deterministic hash of the working tree with `.walden/` excluded, so committing the evidence never invalidates it. The checkbox in `tasks.md` stays the human-readable projection; the evidence document is the authoritative execution state, committed and reviewed like the specs it proves.
+
+States are **derived at read time**, never stored:
+
+| State | Meaning |
+| --- | --- |
+| `verified` | The recorded proof matches the current spec chain and the current code |
+| `stale-spec` | Requirements, design, or this task's definition changed since the proof ran |
+| `stale-code` | The working tree changed since the proof ran |
+| `failed` | The last re-verification failed |
+| `unrecorded` | Completed before the ledger existed (`walden verify` upgrades it) |
+| `pending` | Not completed yet |
+
+Re-prove the current code on demand:
+
+```bash
+walden verify <feature>          # re-run proofs for non-verified completed tasks
+walden verify <feature> --all    # re-run every completed task's proof
+walden verify <feature> --check  # report only — writes nothing (CI-friendly)
+```
+
+`walden evidence status <feature>` reports the derived states without running anything (always exit 0). Evidence writes replace the whole document atomically: concurrent walden processes can never corrupt the ledger — at worst a record is lost to the last writer, surfaces as `unrecorded`, and `walden verify` regenerates it. `walden task status` warns when completed tasks are no longer verified — a spec change or code change is visible as staleness instead of hiding behind a checked box. Timestamps in evidence records are human context only: every verdict depends exclusively on content identities.
 
 ## EARS
 
@@ -358,6 +396,10 @@ Each acceptance criterion gets a stable ID (e.g., `R1.AC1`) and uses exactly one
 | Proof coverage per AC (via covers: field) | Yes | - |
 | Proof execution | Yes | - |
 | Structured proof format | Yes | Legacy deprecation active |
+| Task completion bound to the current code (evidence + code identity) | Yes | - |
+| Completed-task re-verification (`walden verify`) | Yes | - |
+| Vacuous-proof rejection (`expect_output`) | Yes | Opt-in per step |
+| Aggregate release gate | - | `release check` (planned) |
 
 ## Constitution
 

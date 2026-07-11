@@ -77,6 +77,10 @@ Proofs use structured `command` format to avoid shell-quoting issues:
   - command: ["go", "test", "./internal/workflow/..."]
 ```
 
+## Evidence
+
+Completing a task records durable execution evidence in `.walden/evidence/<feature>.json`: the proof's steps bound to the approved chain fingerprints and to a deterministic code identity of the working tree (`.walden/` excluded, so committing the evidence never invalidates it). States are derived at read time — `verified`, `stale-spec`, `stale-code`, `failed`, `unrecorded`, `pending` — never stored. `walden verify` re-executes the proofs of completed tasks against the current code; `--check` reports without writing. The checkbox in `tasks.md` remains the human-readable projection; the evidence document is the authoritative execution state, committed and reviewed like the specs it proves.
+
 ## Constitution
 
 `.walden/constitution.md` is an optional repo-wide file that captures stable project context: tech stack, conventions, sanity checks, key files, and hard rules. Unlike the three per-feature documents (`requirements.md`, `design.md`, `tasks.md`), the constitution is not part of the approval workflow. It does not block any phase transition, does not have freshness rules, and is not validated by the CLI. The skill reads it when present to reduce context rediscovery across features.
