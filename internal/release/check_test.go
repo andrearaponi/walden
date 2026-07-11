@@ -254,6 +254,49 @@ func TestReleaseCheckDecisionMarkerBlocksOnlyWhenApproved(t *testing.T) {
 	}
 }
 
+func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
+	requireGit(t)
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q", "-b", "main")
+	gitIn(t, root, "config", "user.email", "g@g")
+	gitIn(t, root, "config", "user.name", "G")
+
+	// The production-shaped assumed note: prose inside an HTML comment that
+	// mentions the marker to deny its presence must never block.
+	commented := "\n\n<!-- assumed: no [decision: checkpoints — every fork was resolved during requirements -->"
+	addFeature(t, root, "commented", certifiableRequirements(), certifiableDesign(commented), certifiableTasks())
+
+	report, err := ReleaseCheck(context.Background(), root, "commented", false)
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	if decisions := criterion(t, report.Features[0], "decisions"); !decisions.Passed {
+		t.Fatalf("marker inside a comment blocked certification: %+v", decisions)
+	}
+
+	// An unterminated comment swallows the rest of the document.
+	unterminated := "\n\n<!-- assumed: still drafting\n\n[decision: which store?]"
+	addFeature(t, root, "unterminated", certifiableRequirements(), certifiableDesign(unterminated), certifiableTasks())
+	report, err = ReleaseCheck(context.Background(), root, "unterminated", false)
+	if err != nil {
+		t.Fatalf("ReleaseCheck unterminated: %v", err)
+	}
+	if decisions := criterion(t, report.Features[0], "decisions"); !decisions.Passed {
+		t.Fatalf("marker inside an unterminated comment blocked: %+v", decisions)
+	}
+
+	// A real marker beside a commented one still blocks.
+	mixed := "\n\n<!-- assumed: none open -->\n\n[decision: pick a queue]"
+	addFeature(t, root, "mixed", certifiableRequirements(), certifiableDesign(mixed), certifiableTasks())
+	report, err = ReleaseCheck(context.Background(), root, "mixed", false)
+	if err != nil {
+		t.Fatalf("ReleaseCheck mixed: %v", err)
+	}
+	if decisions := criterion(t, report.Features[0], "decisions"); decisions.Passed {
+		t.Fatal("marker outside the comment did not block")
+	}
+}
+
 func TestReleaseCheckEvidenceBlockerNamesStateAndRemedy(t *testing.T) {
 	root := gateRepo(t)
 

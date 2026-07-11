@@ -153,7 +153,7 @@ func certifyFeature(root, name string, strict bool, identity string, identityOK 
 			{"design.md", feature.Design},
 			{"tasks.md", feature.Tasks},
 		} {
-			if doc.document.Exists && doc.document.Status == "approved" && strings.Contains(doc.document.Body, decisionMarker) {
+			if doc.document.Exists && doc.document.Status == "approved" && strings.Contains(stripHTMLComments(doc.document.Body), decisionMarker) {
 				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("unresolved %s] marker in %s — resolve it and re-approve", decisionMarker, doc.name))
 			}
 		}
@@ -202,6 +202,26 @@ func certifyFeature(root, name string, strict bool, identity string, identityOK 
 	certification.Criteria = append(certification.Criteria, evidenceCriterion)
 
 	return certification
+}
+
+// stripHTMLComments removes `<!-- ... -->` spans (unterminated ones to the
+// end) before the decision scan: assumed markers live in comments by skill
+// convention and legitimately mention the decision marker in prose.
+func stripHTMLComments(body string) string {
+	var kept strings.Builder
+	for {
+		start := strings.Index(body, "<!--")
+		if start < 0 {
+			kept.WriteString(body)
+			return kept.String()
+		}
+		kept.WriteString(body[:start])
+		end := strings.Index(body[start:], "-->")
+		if end < 0 {
+			return kept.String()
+		}
+		body = body[start+end+len("-->"):]
+	}
 }
 
 // worktreeCriterion partitions uncommitted paths once per run: code outside
