@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-11
+
+### Fixed
+
+- **`repo init` generated an uninstallable CI pin from source builds.** The v0.7.1 pin feature stamped the generating binary's version verbatim into `validate-walden.yml`; clone builds carry git-describe versions (`v0.7.1-2-gabc1234`) that `go install` cannot resolve, so the generated workflow failed its first run with `invalid version: unknown revision`. The pin is now an allowlist of the only installable shape — strict `vMAJOR.MINOR.PATCH` tags; every other version (dev builds, describe suffixes, pseudo-versions) falls back to `@latest`. Release binaries always stamped real tags and were unaffected. If a clone build generated a broken pin, re-run `walden repo init` to refresh it. Found by the first dogfooded project's CI, one day after v0.7.1 shipped.
+
 ## [0.7.1] - 2026-07-10
 
 Hardening patch driven by an external technical review of the kernel: the core guarantees stood, the surfaces around them leaked. No change to fingerprint semantics, the document schema, or the workflow model — existing approved chains stay fresh.
