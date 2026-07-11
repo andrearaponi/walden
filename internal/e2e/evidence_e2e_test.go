@@ -322,3 +322,101 @@ func TestE2EOrphanPruning(t *testing.T) {
 		t.Fatalf("final state incoherent: %s", summary)
 	}
 }
+
+func TestE2ELegacyProofVerify(t *testing.T) {
+	requireGit(t)
+	dir := t.TempDir()
+	gitIn(t, dir, "init", "-q", "-b", "main")
+	gitIn(t, dir, "config", "user.email", "e2e@walden.dev")
+	gitIn(t, dir, "config", "user.name", "E2E")
+
+	mustCLI(t, dir, "repo", "init")
+	mustCLI(t, dir, "feature", "init", "legacy-demo")
+
+	writeFile(t, dir, ".walden/specs/legacy-demo/requirements.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-11T10:00:00Z
+approved_fingerprint:
+---
+
+# Requirements Document
+
+## Introduction
+
+Legacy proof fixture.
+
+## Requirements
+
+### R1 Marker
+
+**User Story:** As a tester, I want legacy proofs exercised, so that old plans keep verifying.
+
+#### Acceptance Criteria
+
+1. `+"`R1.AC1`"+` WHEN the legacy proof runs, the system SHALL find the marker.
+`)
+	writeFile(t, dir, ".walden/specs/legacy-demo/design.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-11T10:00:00Z
+approved_fingerprint:
+source_requirements_approved_at:
+source_requirements_fingerprint:
+---
+
+# Feature Design
+
+## Overview
+
+One legacy single-line proof.
+
+## Requirement Coverage
+
+| Requirement | Covered By |
+| --- | --- |
+| `+"`R1`"+` | src.txt |
+`)
+	writeFile(t, dir, ".walden/specs/legacy-demo/tasks.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-11T10:00:00Z
+approved_fingerprint:
+source_design_approved_at:
+source_design_fingerprint:
+---
+
+# Implementation Plan
+
+- [ ] 1. Marker
+  - [ ] 1.1 Place the marker
+    - Requirements: `+"`R1.AC1`"+`
+    - Design: Overview
+    - Verification: `+"`grep -q MARKER src.txt`"+`
+`)
+
+	for _, phase := range []string{"requirements", "design", "tasks"} {
+		mustCLI(t, dir, "review", "open", "legacy-demo", "--phase", phase)
+		mustCLI(t, dir, "review", "approve", "legacy-demo", "--phase", phase)
+	}
+	writeFile(t, dir, "src.txt", "MARKER\n")
+	mustCLI(t, dir, "task", "complete-all", "legacy-demo")
+
+	out, _ := cli(t, dir, "evidence", "status", "legacy-demo")
+	if !strings.Contains(out, "1 verified") {
+		t.Fatalf("legacy completion not recorded as verified: %s", out)
+	}
+
+	// The legacy path must survive re-verification too.
+	mustCLI(t, dir, "verify", "legacy-demo", "--all")
+	out, _ = cli(t, dir, "evidence", "status", "legacy-demo")
+	if !strings.Contains(out, "1 verified") {
+		t.Fatalf("legacy verify broke the state: %s", out)
+	}
+
+	// And a regression is still caught through the legacy proof.
+	writeFile(t, dir, "src.txt", "nothing here\n")
+	if _, code := cli(t, dir, "verify", "legacy-demo"); code == 0 {
+		t.Fatal("legacy verify passed on broken code")
+	}
+}

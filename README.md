@@ -366,7 +366,7 @@ walden verify <feature> --all    # re-run every completed task's proof
 walden verify <feature> --check  # report only — writes nothing (CI-friendly)
 ```
 
-`walden evidence status <feature>` reports the derived states without running anything (always exit 0). `walden task status` warns when completed tasks are no longer verified — a spec change or code change is visible as staleness instead of hiding behind a checked box. Timestamps in evidence records are human context only: every verdict depends exclusively on content identities.
+`walden evidence status <feature>` reports the derived states without running anything (always exit 0). Evidence writes replace the whole document atomically: concurrent walden processes can never corrupt the ledger — at worst a record is lost to the last writer, surfaces as `unrecorded`, and `walden verify` regenerates it. `walden task status` warns when completed tasks are no longer verified — a spec change or code change is visible as staleness instead of hiding behind a checked box. Timestamps in evidence records are human context only: every verdict depends exclusively on content identities.
 
 ## EARS
 

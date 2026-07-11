@@ -328,3 +328,61 @@ func TestIdentityTracksModeChanges(t *testing.T) {
 		t.Fatal("an executable-bit flip did not move the identity: the mode is code")
 	}
 }
+
+func TestIdentityHandlesPathologicalFilenames(t *testing.T) {
+	root := t.TempDir()
+	names := []string{"file with spaces.txt", "città-über.txt"}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("v1:"+name), 0o644); err != nil {
+			t.Fatalf("seed %q: %v", name, err)
+		}
+	}
+
+	porcelain := "?? file with spaces.txt\x00?? città-über.txt\x00"
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: porcelain},
+		"ls-tree": {ExitCode: 0, Stdout: ""},
+	}}
+
+	first, ok := Identity(context.Background(), git, root)
+	if !ok {
+		t.Fatal("identity not computed with pathological names")
+	}
+	second, _ := Identity(context.Background(), git, root)
+	if first != second {
+		t.Fatal("identity unstable across runs with pathological names")
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "città-über.txt"), []byte("v2"), 0o644); err != nil {
+		t.Fatalf("rewrite: %v", err)
+	}
+	third, _ := Identity(context.Background(), git, root)
+	if first == third {
+		t.Fatal("unicode filename content change did not move the identity")
+	}
+}
+
+func TestIdentityHandlesRenameEntries(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "renamed.txt"), []byte("content"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Porcelain -z rename entries carry the source path as a separate
+	// NUL field, which the parser must consume without hashing it.
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: "R  renamed.txt\x00original.txt\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob aaa\toriginal.txt\n"},
+	}}
+
+	identity, ok := Identity(context.Background(), git, root)
+	if !ok {
+		t.Fatal("identity not computed on a rename")
+	}
+
+	// The old path stays in the map only via the listing; the source field
+	// must not be treated as a live file (it does not exist on disk).
+	if identity == "" {
+		t.Fatal("empty identity")
+	}
+}
