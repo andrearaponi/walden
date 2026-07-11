@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/andrearaponi/walden/templates"
@@ -84,13 +85,31 @@ func Init(root string, version string) (InitReport, error) {
 	return report, nil
 }
 
-// installPin maps the generating binary's version to the go install target:
-// an exact release pin, or "latest" for source builds with no release info.
+// installPin maps the generating binary's version to the go install target.
+// Only an exact vMAJOR.MINOR.PATCH release tag is pinnable: dev builds and
+// git-describe suffixed versions (v0.7.1-2-gabc1234, what setup.sh stamps on
+// clone builds) are not resolvable by `go install` and fall back to latest.
 func installPin(version string) string {
-	if version == "" || version == "dev" {
-		return "latest"
+	if isReleaseTag(version) {
+		return version
 	}
-	return version
+	return "latest"
+}
+
+func isReleaseTag(version string) bool {
+	if !strings.HasPrefix(version, "v") {
+		return false
+	}
+	parts := strings.Split(version[1:], ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if value, err := strconv.Atoi(part); err != nil || value < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 type gitRepositoryState struct {
