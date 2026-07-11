@@ -77,3 +77,29 @@ func TestInitRefreshesPinOnRerunWithNewerBinary(t *testing.T) {
 		t.Fatalf("workflow pin not refreshed:\n%s", workflow)
 	}
 }
+
+func TestInitNonReleaseVersionsFallBackToLatest(t *testing.T) {
+	// go install resolves release tags and pseudo-versions, never
+	// git-describe strings — pinning one breaks every generated CI run.
+	cases := []string{
+		"v0.7.1-2-gc360063",
+		"v0.7.2-0.20260711060210-abcdef123456",
+		"(devel)",
+		"v0.7",
+		"dev",
+		"",
+	}
+
+	for _, version := range cases {
+		t.Run(version, func(t *testing.T) {
+			root := t.TempDir()
+			if _, err := Init(root, version); err != nil {
+				t.Fatalf("Init returned error: %v", err)
+			}
+			workflow := readWorkflow(t, root)
+			if !strings.Contains(workflow, "cmd/walden@latest") {
+				t.Fatalf("version %q did not fall back to @latest:\n%s", version, workflow)
+			}
+		})
+	}
+}
