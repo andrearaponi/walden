@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/andrearaponi/walden/internal/evidence"
@@ -25,6 +26,7 @@ type VerifyResult struct {
 	Failed   []string
 	Checked  bool
 	Skipped  []string
+	Pruned   []string
 }
 
 // Verify re-executes the proofs of completed tasks against the current
@@ -75,6 +77,17 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	refreshed := map[string]evidence.Record{}
 	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 
+	planIDs := map[string]bool{}
+	for _, task := range tree.LeafTasks() {
+		planIDs[task.ID] = true
+	}
+	for taskID := range ledger.Tasks {
+		if !planIDs[taskID] {
+			result.Pruned = append(result.Pruned, taskID)
+		}
+	}
+	sort.Strings(result.Pruned)
+
 	for _, task := range tree.LeafTasks() {
 		if !task.Completed {
 			continue
@@ -119,16 +132,25 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		result.Outcomes = append(result.Outcomes, outcome)
 	}
 
-	if !check && len(refreshed) > 0 {
+	if !check && (len(refreshed) > 0 || len(result.Pruned) > 0) {
 		// The post-proof identity: the tree the proofs actually left behind.
 		finalIdentity, _ := evidence.Identity(ctx, identityRunner, root)
 		for taskID, record := range refreshed {
 			record.CodeIdentity = finalIdentity
 			ledger.Tasks[taskID] = record
 		}
+		// The state map is a claim about the current plan: entries for task
+		// ids that left the plan are history, and history lives in git.
+		for _, taskID := range result.Pruned {
+			delete(ledger.Tasks, taskID)
+		}
 		if err := evidence.Save(root, ledger); err != nil {
 			return VerifyResult{}, fmt.Errorf("persist refreshed evidence: %w", err)
 		}
+	}
+	if check {
+		// Nothing is persisted in check mode; report what a real run would prune.
+		_ = check
 	}
 	return result, nil
 }

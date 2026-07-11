@@ -216,7 +216,7 @@ func TestIdentitySurvivesTheCommitTransition(t *testing.T) {
 	}}
 	committed := &fakeGit{responses: map[string]shell.Response{
 		"status":  {ExitCode: 0},
-		"ls-tree": {ExitCode: 0, Stdout: "100644 blob " + blobID + "\tcalc.sh\n"},
+		"ls-tree": {ExitCode: 0, Stdout: "100755 blob " + blobID + "\tcalc.sh\n"},
 	}}
 
 	before, ok := Identity(context.Background(), untracked, root)
@@ -303,5 +303,28 @@ func TestIdentityBatchesDirtyHashing(t *testing.T) {
 	}
 	if counting.hashSpawns != 1 {
 		t.Fatalf("hash-object spawned %d times for 4 dirty files, want 1 batched call", counting.hashSpawns)
+	}
+}
+
+func TestIdentityTracksModeChanges(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "run.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\ntrue\n"), 0o644); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+
+	git := &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: " M run.sh\x00"},
+		"ls-tree": {ExitCode: 0, Stdout: "100644 blob aaa\trun.sh\n"},
+	}}
+
+	plain, _ := Identity(context.Background(), git, root)
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	executable, _ := Identity(context.Background(), git, root)
+
+	if plain == executable {
+		t.Fatal("an executable-bit flip did not move the identity: the mode is code")
 	}
 }

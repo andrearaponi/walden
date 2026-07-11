@@ -52,8 +52,10 @@ func Identity(ctx context.Context, runner shell.Runner, root string) (string, bo
 	return "sha256:" + hex.EncodeToString(sum[:]), true
 }
 
-// seedListing fills the blob map from a `git ls-tree -r HEAD` listing
-// (format: "<mode> <type> <hash>\t<path>"), dropping .walden/ entries.
+// seedListing fills the map from a `git ls-tree -r HEAD` listing (format:
+// "<mode> <type> <hash>\t<path>"), dropping .walden/ entries. Entries carry
+// "<mode>:<blob>": the executable bit is code, so mode changes must move
+// the identity.
 func seedListing(blobs map[string]string, listing string) {
 	for _, line := range strings.Split(listing, "\n") {
 		meta, path, found := strings.Cut(line, "\t")
@@ -64,7 +66,7 @@ func seedListing(blobs map[string]string, listing string) {
 		if len(fields) < 3 {
 			continue
 		}
-		blobs[path] = fields[2]
+		blobs[path] = fields[0] + ":" + fields[2]
 	}
 }
 
@@ -76,6 +78,7 @@ func seedListing(blobs map[string]string, listing string) {
 func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain string, blobs map[string]string) bool {
 	pending := []string{}  // repo-relative paths, hashed in batches
 	hashArgs := []string{} // the argv actually passed for each pending path
+	modes := []string{}    // canonical git mode per pending path
 	cleanups := []string{}
 
 	defer func() {
@@ -109,7 +112,12 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 		}
 
 		hashArg := path
+		mode := "100644"
+		if info.Mode().Perm()&0o111 != 0 {
+			mode = "100755"
+		}
 		if info.Mode()&os.ModeSymlink != 0 {
+			mode = "120000"
 			// Git stores a symlink as a blob of its target string, while
 			// hash-object on the link path would follow it and hash the
 			// target's content — a representation split that would make the
@@ -134,6 +142,7 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 		}
 		pending = append(pending, path)
 		hashArgs = append(hashArgs, hashArg)
+		modes = append(modes, mode)
 	}
 
 	const chunkSize = 500
@@ -153,7 +162,7 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 			return false
 		}
 		for offset, blob := range lines {
-			blobs[pending[start+offset]] = blob
+			blobs[pending[start+offset]] = modes[start+offset] + ":" + blob
 		}
 	}
 	return true

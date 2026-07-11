@@ -293,3 +293,49 @@ func TestVerifyRecordsPostProofIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestVerifyPrunesOrphanedEntries(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, identityYielding("100644 blob aaa\tmain.go\n"))
+	completeBoth(t, root)
+
+	ledger, err := evidence.Load(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("load ledger: %v", err)
+	}
+	orphan := ledger.Tasks["1.1"]
+	ledger.Tasks["9.9"] = orphan
+	if err := evidence.Save(root, ledger); err != nil {
+		t.Fatalf("seed orphan: %v", err)
+	}
+
+	// Check mode reports without touching the orphan.
+	checked, err := Verify(context.Background(), root, "todo-app-demo", false, true, testutil.NewFakeRunner())
+	if err != nil {
+		t.Fatalf("Verify --check: %v", err)
+	}
+	if len(checked.Pruned) != 1 || checked.Pruned[0] != "9.9" {
+		t.Fatalf("check mode pruned report = %v, want [9.9]", checked.Pruned)
+	}
+	after, _ := evidence.Load(root, "todo-app-demo")
+	if _, exists := after.Tasks["9.9"]; !exists {
+		t.Fatal("check mode removed the orphan")
+	}
+
+	// A real run prunes even when nothing needs re-proving.
+	result, err := Verify(context.Background(), root, "todo-app-demo", false, false, testutil.NewFakeRunner())
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if len(result.Pruned) != 1 || result.Pruned[0] != "9.9" {
+		t.Fatalf("pruned = %v, want [9.9]", result.Pruned)
+	}
+	final, _ := evidence.Load(root, "todo-app-demo")
+	if _, exists := final.Tasks["9.9"]; exists {
+		t.Fatal("orphan survived a persisting verify")
+	}
+	if len(final.Tasks) != 2 {
+		t.Fatalf("ledger holds %d entries, want the 2 plan tasks", len(final.Tasks))
+	}
+}
