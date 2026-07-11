@@ -60,6 +60,11 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	}
 	ledger.Feature = feature.Name
 
+	// Selection compares against the pre-run identity; the identity written
+	// into refreshed records is computed AFTER the proofs, because proofs
+	// that regenerate tracked artifacts (builds, go generate) change the
+	// tree they prove — the record must bind to the tree that exists once
+	// the proof has passed, exactly as CompleteTask does.
 	identity, _ := evidence.Identity(ctx, identityRunner, root)
 	current := evidence.ChainFingerprints{
 		Requirements: feature.Requirements.Fields["approved_fingerprint"],
@@ -67,6 +72,7 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	}
 
 	result := VerifyResult{Feature: feature.Name, Checked: check}
+	refreshed := map[string]evidence.Record{}
 	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 
 	for _, task := range tree.LeafTasks() {
@@ -93,7 +99,6 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 			RequirementsFingerprint: current.Requirements,
 			DesignFingerprint:       current.Design,
 			TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
-			CodeIdentity:            identity,
 			Steps:                   stepResults,
 			Result:                  evidence.ResultPassed,
 			VerifiedAt:              verifiedAt,
@@ -109,12 +114,18 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		}
 
 		if !check {
-			ledger.Tasks[task.ID] = record
+			refreshed[task.ID] = record
 		}
 		result.Outcomes = append(result.Outcomes, outcome)
 	}
 
-	if !check && len(result.Outcomes) > 0 {
+	if !check && len(refreshed) > 0 {
+		// The post-proof identity: the tree the proofs actually left behind.
+		finalIdentity, _ := evidence.Identity(ctx, identityRunner, root)
+		for taskID, record := range refreshed {
+			record.CodeIdentity = finalIdentity
+			ledger.Tasks[taskID] = record
+		}
 		if err := evidence.Save(root, ledger); err != nil {
 			return VerifyResult{}, fmt.Errorf("persist refreshed evidence: %w", err)
 		}

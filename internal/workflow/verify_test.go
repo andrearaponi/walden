@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
@@ -227,5 +229,67 @@ func TestVerifyBlockedByStaleChain(t *testing.T) {
 	_, err := Verify(context.Background(), root, "todo-app-demo", false, false, testutil.NewFakeRunner())
 	if err == nil {
 		t.Fatal("Verify accepted a stale chain")
+	}
+}
+
+// sideEffectRunner passes every proof while mutating a tracked-visible file,
+// simulating build/generate proofs that regenerate artifacts.
+type sideEffectRunner struct {
+	root  string
+	inner shell.Runner
+}
+
+func (r *sideEffectRunner) Run(ctx context.Context, name string, args ...string) (shell.Response, error) {
+	_ = os.WriteFile(r.root+"/generated.txt", []byte(name+strings.Join(args, " ")), 0o644)
+	return shell.Response{Stdout: "ok", ExitCode: 0}, nil
+}
+
+// dynamicIdentityRunner derives porcelain output from the real filesystem so
+// the identity truly changes when a proof regenerates a file.
+type dynamicIdentityRunner struct{ root string }
+
+func (r *dynamicIdentityRunner) Run(_ context.Context, _ string, args ...string) (shell.Response, error) {
+	if len(args) >= 3 && args[2] == "ls-tree" {
+		return shell.Response{ExitCode: 0, Stdout: "100644 blob aaa\tmain.go\n"}, nil
+	}
+	if len(args) >= 3 && args[2] == "hash-object" {
+		content, err := os.ReadFile(r.root + "/" + args[len(args)-1])
+		if err != nil {
+			return shell.Response{ExitCode: 128, Stderr: err.Error()}, nil
+		}
+		return shell.Response{ExitCode: 0, Stdout: testDigest(content) + "\n"}, nil
+	}
+	// status: report generated.txt as untracked when it exists.
+	if _, err := os.Stat(r.root + "/generated.txt"); err == nil {
+		return shell.Response{ExitCode: 0, Stdout: "?? generated.txt\x00"}, nil
+	}
+	return shell.Response{ExitCode: 0}, nil
+}
+
+func testDigest(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
+}
+
+func TestVerifyRecordsPostProofIdentity(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+	completeBoth(t, root)
+
+	// The proofs regenerate a tracked-visible artifact: the identity at the
+	// start of the run is not the identity of the tree the proofs leave.
+	if _, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root}); err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+
+	_, entries, err := EvidenceReport(context.Background(), root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("EvidenceReport: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.State != evidence.StateVerified {
+			t.Fatalf("task %s = %s immediately after verify, want verified (identity recorded pre-proof?)", entry.TaskID, entry.State)
+		}
 	}
 }
