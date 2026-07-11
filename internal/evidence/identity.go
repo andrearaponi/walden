@@ -71,8 +71,19 @@ func seedListing(blobs map[string]string, listing string) {
 // applyOverlay overrides the blob map with the current content of every
 // dirty or untracked path from NUL-separated porcelain output, using git
 // hash-object so the representation matches committed entries. Deleted
-// paths leave the map.
+// paths leave the map. Regular files are hashed in chunked batches — one
+// git spawn per file made a 400-file dirty tree cost seconds per status.
 func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain string, blobs map[string]string) bool {
+	pending := []string{}  // repo-relative paths, hashed in batches
+	hashArgs := []string{} // the argv actually passed for each pending path
+	cleanups := []string{}
+
+	defer func() {
+		for _, name := range cleanups {
+			_ = os.Remove(name)
+		}
+	}()
+
 	fields := strings.Split(porcelain, "\x00")
 	for index := 0; index < len(fields); index++ {
 		entry := fields[index]
@@ -97,7 +108,7 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 			return false
 		}
 
-		hashPath := path
+		hashArg := path
 		if info.Mode()&os.ModeSymlink != 0 {
 			// Git stores a symlink as a blob of its target string, while
 			// hash-object on the link path would follow it and hash the
@@ -118,19 +129,32 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 				return false
 			}
 			_ = staged.Close()
-			defer func(name string) { _ = os.Remove(name) }(staged.Name())
-			hashPath = staged.Name()
+			cleanups = append(cleanups, staged.Name())
+			hashArg = staged.Name()
+		}
+		pending = append(pending, path)
+		hashArgs = append(hashArgs, hashArg)
+	}
+
+	const chunkSize = 500
+	for start := 0; start < len(pending); start += chunkSize {
+		end := start + chunkSize
+		if end > len(pending) {
+			end = len(pending)
 		}
 
-		hashed, err := runner.Run(ctx, "git", "-C", root, "hash-object", "--", hashPath)
+		args := append([]string{"-C", root, "hash-object", "--"}, hashArgs[start:end]...)
+		hashed, err := runner.Run(ctx, "git", args...)
 		if err != nil || hashed.ExitCode != 0 {
 			return false
 		}
-		blob := strings.TrimSpace(hashed.Stdout)
-		if blob == "" {
+		lines := strings.Fields(hashed.Stdout)
+		if len(lines) != end-start {
 			return false
 		}
-		blobs[path] = blob
+		for offset, blob := range lines {
+			blobs[pending[start+offset]] = blob
+		}
 	}
 	return true
 }

@@ -29,19 +29,30 @@ func (f *fakeGit) Run(_ context.Context, name string, args ...string) (shell.Res
 		return shell.Response{}, err
 	}
 	if sub == "hash-object" {
-		// Content-derived fake blob id: sha256 of the file, mirroring how
-		// real blob ids are stable functions of content. Absolute paths
-		// (the staged symlink-target copies) are honored as git does.
-		root, path := args[1], args[len(args)-1]
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
+		// Content-derived fake blob ids, one line per path after "--",
+		// mirroring git's batched output. Absolute paths (staged symlink
+		// targets) are honored as git does.
+		root := args[1]
+		separator := -1
+		for i, a := range args {
+			if a == "--" {
+				separator = i
+				break
+			}
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return shell.Response{ExitCode: 128, Stderr: err.Error()}, nil
+		lines := ""
+		for _, path := range args[separator+1:] {
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(root, path)
+			}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return shell.Response{ExitCode: 128, Stderr: err.Error()}, nil
+			}
+			sum := sha256.Sum256(content)
+			lines += hex.EncodeToString(sum[:]) + "\n"
 		}
-		sum := sha256.Sum256(content)
-		return shell.Response{ExitCode: 0, Stdout: hex.EncodeToString(sum[:]) + "\n"}, nil
+		return shell.Response{ExitCode: 0, Stdout: lines}, nil
 	}
 	if resp, exists := f.responses[sub]; exists {
 		return resp, nil
@@ -256,5 +267,41 @@ func TestIdentitySurvivesTheSymlinkCommitTransition(t *testing.T) {
 	}
 	if before != after {
 		t.Fatalf("committing an unchanged symlink moved the identity: %s vs %s", before, after)
+	}
+}
+
+// countingGit wraps fakeGit and counts hash-object invocations.
+type countingGit struct {
+	inner      *fakeGit
+	hashSpawns int
+}
+
+func (c *countingGit) Run(ctx context.Context, name string, args ...string) (shell.Response, error) {
+	if len(args) >= 3 && args[2] == "hash-object" {
+		c.hashSpawns++
+	}
+	return c.inner.Run(ctx, name, args...)
+}
+
+func TestIdentityBatchesDirtyHashing(t *testing.T) {
+	root := t.TempDir()
+	porcelain := ""
+	for _, name := range []string{"a.go", "b.go", "c.go", "d.go"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(name), 0o644); err != nil {
+			t.Fatalf("seed %s: %v", name, err)
+		}
+		porcelain += "?? " + name + "\x00"
+	}
+
+	counting := &countingGit{inner: &fakeGit{responses: map[string]shell.Response{
+		"status":  {ExitCode: 0, Stdout: porcelain},
+		"ls-tree": {ExitCode: 0, Stdout: ""},
+	}}}
+
+	if _, ok := Identity(context.Background(), counting, root); !ok {
+		t.Fatal("identity not computed")
+	}
+	if counting.hashSpawns != 1 {
+		t.Fatalf("hash-object spawned %d times for 4 dirty files, want 1 batched call", counting.hashSpawns)
 	}
 }
