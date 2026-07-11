@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-11
+
+The release that extends the fingerprint chain past the approved plan and into execution: "done" becomes a provable, re-checkable claim instead of a checkbox that can outlive its own truth.
+
+### Added
+
+- **Execution evidence ledger.** Every `task complete` records durable evidence in `.walden/evidence/<feature>.json` (schema `v1alpha1`): each proof step's argv, exit codes, and output digest, bound to the approved chain fingerprints and to a deterministic **code identity** of the working tree. Evidence is written before the checkbox moves — a completion the ledger cannot remember fails closed. The document is shared repository state, committed and reviewed like the specs it proves; `repo init` now writes a `.walden/.gitignore` for transient staging artifacts.
+- **Derived execution states — never stored.** `verified`, `stale-spec`, `stale-code`, `failed`, `unrecorded`, `pending`, recomputed on every read from the record's bindings: requirements/design fingerprints plus a per-task definition fingerprint (editing one task never stales its siblings; checking boxes never stales anything). `reconcile` does not touch evidence — a re-approved chain shows honest `stale-spec` until proofs rerun.
+- **`walden verify <feature> [--all] [--check]`.** Re-executes the proofs of completed tasks against the current code and refreshes the ledger (recording the post-proof identity — build and generate proofs change the tree they prove); prunes entries for task ids that left the plan, naming each removal; `--check` reports without writing for CI gates; exits non-zero naming every failing task.
+- **`walden evidence status <feature>`** — the derived state per task with recorded and current identities; a report, not a gate (always exit 0). `walden task status` warns when completed tasks are no longer verified.
+- **The code identity** is a uniform path→(mode, blob) map: `git ls-tree` seeds committed entries, dirty and untracked paths overlay via batched `git hash-object`, symlinks hash as their target string, file modes participate canonicalized to git's trio, and `.walden/` is excluded at every layer — committing the evidence never invalidates it, untracked→committed transitions are invisible, an executable-bit flip is a code change. Repositories without usable git degrade to a warned, absent identity (two absent identities compare equal).
+- **`expect_output` on proof steps** — the step passes only when its combined output contains the declared content, closing the vacuous pass where a test command matching zero tests exits 0.
+
+### Changed
+
+- The embedded skill delegates the evidence half of execution to the CLI: verify and evidence status join the deterministic helpers, evidence warnings are never dismissed, spec drift ends with a verify pass, and proof authoring prefers `expect_output` on test-running steps.
+- A code-only bugfix still needs no spec ceremony: evidence goes `stale-code` everywhere (the honest global doubt), and one `verify` either restores `verified` or names the task whose proof broke (the local blame).
+
+### Compatibility
+
+- All JSON output changes are additive within `schema_version: v0beta1`; spec-document fingerprints and frontmatter are untouched — no existing approved chain goes stale.
+- Tasks completed by earlier releases report `unrecorded`; one `walden verify <feature> --all` migrates a feature (exercised on a 26-feature portfolio).
+- Evidence documents carrying an unknown schema version are refused, corrupt ledgers warn with the recovery path (`rm` + `verify --all`), and concurrent walden processes cannot corrupt the ledger: whole-document atomic writes mean at worst a lost record that surfaces as `unrecorded`. One walden version per repository is recommended while the evidence schema is alpha.
+
 ## [0.7.2] - 2026-07-11
 
 ### Fixed

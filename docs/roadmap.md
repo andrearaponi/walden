@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.7.x
+## Current Release: v0.8.x
 
 The open source core today includes:
 
@@ -12,6 +12,7 @@ The open source core today includes:
 - AI skill embedded in the binary (`walden skill install|status|show`) for Claude Code, Codex, Copilot, and OpenCode, with drift detection against the embedded copy
 - One-liner installer consuming checksum-verified release binaries
 - Self-update from GitHub releases (`walden update`) with fail-closed verification, rollback, and skill re-sync
+- Execution evidence ledger: task completions bound to spec fingerprints and a code identity, derived states, `walden verify` re-verification, `expect_output` proof assertions
 - Documentation pack (concepts, workflow, boundaries)
 - Example project with shell-safe verification, validated in CI as a compatibility fixture
 - Repository bootstrap and feature scaffolding templates (generated CI pinned to the generating version)
@@ -26,6 +27,7 @@ These improvements are planned for the open source core:
 - **Skill refinement** — tighter CLI delegation, fewer redundant instructions, better example conversations.
 - **Additional examples** — backend service demo, multi-feature workflow example.
 - **CI integration patterns** — documented patterns for using Walden validation in CI pipelines.
+- **Release check** — an aggregate gate composing `verify` across a feature (or repository) for release certification.
 
 ## Medium-Term (Enterprise, Exploratory)
 
