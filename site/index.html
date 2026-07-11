@@ -86,7 +86,7 @@
       </p>
       <p class="claim-sub">
         Blocking gates with exit codes — validation, proofs, freshness,
-        execution evidence — independent of any model&rsquo;s judgment.
+        execution evidence, release certification — independent of any model&rsquo;s judgment.
       </p>
     </section>
 
@@ -119,6 +119,7 @@
             <li>AC traceability — 100% coverage required</li>
             <li>a verification proof on every leaf task</li>
             <li>execution evidence bound to the code — re-provable with <code>verify</code></li>
+            <li>one releasability verdict per repository — <code>release check</code></li>
             <li>stale-document detection &amp; reconciliation</li>
           </ul>
           <p class="voice-foot">deterministic · the same answer every time</p>
@@ -286,10 +287,11 @@
 
         <article class="recipe">
           <h3 class="recipe-name">Your CI</h3>
-          <p>Gate every pull request that touches a spec. Validation runs headless
-             and the exit code decides — no model in the loop.</p>
-          <code class="recipe-cmd">walden validate &lt;feature&gt; --all --json</code>
-          <span class="recipe-out">exit ≠ 0 → merge blocked</span>
+          <p>Certify before you tag. <code>verify</code> re-proves the code,
+             <code>release check</code> judges everything — chains, validation,
+             evidence, worktree. One exit code decides.</p>
+          <code class="recipe-cmd">walden release check --json</code>
+          <span class="recipe-out">exit ≠ 0 → not releasable</span>
         </article>
 
         <article class="recipe">
