@@ -159,6 +159,7 @@ You don't need to remember a single CLI command. `walden validate`, `walden revi
 | Designs architecture, evaluates alternatives | AC traceability (100% coverage required) |
 | Generates implementation tasks with proofs | Verification proofs on every task |
 | Reviews lessons before similar work | Stale document detection and reconciliation |
+| Runs `walden verify` when evidence goes stale | Execution evidence: derived states bound to spec fingerprints and code identity |
 
 Human review and approval remain your responsibility. The skill drafts and proposes — it never approves on your behalf.
 
@@ -395,6 +396,10 @@ Each acceptance criterion gets a stable ID (e.g., `R1.AC1`) and uses exactly one
 | Proof coverage per AC (via covers: field) | Yes | - |
 | Proof execution | Yes | - |
 | Structured proof format | Yes | Legacy deprecation active |
+| Task completion bound to the current code (evidence + code identity) | Yes | - |
+| Completed-task re-verification (`walden verify`) | Yes | - |
+| Vacuous-proof rejection (`expect_output`) | Yes | Opt-in per step |
+| Aggregate release gate | - | `release check` (planned) |
 
 ## Constitution
 
