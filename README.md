@@ -200,6 +200,7 @@ walden lesson log --feature user-auth --phase execute \
 | `task complete-all <feature> [--json]` | Complete all runnable tasks in order, stop on first failure |
 | `verify <feature> [--all] [--check] [--json]` | Re-prove completed tasks against the current code and refresh evidence |
 | `evidence status <feature> [--json]` | Report each task's derived execution-evidence state |
+| `release check [<feature>] [--strict] [--json]` | Certify the repository (or one feature) as releasable |
 | `reconcile <feature> [--json]` | Repair stale approval chains after upstream edits |
 | `lesson log [--json]` | Append a lesson to `.walden/lessons.md` |
 | `version [--json]` | Print build version and schema version |
@@ -369,6 +370,36 @@ walden verify <feature> --check  # report only — writes nothing (CI-friendly)
 
 `walden evidence status <feature>` reports the derived states without running anything (always exit 0). Evidence writes replace the whole document atomically: concurrent walden processes can never corrupt the ledger — at worst a record is lost to the last writer, surfaces as `unrecorded`, and `walden verify` regenerates it. `walden task status` warns when completed tasks are no longer verified — a spec change or code change is visible as staleness instead of hiding behind a checked box. Timestamps in evidence records are human context only: every verdict depends exclusively on content identities.
 
+## Release Certification
+
+Nobody releases a task — you release a repository. `walden release check` answers "is this releasable, right now?" with one deterministic exit code, composing the guarantees the kernel already enforces. It executes no proofs and writes nothing: `verify` produces evidence, `release check` judges it — which keeps certification at milliseconds and safe to run on untrusted checkouts.
+
+```bash
+walden release check             # certify every feature under .walden/specs/
+walden release check <feature>   # certify one feature
+walden release check --strict    # planned-but-unexecuted tasks block too
+walden release check --json      # machine-readable verdict for pipelines
+```
+
+| Criterion | Blocks when |
+| --- | --- |
+| `chain` | Any document is unapproved or stale |
+| `validation` | Full-spec validation fails |
+| `decisions` | An approved document carries an unresolved `[decision:]` marker |
+| `evidence` | A completed task is not `verified` |
+| `worktree` | Uncommitted changes outside `.walden/` |
+
+Planned-but-unexecuted tasks never block — the plan is a promise, not a debt (`--strict` opts into plans-complete). Uncommitted code has no bypass flag: what you certify is exactly what you tag. Dirty `.walden/` only warns, because a freshly refreshed ledger legitimately precedes its own commit. Every blocker names its remedy, so a failed certification is a work list, not just a verdict.
+
+The CI recipe composes production and judgment:
+
+```bash
+walden verify <feature>          # re-prove execution on the current tree
+walden release check --json      # certify; gate the pipeline on the exit code
+```
+
+Certification is not release: no tags, no changelogs, no publishing — that stays with the orchestrator. The gate's criteria are a public contract: once your pipeline gates on them, changes to their semantics are breaking changes.
+
 ## EARS
 
 Walden uses the Easy Approach to Requirements Syntax (EARS) for all acceptance criteria. EARS eliminates ambiguity, vagueness, and complexity by constraining requirements to six well-defined forms.
@@ -399,7 +430,7 @@ Each acceptance criterion gets a stable ID (e.g., `R1.AC1`) and uses exactly one
 | Task completion bound to the current code (evidence + code identity) | Yes | - |
 | Completed-task re-verification (`walden verify`) | Yes | - |
 | Vacuous-proof rejection (`expect_output`) | Yes | Opt-in per step |
-| Aggregate release gate | - | `release check` (planned) |
+| Aggregate release gate (`walden release check`) | Yes | - |
 
 ## Constitution
 

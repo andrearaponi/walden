@@ -44,6 +44,7 @@ var commandUsages = []commandUsage{
 	{"task complete-all <feature> [--json]", "Complete all runnable tasks in order"},
 	{"verify <feature> [--all] [--check] [--json]", "Re-prove completed tasks against the current code and refresh evidence"},
 	{"evidence status <feature> [--json]", "Report each completed task's derived execution-evidence state"},
+	{"release check [<feature>] [--strict] [--json]", "Certify the repository (or one feature) as releasable: chain, validation, decisions, evidence, worktree"},
 	{"validate <feature> [--all] [--json]", "Check EARS, traceability, and freshness"},
 	{"review open <feature> --phase <phase> [--json]", "Open the review gate (move to in-review)"},
 	{"review approve <feature> --phase <phase> [--json]", "Approve the review gate (move to approved)"},
@@ -88,6 +89,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runVerify(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
+	case "release":
+		return runRelease(args[1:], stdout, stderr)
 	case "review":
 		return runReview(args[1:], stdout, stderr)
 	case "skill":
