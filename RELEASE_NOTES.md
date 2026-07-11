@@ -1,63 +1,57 @@
-## Walden v0.8.0
+## Walden v0.9.0
 
-The external review of the kernel closed with one sentence: *"not yet a complete proof that the current implementation satisfies the current specification."*
+Nobody releases a task. You release a repository.
 
-This release retires it.
+v0.8.0 made every execution claim provable — but the truth stayed scattered: freshness in `status`, structure in `validate`, execution in `evidence status`. This release folds it into the one question those commands exist to answer:
 
-### Done is now a provable claim
+```bash
+walden release check
+```
 
-Every task completion records durable evidence in `.walden/evidence/<feature>.json`: the proof's steps — argv, exit codes, output digests — bound to the approved chain fingerprints and to a deterministic **code identity** of the working tree. The checkbox in `tasks.md` stays the human-readable projection; the ledger is the authoritative execution state, committed and reviewed like the specs it proves.
+**Is this releasable, right now?** One deterministic verdict, one exit code.
 
-States are **derived at read time, never stored**:
+### The criteria
 
-| State | Meaning |
+| Criterion | Blocks when |
 | --- | --- |
-| `verified` | The recorded proof matches the current specs and the current code |
-| `stale-spec` | Requirements, design, or this task's definition moved since the proof ran |
-| `stale-code` | The working tree moved since the proof ran |
-| `failed` | The last re-verification failed |
-| `unrecorded` | Completed before the ledger existed — `walden verify` upgrades it |
-| `pending` | Not completed yet |
+| `chain` | any document is unapproved or stale |
+| `validation` | full-spec validation fails |
+| `decisions` | an approved document carries an unresolved `[decision:]` marker |
+| `evidence` | a completed task is not `verified` on the current tree |
+| `worktree` | uncommitted changes exist outside `.walden/` |
+
+All criteria always evaluate — no short-circuiting. A failed certification is a complete work list, and **every blocker names its remedy**: `run walden verify <feature>`, `commit it before certifying`, `resolve it and re-approve`.
+
+### Judge, never execute
+
+`release check` runs no proofs and writes nothing. `verify` produces evidence; `release check` judges it. That split keeps certification at milliseconds — a 26-feature production portfolio certifies in about a quarter of a second — and makes it safe to run on any checkout. The CI recipe composes the two:
 
 ```bash
-walden verify <feature>            # re-prove what is no longer verified
-walden verify <feature> --all      # re-prove everything
-walden verify <feature> --check    # CI mode: report only, write nothing
-walden evidence status <feature>   # derived states, always exit 0
+walden verify <feature>        # re-prove execution on the current tree
+walden release check --json    # certify; gate the pipeline on the exit code
 ```
 
-Delete the implementation after completing a task, and `task status` stops claiming the plan is complete. Change the requirements, reconcile, re-approve — the checkboxes stay checked, and the evidence honestly reads `stale-spec` until proofs rerun. Those were the review's two reproductions; both now fail as they should.
+### The policy
 
-### The identity that survives its own commit
+- **Planned work never blocks.** The plan is a promise, not a debt. Unexecuted tasks are listed as informational; `--strict` promotes them for plans-complete shops.
+- **Uncommitted code fails closed. No bypass flag exists.** What you certify is exactly what you will tag.
+- **Dirty `.walden/` only warns** — a freshly refreshed ledger legitimately precedes its own commit.
+- **Certification is not release.** No tags, no changelogs, no publishing — that stays with you and your orchestrator.
 
-The code identity is a uniform path→(mode, blob) map — `git ls-tree` for committed entries, batched `git hash-object` for dirty ones, symlinks as their target string, modes canonicalized, `.walden/` excluded at every layer. Committing the evidence never invalidates the evidence; moving a file from untracked to committed never reads as a change; a `chmod +x` does. No usable git? The identity degrades to a warned absence instead of noise.
+### For pipelines and agents
 
-### Proofs that cannot pass vacuously
+The JSON envelope gains an additive `release` block: `releasable`, per-feature per-criterion results with blockers, pending task ids, the worktree partition. The embedded skill gains a Release Certification section, so agents run the gate on releasability questions, read blockers as a work list, and never look for a bypass — reinstall with `walden skill install <agent>` or let `walden update` re-sync.
 
-`expect_output` requires a proof step's output to contain declared content — a test pattern matching zero tests can no longer complete a task:
+### Compatibility
 
-```markdown
-- Verification:
-  - command: ["go", "test", "-run", "TestAuth", "./internal/auth/"]
-    expect_output: "--- PASS: TestAuth"
-```
+Everything additive within `schema_version: v0beta1`; evidence schema `v1alpha1` and spec frontmatter untouched — no existing chain or ledger is affected. And a commitment: **the gate's criteria are a public contract from this release.** Once your pipeline gates on them, semantic changes to a criterion are breaking changes and will be treated as such.
 
-### Bugfixes still need no ceremony
+---
 
-A code-only fix outside the workflow marks evidence `stale-code` everywhere — the honest global doubt — and one `verify` either restores `verified` or names the exact task whose proof broke. The no-ceremony lane stays; it is just no longer blind.
-
-### Battle-tested before shipping
-
-Three eval rounds across four real repositories — a todo app and a 26-feature corporate portfolio with its Go sibling — caught a main package that was never committed, a lockfile that breaks every fresh clone, a placeholder frontend committed over the proven build, and one flaky proof. Zero false positives. Every kernel defect the evals found was fixed on the branch with a regression test, and the whole battery now runs as compiled end-to-end tests in CI on every change.
-
-### Upgrading
+Install or update:
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
+# or, from an existing install
 walden update
 ```
-
-Existing completions report `unrecorded`; one `walden verify <feature> --all` migrates them. One walden version per repository while the evidence schema (`v1alpha1`) is alpha.
-
-### Built the Walden way
-
-7 requirements, 30 EARS acceptance criteria, 13 tasks completed through `walden task complete`, three mid-execution design amendments handled with reconcile and re-approval, five lessons logged — and the feature's own evidence ledger was dogfooded on the very spec that built it.

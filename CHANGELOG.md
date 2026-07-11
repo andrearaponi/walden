@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-11
+
+Nobody releases a task — you release a repository. v0.8.0 made every execution claim provable; this release folds those truths into the question they exist to answer: *is this releasable, right now?*
+
+### Added
+
+- **`walden release check [<feature>] [--strict] [--json]`** — the aggregate certification gate: one deterministic verdict with one exit code, composing the guarantees the kernel already enforces. Per feature: the approval **chain** approved and fresh, **full-spec validation**, no unresolved **decision markers** in approved documents (HTML comments are stripped first — assumed notes that mention the marker never count), and every completed task's **evidence** derived `verified`. Once per repository: a clean **worktree** outside `.walden/`. All criteria always evaluate — a failed certification is a complete work list, and every blocker names its remedy.
+- **The judging half of a produce/judge split.** `release check` executes no proofs and persists nothing — `verify` produces evidence, `release check` judges it. Certification runs in milliseconds and is safe on untrusted checkouts; the CI recipe composes the two: `walden verify <feature>` then `walden release check --json`.
+- **The in-flight policy.** Planned-but-unexecuted tasks are informational and never block — the plan is a promise, not a debt; `--strict` promotes them for plans-complete shops. Uncommitted code outside `.walden/` fails closed with **no bypass flag** (what you certify is exactly what you tag), while dirty `.walden/` only warns — a freshly refreshed ledger legitimately precedes its own commit. Repositories without usable git skip the worktree criterion, reported.
+- **An additive `release` block** in the JSON envelope: `releasable`, `strict`, per-feature per-criterion results with blockers, pending task ids, and the worktree partition.
+- The embedded skill gains a **Release Certification** section: run the gate on releasability questions and before any tag or hand-off, read blockers as a work list, never look for a bypass.
+
+### Compatibility
+
+- All JSON output changes are additive within `schema_version: v0beta1`; evidence schema `v1alpha1` and spec frontmatter are untouched — no existing chain or ledger is affected.
+- **The gate's criteria are a public contract from this release.** Once pipelines gate on them, semantic changes to a criterion are breaking changes and will be treated as such in this changelog.
+- Exercised end-to-end on three real repositories before shipping (one of them a 26-feature portfolio certified in 260 ms); the battery's one false-positive class — decision markers mentioned in prose comments — is fixed in this release by comment stripping.
+
 ## [0.8.0] - 2026-07-11
 
 The release that extends the fingerprint chain past the approved plan and into execution: "done" becomes a provable, re-checkable claim instead of a checkbox that can outlive its own truth.
