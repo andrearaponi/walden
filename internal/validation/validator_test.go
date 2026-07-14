@@ -1086,6 +1086,83 @@ source_design_approved_at:
 	}
 }
 
+// TestValidateTasksDraftTopLevelLeaf pins draft leaf detection to the full
+// parser's semantics: a top-level task without dotted children is a leaf and
+// subject to the draft metadata checks; one with children is a container.
+func TestValidateTasksDraftTopLevelLeaf(t *testing.T) {
+	const draftHeader = `---
+status: draft
+approved_at:
+last_modified: 2026-03-21T14:20:00Z
+source_design_approved_at:
+---
+
+# Implementation Plan
+
+`
+
+	tests := []struct {
+		name         string
+		tasks        string
+		wantValid    bool
+		wantContains string
+	}{
+		{
+			name: "top-level childless task with metadata is a valid leaf",
+			tasks: draftHeader + `- [ ] 1. Ship the fix
+  - Requirements: __BT__R1.AC1__BT__, __BT__NFR1__BT__
+  - Design: Todo flow
+  - Verification: TODO
+`,
+			wantValid: true,
+		},
+		{
+			name: "top-level task with dotted children checks only the children",
+			tasks: draftHeader + `- [ ] 1. Container objective
+  - [ ] 1.1 Real step
+    - Requirements: __BT__R1.AC1__BT__, __BT__NFR1__BT__
+    - Design: Todo flow
+    - Verification: TODO
+
+- [ ] 2. Standalone leaf
+  - Requirements: __BT__R1.AC1__BT__
+  - Design: Todo flow
+  - Verification: TODO
+`,
+			wantValid: true,
+		},
+		{
+			name: "top-level leaf missing metadata fails like any leaf",
+			tasks: draftHeader + `- [ ] 1. Ship the fix
+  - Design: Todo flow
+  - Verification: TODO
+`,
+			wantValid:    false,
+			wantContains: "task 1 is missing Requirements",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFeatureFile(t, root, "leaf-test", "requirements.md", validRequirements)
+			writeFeatureFile(t, root, "leaf-test", "design.md", validDraftDesign)
+			writeFeatureFile(t, root, "leaf-test", "tasks.md", tc.tasks)
+
+			result, err := ValidateFeatureWithScope(root, "leaf-test", ScopeFullSpec)
+			if err != nil {
+				t.Fatalf("expected deterministic result, got error: %v", err)
+			}
+			if result.Valid != tc.wantValid {
+				t.Fatalf("expected valid=%v, got valid=%v with message: %q", tc.wantValid, result.Valid, result.Message)
+			}
+			if !tc.wantValid && !strings.Contains(result.Message, tc.wantContains) {
+				t.Fatalf("expected message to contain %q, got %q", tc.wantContains, result.Message)
+			}
+		})
+	}
+}
+
 func TestValidateFreshnessReportsTamperedRequirements(t *testing.T) {
 	root := t.TempDir()
 	writeValidFeature(t, root, "tamper-test")
@@ -1331,5 +1408,110 @@ func stampFixtureFingerprint(t *testing.T, root, featureName, name string) {
 
 	if err := spec.SaveDocument(*document); err != nil {
 		t.Fatalf("expected fixture fingerprint stamp to succeed, got %v", err)
+	}
+}
+
+func TestValidateTasksDraftRejectsExecutorIllegalLayout(t *testing.T) {
+	const draftHeader = `---
+status: draft
+approved_at:
+last_modified: 2026-03-21T14:20:00Z
+source_design_approved_at:
+---
+
+# Implementation Plan
+
+`
+
+	tests := []struct {
+		name         string
+		tasks        string
+		wantContains string
+	}{
+		{
+			name: "top-level metadata at six spaces",
+			tasks: draftHeader + `- [ ] 1. Flat task
+      - Requirements: __BT__R1.AC1__BT__
+      - Design: Todo flow
+      - Verification: TODO
+`,
+			wantContains: `invalid metadata indentation for task "1": expected 2 or 4 spaces`,
+		},
+		{
+			name: "child metadata at parent offset",
+			tasks: draftHeader + `- [ ] 1. Container
+  - [ ] 1.1 Child
+  - Requirements: __BT__R1.AC1__BT__
+  - Design: Todo flow
+  - Verification: TODO
+`,
+			wantContains: `invalid metadata indentation for task "1.1": expected 4 spaces`,
+		},
+		{
+			name: "proof step deeper than its verification block",
+			tasks: draftHeader + `- [ ] 1. Flat task
+  - Requirements: __BT__R1.AC1__BT__
+  - Design: Todo flow
+  - Verification:
+      - command: ["go", "test", "./..."]
+`,
+			wantContains: `invalid proof step indentation for task "1": expected 4 spaces`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFeatureFile(t, root, "layout-test", "requirements.md", validRequirements)
+			writeFeatureFile(t, root, "layout-test", "design.md", validDraftDesign)
+			writeFeatureFile(t, root, "layout-test", "tasks.md", tc.tasks)
+
+			result, err := ValidateFeatureWithScope(root, "layout-test", ScopeFullSpec)
+			if err != nil {
+				t.Fatalf("expected deterministic result, got error: %v", err)
+			}
+			if result.Valid {
+				t.Fatal("expected draft validation to reject executor-illegal layout")
+			}
+			if !strings.Contains(result.Message, tc.wantContains) {
+				t.Fatalf("expected message to contain %q, got %q", tc.wantContains, result.Message)
+			}
+		})
+	}
+}
+
+func TestValidateTasksDraftAcceptsIncompleteProof(t *testing.T) {
+	const draftTasks = `---
+status: draft
+approved_at:
+last_modified: 2026-03-21T14:20:00Z
+source_design_approved_at:
+---
+
+# Implementation Plan
+
+- [ ] 1. Flat task drafted incrementally
+  - Requirements: __BT__R1.AC1__BT__
+  - Design: Todo flow
+  - Verification:
+
+- [ ] 2. Container
+  - [ ] 2.1 Child without steps yet
+    - Requirements: __BT__R1.AC1__BT__
+    - Design: Todo flow
+    - Verification:
+`
+
+	root := t.TempDir()
+	writeFeatureFile(t, root, "incomplete-test", "requirements.md", validRequirements)
+	writeFeatureFile(t, root, "incomplete-test", "design.md", validDraftDesign)
+	writeFeatureFile(t, root, "incomplete-test", "tasks.md", draftTasks)
+
+	result, err := ValidateFeatureWithScope(root, "incomplete-test", ScopeFullSpec)
+	if err != nil {
+		t.Fatalf("expected deterministic result, got error: %v", err)
+	}
+	if !result.Valid {
+		t.Fatalf("expected incomplete proofs to stay legal in draft, got: %q", result.Message)
 	}
 }

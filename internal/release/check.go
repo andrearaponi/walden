@@ -82,6 +82,19 @@ func ReleaseCheck(ctx context.Context, root, featureName string, strict bool) (R
 	}
 
 	report.WorktreeBlockers, report.WaldenDirty, report.GitSkipped = worktreeCriterion(ctx, root)
+	if strict {
+		// Strict certification is plans-complete and final: the .walden/
+		// state the verdict judged must exist in the commit being certified.
+		for _, path := range report.WaldenDirty {
+			report.WorktreeBlockers = append(report.WorktreeBlockers, fmt.Sprintf("uncommitted under .walden/: %s — commit it before certifying (--strict)", path))
+		}
+	}
+	if report.GitSkipped || !identityOK {
+		// A verdict without a code identity cannot name the tree it
+		// certified: fail closed instead of judging blind.
+		report.WorktreeBlockers = append(report.WorktreeBlockers, "no usable git repository — certification requires a git-backed code identity; initialize git, commit, and rerun")
+	}
+	sort.Strings(report.WorktreeBlockers)
 	return report, nil
 }
 
@@ -153,7 +166,16 @@ func certifyFeature(root, name string, strict bool, identity string, identityOK 
 			{"design.md", feature.Design},
 			{"tasks.md", feature.Tasks},
 		} {
-			if doc.document.Exists && doc.document.Status == "approved" && strings.Contains(stripHTMLComments(doc.document.Body), decisionMarker) {
+			if !doc.document.Exists || doc.document.Status != "approved" {
+				continue
+			}
+			stripped, terminated := stripHTMLComments(doc.document.Body)
+			if !terminated {
+				// The dangling opener would swallow the rest of the document
+				// from the scan — and any marker hidden inside it.
+				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("unterminated HTML comment in %s — close it with --> and re-approve", doc.name))
+			}
+			if strings.Contains(stripped, decisionMarker) {
 				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("unresolved %s] marker in %s — resolve it and re-approve", decisionMarker, doc.name))
 			}
 		}
@@ -204,21 +226,23 @@ func certifyFeature(root, name string, strict bool, identity string, identityOK 
 	return certification
 }
 
-// stripHTMLComments removes `<!-- ... -->` spans (unterminated ones to the
-// end) before the decision scan: assumed markers live in comments by skill
-// convention and legitimately mention the decision marker in prose.
-func stripHTMLComments(body string) string {
+// stripHTMLComments removes well-formed `<!-- ... -->` spans before the
+// decision scan: assumed markers live in comments by skill convention and
+// legitimately mention the decision marker in prose. The boolean is false
+// when an opener never terminates — the caller must fail closed rather than
+// trust a scan that cannot see the swallowed remainder.
+func stripHTMLComments(body string) (string, bool) {
 	var kept strings.Builder
 	for {
 		start := strings.Index(body, "<!--")
 		if start < 0 {
 			kept.WriteString(body)
-			return kept.String()
+			return kept.String(), true
 		}
 		kept.WriteString(body[:start])
 		end := strings.Index(body[start:], "-->")
 		if end < 0 {
-			return kept.String()
+			return kept.String(), false
 		}
 		body = body[start+end+len("-->"):]
 	}
@@ -226,8 +250,9 @@ func stripHTMLComments(body string) string {
 
 // worktreeCriterion partitions uncommitted paths once per run: code outside
 // .walden/ blocks certification (what you certify must be what you tag),
-// .walden/ itself only warns — a freshly refreshed ledger legitimately
-// precedes its own commit. Unusable git skips the criterion, reported.
+// .walden/ itself warns by default — a freshly refreshed ledger legitimately
+// precedes its own commit — and is promoted to blockers by the caller under
+// strict. Unusable git is reported; the caller fails the run closed.
 func worktreeCriterion(ctx context.Context, root string) (blockers, waldenDirty []string, skipped bool) {
 	status, err := gitRunner.Run(ctx, "git", "-C", root, "status", "--porcelain", "-z")
 	if err != nil || status.ExitCode != 0 {

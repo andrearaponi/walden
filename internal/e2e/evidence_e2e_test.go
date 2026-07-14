@@ -119,6 +119,39 @@ source_requirements_fingerprint:
 
 A source file carries two grep-provable markers.
 
+## Architecture
+
+One marker file, two grep proofs.
+
+## Options Considered
+
+### Option A
+
+- Summary: grep markers.
+- Why chosen: trivially provable.
+
+### Option B
+
+- Summary: none.
+- Why rejected: n/a.
+
+## Simplicity And Elegance Review
+
+- Simplest viable shape: one file.
+- Coupling check: none.
+- Future-proofing: none.
+
+## Failure Modes And Tradeoffs
+
+- Failure mode: none.
+- Mitigation: none.
+- Tradeoff: none.
+
+## Verification Plan
+
+- Requirement proof: grep exits.
+- Test evidence: exit codes.
+
 ## Requirement Coverage
 
 | Requirement | Covered By |
@@ -301,10 +334,11 @@ func TestE2EOrphanPruning(t *testing.T) {
 	}
 
 	mustCLI(t, dir, "reconcile", "ledger-demo")
-	for _, phase := range []string{"requirements", "design", "tasks"} {
-		mustCLI(t, dir, "review", "open", "ledger-demo", "--phase", phase)
-		mustCLI(t, dir, "review", "approve", "ledger-demo", "--phase", phase)
-	}
+	// Reconcile resets only the renumbered tasks document; its upstream stays
+	// approved, and the pre-approval gate refuses re-approving an upstream
+	// whose downstream approval still stands.
+	mustCLI(t, dir, "review", "open", "ledger-demo", "--phase", "tasks")
+	mustCLI(t, dir, "review", "approve", "ledger-demo", "--phase", "tasks")
 
 	out := mustCLI(t, dir, "verify", "ledger-demo")
 	if !strings.Contains(out, "pruned") || !strings.Contains(out, "1.2") {
@@ -370,6 +404,39 @@ source_requirements_fingerprint:
 ## Overview
 
 One legacy single-line proof.
+
+## Architecture
+
+One marker file, one legacy proof.
+
+## Options Considered
+
+### Option A
+
+- Summary: legacy grep proof.
+- Why chosen: exercises the legacy path.
+
+### Option B
+
+- Summary: none.
+- Why rejected: n/a.
+
+## Simplicity And Elegance Review
+
+- Simplest viable shape: one file.
+- Coupling check: none.
+- Future-proofing: none.
+
+## Failure Modes And Tradeoffs
+
+- Failure mode: none.
+- Mitigation: none.
+- Tradeoff: none.
+
+## Verification Plan
+
+- Requirement proof: grep exits.
+- Test evidence: exit codes.
 
 ## Requirement Coverage
 

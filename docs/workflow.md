@@ -198,4 +198,4 @@ walden verify <feature>            # re-prove execution on the current tree
 walden release check --json        # certify; gate the pipeline on the exit code
 ```
 
-Planned work never blocks a release (`--strict` opts into plans-complete). Uncommitted code outside `.walden/` always blocks with no bypass flag — what you certify is what you tag — while dirty `.walden/` only warns, since a refreshed ledger legitimately precedes its own commit. Every blocker names its remedy.
+Planned work never blocks a release (`--strict` opts into plans-complete). Uncommitted code outside `.walden/` always blocks with no bypass flag — what you certify is what you tag — and a repository without usable git fails closed: certification requires a git-backed code identity. Dirty `.walden/` warns by default, since a refreshed ledger legitimately precedes its own commit, but blocks under `--strict`, where the verdict must be reproducible from the commit it judges. An unterminated HTML comment in an approved document blocks the decision scan it would blind. Every blocker names its remedy.

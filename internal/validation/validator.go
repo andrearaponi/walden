@@ -489,8 +489,13 @@ func validateTasks(document spec.Document) error {
 			return fmt.Errorf("tasks.md: %v", err)
 		}
 	} else {
-		// For draft documents, use lightweight string-presence checks to allow
-		// incremental authoring without requiring complete proof definitions.
+		// For draft documents, enforce the executor's indentation layout so a
+		// draft that validates cannot dead-end at execution time, then use
+		// lightweight string-presence checks to allow incremental authoring
+		// without requiring complete proof definitions.
+		if err := spec.CheckTaskLayout(document.Body); err != nil {
+			return fmt.Errorf("tasks.md: %v", err)
+		}
 		subtaskBlocks := extractSubtaskBlocks(document.Body)
 		if len(subtaskBlocks) == 0 {
 			return fmt.Errorf("tasks.md: no leaf tasks found")
@@ -665,6 +670,9 @@ func validateRequirementReferences(feature spec.Feature, plan validationPlan) er
 	return nil
 }
 
+// extractSubtaskBlocks collects the draft-phase leaf blocks, mirroring the
+// full parser's leaf semantics (spec.ParseTaskTree): an undotted task is a
+// tentative leaf until a dotted child claims it as a container.
 func extractSubtaskBlocks(body string) map[string][]string {
 	blocks := map[string][]string{}
 	lines := strings.Split(body, "\n")
@@ -685,10 +693,12 @@ func extractSubtaskBlocks(body string) map[string][]string {
 		if match := subtaskPattern.FindStringSubmatch(line); match != nil {
 			flush()
 			taskID := match[2]
-			if strings.Contains(taskID, ".") {
-				currentID = taskID
-				currentLines = []string{}
+			if dot := strings.Index(taskID, "."); dot >= 0 {
+				// A dotted child makes its parent a container, not a leaf.
+				delete(blocks, taskID[:dot])
 			}
+			currentID = taskID
+			currentLines = []string{}
 			continue
 		}
 

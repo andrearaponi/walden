@@ -274,15 +274,21 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 		t.Fatalf("marker inside a comment blocked certification: %+v", decisions)
 	}
 
-	// An unterminated comment swallows the rest of the document.
+	// An unterminated comment would swallow the rest of the document from
+	// the scan — the malformed comment itself blocks certification.
 	unterminated := "\n\n<!-- assumed: still drafting\n\n[decision: which store?]"
 	addFeature(t, root, "unterminated", certifiableRequirements(), certifiableDesign(unterminated), certifiableTasks())
 	report, err = ReleaseCheck(context.Background(), root, "unterminated", false)
 	if err != nil {
 		t.Fatalf("ReleaseCheck unterminated: %v", err)
 	}
-	if decisions := criterion(t, report.Features[0], "decisions"); !decisions.Passed {
-		t.Fatalf("marker inside an unterminated comment blocked: %+v", decisions)
+	decisions := criterion(t, report.Features[0], "decisions")
+	if decisions.Passed {
+		t.Fatalf("unterminated comment did not block: %+v", decisions)
+	}
+	joined := strings.Join(decisions.Blockers, " ")
+	if !strings.Contains(joined, "unterminated HTML comment in design.md") || !strings.Contains(joined, "-->") {
+		t.Fatalf("blocker missing document name or remedy: %+v", decisions.Blockers)
 	}
 
 	// A real marker beside a commented one still blocks.
@@ -391,7 +397,7 @@ func TestReleaseCheckWorktreePartitionsPaths(t *testing.T) {
 	}
 }
 
-func TestReleaseCheckWorktreeSkipsWithoutGit(t *testing.T) {
+func TestReleaseCheckBlocksWithoutGit(t *testing.T) {
 	root := t.TempDir()
 	addFeature(t, root, "gate-demo", certifiableRequirements(), certifiableDesign(""), certifiableTasks())
 	runner := testutil.NewFakeRunner(
@@ -407,13 +413,47 @@ func TestReleaseCheckWorktreeSkipsWithoutGit(t *testing.T) {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
 	if !report.GitSkipped {
-		t.Fatal("no-git repository did not skip the worktree criterion")
+		t.Fatal("no-git repository did not report the worktree criterion skipped")
 	}
-	if len(report.WorktreeBlockers) != 0 {
-		t.Fatalf("skipped criterion produced blockers: %v", report.WorktreeBlockers)
+	// A verdict without a code identity names no tree: fail closed.
+	if report.Releasable() {
+		t.Fatalf("git-less repository certified releasable: %+v", report)
 	}
-	// Absent identities compare equal: the feature stays certifiable.
+	joined := strings.Join(report.WorktreeBlockers, " ")
+	if !strings.Contains(joined, "no usable git repository") || !strings.Contains(joined, "initialize git") {
+		t.Fatalf("identity blocker missing or unnamed remedy: %v", report.WorktreeBlockers)
+	}
+}
+
+func TestReleaseCheckStrictBlocksDirtyWalden(t *testing.T) {
+	root := gateRepo(t)
+	write(t, root, ".walden/scratch.txt", "refreshed ledger\n")
+
+	// Default mode: dirty .walden/ stays a warning partition, not a blocker.
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
 	if !report.Releasable() {
-		t.Fatalf("git-less repository not releasable: %+v", report.Features)
+		t.Fatalf("dirty .walden/ blocked a non-strict run: %+v", report)
+	}
+	if len(report.WaldenDirty) != 1 || !strings.Contains(report.WaldenDirty[0], ".walden/scratch.txt") {
+		t.Fatalf(".walden dirt not partitioned: %v", report.WaldenDirty)
+	}
+
+	// Strict mode: the same path blocks, partition intact, remedy named.
+	report, err = ReleaseCheck(context.Background(), root, "gate-demo", true)
+	if err != nil {
+		t.Fatalf("ReleaseCheck strict: %v", err)
+	}
+	if report.Releasable() {
+		t.Fatalf("dirty .walden/ certified releasable under strict: %+v", report)
+	}
+	if len(report.WaldenDirty) != 1 {
+		t.Fatalf("strict promotion emptied the partition: %v", report.WaldenDirty)
+	}
+	joined := strings.Join(report.WorktreeBlockers, " ")
+	if !strings.Contains(joined, "uncommitted under .walden/: .walden/scratch.txt") || !strings.Contains(joined, "--strict") {
+		t.Fatalf("strict blocker missing path or remedy: %v", report.WorktreeBlockers)
 	}
 }

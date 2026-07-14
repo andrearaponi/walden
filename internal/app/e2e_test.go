@@ -337,6 +337,139 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 	}
 }
 
+// TestTopLevelLeafFlowsToCompletion reproduces the original e2e finding: a
+// tasks document whose only task is a top-level leaf with natural two-space
+// metadata must flow through the real approval gate and task complete-all.
+func TestTopLevelLeafFlowsToCompletion(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatalf("expected git dir creation to succeed, got %v", err)
+	}
+
+	previousWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("expected working directory lookup to succeed, got %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previousWD)
+	})
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("expected chdir to succeed, got %v", err)
+	}
+
+	writeStatusFeatureFile(t, root, "demo-notes", "requirements.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-13T10:00:00Z
+approved_fingerprint:
+---
+
+# Requirements Document
+
+## Introduction
+
+Top-level leaf fixture.
+
+## Requirements
+
+### R1 Notes
+
+**User Story:** As a demo author, I want notes published, so that the flow is proven.
+
+#### Acceptance Criteria
+
+1. `+"`R1.AC1`"+` WHEN the proof runs, the system SHALL succeed.
+`)
+	writeStatusFeatureFile(t, root, "demo-notes", "design.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-13T10:00:00Z
+approved_fingerprint:
+source_requirements_approved_at:
+source_requirements_fingerprint:
+---
+
+# Feature Design
+
+## Overview
+
+One top-level leaf.
+
+## Architecture
+
+Single proof.
+
+## Options Considered
+
+### Option A
+
+- Summary: minimal.
+- Why chosen: simplest.
+
+### Option B
+
+- Summary: none.
+- Why rejected: n/a.
+
+## Simplicity And Elegance Review
+
+- Simplest viable shape: one task.
+- Coupling check: none.
+- Future-proofing: none.
+
+## Failure Modes And Tradeoffs
+
+- Failure mode: none.
+- Mitigation: none.
+- Tradeoff: none.
+
+## Verification Plan
+
+- Requirement proof: shell exit.
+- Test evidence: exit code.
+
+## Requirement Coverage
+
+| Requirement | Covered By |
+| --- | --- |
+| `+"`R1`"+` | Overview |
+`)
+	writeStatusFeatureFile(t, root, "demo-notes", "tasks.md", `---
+status: draft
+approved_at:
+last_modified: 2026-07-13T10:00:00Z
+approved_fingerprint:
+source_design_approved_at:
+source_design_fingerprint:
+---
+
+# Implementation Plan
+
+- [ ] 1. Publish demo notes
+  - Requirements: `+"`R1.AC1`"+`
+  - Design: Overview
+  - Verification:
+    - command: ["sh", "-c", "true"]
+      covers: ["R1.AC1"]
+`)
+
+	for _, phase := range []string{"requirements", "design", "tasks"} {
+		assertCommandSuccess(t, []string{"review", "open", "demo-notes", "--phase", phase}, "review gate opened")
+		assertCommandSuccess(t, []string{"review", "approve", "demo-notes", "--phase", phase}, "review gate approved")
+	}
+
+	overrideCommandRunner(t, testutil.NewFakeRunner(testutil.Response{Stdout: "ok", ExitCode: 0}))
+	assertCommandSuccess(t, []string{"task", "complete-all", "demo-notes"}, "batch task completion finished for demo-notes")
+
+	tasksRaw, err := os.ReadFile(filepath.Join(root, ".walden", "specs", "demo-notes", "tasks.md"))
+	if err != nil {
+		t.Fatalf("expected tasks read-back to succeed, got %v", err)
+	}
+	if !strings.Contains(string(tasksRaw), "- [x] 1. Publish demo notes") {
+		t.Fatalf("expected top-level leaf checkbox to be marked, got %q", string(tasksRaw))
+	}
+}
+
 func assertCommandSuccess(t *testing.T, args []string, summaryContains string) {
 	t.Helper()
 

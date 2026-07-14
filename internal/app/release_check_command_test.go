@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -120,13 +121,36 @@ source_design_fingerprint:
         covers: ["R1.AC2"]
 `
 
-// setupReleasableFeature writes a fully certifiable feature in a temp cwd and
-// approves its chain through the CLI. Task completion is left to each test.
+// setupReleasableFeature writes a fully certifiable feature in a temp cwd,
+// approves its chain through the CLI, and commits the tree so the gate can
+// derive a code identity. Task completion is left to each test.
 func setupReleasableFeature(t *testing.T, name string) string {
 	t.Helper()
 	root := chdirContract(t)
 	addReleasableFeature(t, root, name)
+	gitify(t, root)
 	return root
+}
+
+// gitify turns a fixture root into a committed git repository: since the
+// gate fails closed without a code identity, releasable fixtures need one.
+func gitify(t *testing.T, root string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available in PATH")
+	}
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"config", "user.email", "gate@test"},
+		{"config", "user.name", "Gate"},
+		{"add", "-A"},
+		{"commit", "-qm", "fixture"},
+	} {
+		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v (%s)", args, err, out)
+		}
+	}
 }
 
 func addReleasableFeature(t *testing.T, root, name string) {
@@ -191,19 +215,51 @@ func TestRunReleaseCheckReleasableJSON(t *testing.T) {
 	if len(releaseBlock.Features) != 1 || len(releaseBlock.Features[0].Criteria) != 4 {
 		t.Fatalf("expected 1 feature with 4 criteria: %+v", releaseBlock.Features)
 	}
-	// chdirContract roots are not git repositories: the worktree criterion
-	// must report itself skipped rather than inventing a verdict.
-	if !releaseBlock.Worktree.GitSkipped {
-		t.Fatalf("worktree.git_skipped = false in a git-less root: %+v", releaseBlock.Worktree)
+	// Fixture roots are committed git repositories: the gate derived a real
+	// code identity and the worktree criterion ran.
+	if releaseBlock.Worktree.GitSkipped {
+		t.Fatalf("worktree.git_skipped = true in a git-backed root: %+v", releaseBlock.Worktree)
+	}
+}
+
+func TestRunReleaseCheckGitlessBlocks(t *testing.T) {
+	root := chdirContract(t)
+	addReleasableFeature(t, root, "gate-demo")
+	completeReleasableFeature(t, "gate-demo")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"release", "check", "--json"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("git-less root certified releasable: %s", stdout.String())
+	}
+	envelope := decodeReleaseEnvelope(t, &stdout)
+	worktree := envelope.Result.Release.Worktree
+	if !worktree.GitSkipped {
+		t.Fatalf("git_skipped = false in a git-less root: %+v", worktree)
+	}
+	joined := strings.Join(worktree.Blockers, " ")
+	if !strings.Contains(joined, "no usable git repository") {
+		t.Fatalf("identity blocker missing: %+v", worktree.Blockers)
 	}
 }
 
 func TestRunReleaseCheckNotReleasableTextReport(t *testing.T) {
 	root := chdirContract(t)
-	// Approved chain, but the design misses required sections: full-spec
-	// validation blocks certification.
-	writeStatusFeatureFile(t, root, "gate-demo", "requirements.md", releasableRequirements)
-	writeStatusFeatureFile(t, root, "gate-demo", "design.md", `---
+	// Approved chain whose design misses required sections. Such a chain can
+	// no longer be built through `review approve` (the pre-approval gate
+	// refuses it), so the fixture writes already-approved documents directly,
+	// mirroring a repository approved before the gate existed: full-spec
+	// validation still blocks certification as the last line of defense.
+	approve := func(content, sourceKey string) string {
+		content = strings.Replace(content, "status: draft", "status: approved", 1)
+		content = strings.Replace(content, "approved_at:\n", "approved_at: 2026-07-11T13:05:00Z\n", 1)
+		if sourceKey != "" {
+			content = strings.Replace(content, sourceKey+":\n", sourceKey+": 2026-07-11T13:05:00Z\n", 1)
+		}
+		return content
+	}
+	writeStatusFeatureFile(t, root, "gate-demo", "requirements.md", approve(releasableRequirements, ""))
+	writeStatusFeatureFile(t, root, "gate-demo", "design.md", approve(`---
 status: draft
 approved_at:
 last_modified: 2026-07-11T13:00:00Z
@@ -223,17 +279,8 @@ Bare.
 | Requirement | Covered By |
 | --- | --- |
 | `+"`R1`"+` | markers |
-`)
-	writeStatusFeatureFile(t, root, "gate-demo", "tasks.md", releasableTasks)
-	var buffer bytes.Buffer
-	for _, phase := range []string{"requirements", "design", "tasks"} {
-		if code := Run([]string{"review", "open", "gate-demo", "--phase", phase}, &buffer, &buffer); code != 0 {
-			t.Fatalf("review open %s failed: %s", phase, buffer.String())
-		}
-		if code := Run([]string{"review", "approve", "gate-demo", "--phase", phase}, &buffer, &buffer); code != 0 {
-			t.Fatalf("review approve %s failed: %s", phase, buffer.String())
-		}
-	}
+`, "source_requirements_approved_at"))
+	writeStatusFeatureFile(t, root, "gate-demo", "tasks.md", approve(releasableTasks, "source_design_approved_at"))
 
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"release", "check"}, &stdout, &stderr)
