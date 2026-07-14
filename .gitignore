@@ -26,3 +26,12 @@ walden-*-darwin-arm64
 *.dylib
 *.test
 *.out
+
+# Bob the Fixer local configuration
+bobthefixer.env
+# SonarQube local configuration
+sonar-project.properties
+
+# Local-only material (reports, demo assets, launch notes)
+temp/
+HACKER_NEWS.md
