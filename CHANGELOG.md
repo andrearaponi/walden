@@ -4,7 +4,26 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
-## [Unreleased]
+## [0.9.1] - 2026-07-14
+
+### Added
+
+- **Per-command help everywhere.** Every command and subcommand now answers `--help`/`-h` with its syntax, summary, and flags on stdout (exit 0), resolved before positional validation — `walden validate --help` explains itself instead of failing with `feature spec not found: help`. Group commands (`task --help`, `review --help`, …) list their subcommands. Help output derives from a single command registry, so the top-level usage table and per-command help can never drift apart.
+- **Uniform unknown-flag rejection.** Every command rejects undeclared flags with a non-zero exit, an error naming the flag, and a pointer to `--help`; with `--json` the rejection honors the JSON envelope contract. A registry-driven uniformity test makes every current and future command inherit both behaviors by registration alone.
+- **Portfolio validation: `walden validate` with no feature name validates every feature** under `.walden/specs/` in sorted order, reporting one verdict per feature and exit 1 if any fails — mirroring `release check [<feature>]`. `--all` applies full-spec scope to every feature. JSON output gains an additive `features` array (`feature`, `valid`, `summary`). An empty repository fails with a pointer to `walden feature init`.
+
+### Changed
+
+- **Breaking (approval contract): review approve now runs full validation before recording approval.** The approve gate previously checked workflow state and freshness only, so a document the validator (or the execution parser, for tasks) rejects could still become approved — the defect then surfaced at execution time, far from its cause. `walden review approve` now refuses invalid documents with `approval refused: <defect>` and exit code 1, leaving the document untouched. Documents that used to slip through must be fixed before re-approval; `walden validate <feature>` reproduces the refusal reason exactly.
+- **Breaking (gate criteria contract): `walden release check` fails closed without a code identity.** A repository without usable git previously skipped the worktree criterion and could certify releasable; it now emits a repository-level blocker — certification requires a git-backed code identity, because a verdict must name the exact tree it certified. Non-release commands keep their documented no-git tolerance. (`git_skipped` keeps its meaning in JSON; the verdict changes.)
+- **Breaking (gate criteria contract): `--strict` requires committed `.walden/` state.** Dirty `.walden/` paths still warn in the default mode — a freshly refreshed ledger legitimately precedes its own commit — but under `--strict` each one is promoted to a worktree blocker: a plans-complete certification must be reproducible from the commit it judges. The `walden_dirty` JSON partition is unchanged.
+- **Breaking (gate criteria contract): unterminated HTML comments block the decisions criterion.** A dangling `<!--` in an approved document used to swallow the rest of the document from the decision-marker scan — hiding any open checkpoint after it. The malformed comment is now itself a blocker naming the document and remedy.
+
+### Fixed
+
+- **Top-level leaf tasks now execute.** The execution parser hardcoded the classic child offsets (metadata at 4 spaces, proof lines at 6/8), so a top-level leaf task written with the natural two-space metadata validated as a draft but failed `task start`/`complete` with `invalid metadata indentation`. Offsets are now relative to task nesting: top-level leaves accept metadata at 2 or 4 spaces, children keep 4; proof lines bind relative to their `Verification:` line. Every document that parsed before still parses.
+- Draft validation and the execution parser now share one layout check (`spec.CheckTaskLayout`), so a draft that validates can no longer be structurally rejected at execution time; indentation errors from both name the offsets they expected.
+- Draft task validation now derives the same leaf set as the full parser: a top-level task without dotted subtasks is a leaf (subject to the draft metadata checks), instead of being invisible to draft validation and then rejected at review time.
 
 ## [0.9.0] - 2026-07-11
 
