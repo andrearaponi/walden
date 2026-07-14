@@ -506,3 +506,205 @@ func TestCoversFieldBeforeCommandStepFails(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestParseTaskTreeParsesTopLevelLeafTwoSpaceMetadata(t *testing.T) {
+	tree, err := ParseTaskTree(Document{
+		Path:   "tasks.md",
+		Exists: true,
+		Body: `# Implementation Plan
+
+- [ ] 1. Ship the flat task
+  - Requirements: ` + "`R1.AC1`" + `
+  - Design: Parser
+  - Verification: go test ./...
+
+- [ ] 2. Container
+  - [ ] 2.1 Child keeps the classic profile
+    - Requirements: ` + "`R2.AC1`" + `
+    - Design: Parser
+    - Verification: go test ./...
+`,
+	})
+	if err != nil {
+		t.Fatalf("expected two-space top-level leaf metadata to parse, got %v", err)
+	}
+
+	task, ok := tree.FindTask("1")
+	if !ok {
+		t.Fatal("task 1 not found")
+	}
+	if len(task.Requirements) != 1 || task.Requirements[0] != "R1.AC1" {
+		t.Fatalf("unexpected requirements binding: %#v", task.Requirements)
+	}
+	if len(task.DesignRefs) != 1 || task.DesignRefs[0] != "Parser" {
+		t.Fatalf("unexpected design binding: %#v", task.DesignRefs)
+	}
+	if task.Verification != "go test ./..." {
+		t.Fatalf("unexpected verification binding: %q", task.Verification)
+	}
+
+	child, ok := tree.FindTask("2.1")
+	if !ok {
+		t.Fatal("task 2.1 not found")
+	}
+	if len(child.Requirements) != 1 || child.Requirements[0] != "R2.AC1" {
+		t.Fatalf("unexpected child requirements binding: %#v", child.Requirements)
+	}
+}
+
+func TestParseTaskTreeKeepsFourSpaceTopLevelLeafMetadata(t *testing.T) {
+	tree, err := ParseTaskTree(Document{
+		Path:   "tasks.md",
+		Exists: true,
+		Body: `# Implementation Plan
+
+- [ ] 1. Legacy offset stays legal
+    - Requirements: ` + "`R1.AC1`" + `
+    - Design: Parser
+    - Verification:
+      - command: ["go", "test", "./..."]
+        expect_exit: 0
+`,
+	})
+	if err != nil {
+		t.Fatalf("expected four-space top-level leaf metadata to keep parsing, got %v", err)
+	}
+
+	task, ok := tree.FindTask("1")
+	if !ok {
+		t.Fatal("task 1 not found")
+	}
+	if len(task.Proof.Steps) != 1 {
+		t.Fatalf("expected one proof step, got %d", len(task.Proof.Steps))
+	}
+	if task.Proof.Steps[0].ExpectExit == nil || *task.Proof.Steps[0].ExpectExit != 0 {
+		t.Fatalf("expected expect_exit binding, got %#v", task.Proof.Steps[0].ExpectExit)
+	}
+}
+
+func TestParseTaskTreeNamesExpectedMetadataOffsets(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "top-level offset out of range",
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+      - Requirements: ` + "`R1`" + `
+`,
+			want: `invalid metadata indentation for task "1": expected 2 or 4 spaces`,
+		},
+		{
+			name: "child metadata at parent offset",
+			body: `# Implementation Plan
+
+- [ ] 1. Container
+  - [ ] 1.1 Child
+  - Requirements: ` + "`R1`" + `
+`,
+			want: `invalid metadata indentation for task "1.1": expected 4 spaces`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseTaskTree(Document{Path: "tasks.md", Exists: true, Body: tc.body})
+			if err == nil {
+				t.Fatal("expected parse to fail on illegal metadata offset")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q does not name expectation %q", err.Error(), tc.want)
+			}
+		})
+	}
+}
+
+func TestParseTaskTreeParsesTopLevelLeafProofBlock(t *testing.T) {
+	tree, err := ParseTaskTree(Document{
+		Path:   "tasks.md",
+		Exists: true,
+		Body: `# Implementation Plan
+
+- [ ] 1. Flat task with structured proof
+  - Requirements: ` + "`R1.AC2`" + `
+  - Design: Parser
+  - Verification:
+    - command: ["go", "build", "./..."]
+    - command: ["grep", "-rq", "pattern", "."]
+      expect_exit: 1
+      expect_output: "no match"
+      covers: ["R1.AC2"]
+`,
+	})
+	if err != nil {
+		t.Fatalf("expected top-level structured proof block to parse, got %v", err)
+	}
+
+	task, ok := tree.FindTask("1")
+	if !ok {
+		t.Fatal("task 1 not found")
+	}
+	if len(task.Proof.Steps) != 2 {
+		t.Fatalf("expected two proof steps, got %d", len(task.Proof.Steps))
+	}
+	second := task.Proof.Steps[1]
+	if second.ExpectExit == nil || *second.ExpectExit != 1 {
+		t.Fatalf("expect_exit not bound: %#v", second.ExpectExit)
+	}
+	if second.ExpectOutput == nil || *second.ExpectOutput != "no match" {
+		t.Fatalf("expect_output not bound: %#v", second.ExpectOutput)
+	}
+	if len(second.Covers) != 1 || second.Covers[0] != "R1.AC2" {
+		t.Fatalf("covers not bound: %#v", second.Covers)
+	}
+}
+
+func TestParseTaskTreeRejectsMisindentedProofLine(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "command deeper than its verification block",
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+  - Requirements: ` + "`R1`" + `
+  - Design: Parser
+  - Verification:
+      - command: ["go", "test", "./..."]
+`,
+			want: `invalid proof step indentation for task "1": expected 4 spaces`,
+		},
+		{
+			name: "attribute shallower than its step",
+			body: `# Implementation Plan
+
+- [ ] 1. Container
+  - [ ] 1.1 Child
+    - Requirements: ` + "`R1`" + `
+    - Design: Parser
+    - Verification:
+      - command: ["go", "test", "./..."]
+      expect_exit: 1
+`,
+			want: `invalid proof attribute indentation for task "1.1": expected 8 spaces`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseTaskTree(Document{Path: "tasks.md", Exists: true, Body: tc.body})
+			if err == nil {
+				t.Fatal("expected parse to fail on misindented proof line")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q does not name expectation %q", err.Error(), tc.want)
+			}
+		})
+	}
+}

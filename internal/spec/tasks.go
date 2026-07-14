@@ -10,11 +10,11 @@ import (
 
 var (
 	taskLinePattern     = regexp.MustCompile(`^( *)(- \[([ x])\] )([0-9]+(?:\.[0-9]+)*)\.? (.+?)\s*$`)
-	metadataLinePattern = regexp.MustCompile(`^ {4}- (Requirements|Design|Verification):(.*)$`)
-	commandStepPattern  = regexp.MustCompile(`^ {6}- (?:command|argv): (\[.+\])\s*$`)
-	expectExitPattern   = regexp.MustCompile(`^ {8}expect_exit: ([0-9]+)\s*$`)
-	expectOutputPattern = regexp.MustCompile(`^ {8}expect_output: (.+?)\s*$`)
-	coversPattern       = regexp.MustCompile(`^ {8}covers: (\[.+\])\s*$`)
+	metadataLinePattern = regexp.MustCompile(`^( +)- (Requirements|Design|Verification):(.*)$`)
+	commandStepPattern  = regexp.MustCompile(`^( +)- (?:command|argv): (\[.+\])\s*$`)
+	expectExitPattern   = regexp.MustCompile(`^( +)expect_exit: ([0-9]+)\s*$`)
+	expectOutputPattern = regexp.MustCompile(`^( +)expect_output: (.+?)\s*$`)
+	coversPattern       = regexp.MustCompile(`^( +)covers: (\[.+\])\s*$`)
 	backtickRefPattern  = regexp.MustCompile("`([^`]+)`")
 )
 
@@ -68,10 +68,37 @@ type Task struct {
 	Proof        VerificationSpec
 	Children     []*Task
 
-	checkboxLine     int
-	requirementsLine int
-	designLine       int
-	verificationLine int
+	checkboxLine       int
+	requirementsLine   int
+	designLine         int
+	verificationLine   int
+	verificationIndent int
+}
+
+// legalMetadataOffsets returns the metadata indentation widths the executor
+// accepts for a task at the given nesting level: top-level leaves take the
+// natural two-space offset or the legacy four-space one; children take four.
+func legalMetadataOffsets(level int) []int {
+	if level == 1 {
+		return []int{2, 4}
+	}
+	return []int{4}
+}
+
+func metadataOffsetsLabel(level int) string {
+	if level == 1 {
+		return "2 or 4 spaces"
+	}
+	return "4 spaces"
+}
+
+func metadataOffsetLegal(level, indent int) bool {
+	for _, offset := range legalMetadataOffsets(level) {
+		if indent == offset {
+			return true
+		}
+	}
+	return false
 }
 
 // TaskTree is the typed execution view of tasks.md.
@@ -108,8 +135,16 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 
 	for index, line := range lines {
 		if pendingVerificationTask != nil {
+			stepIndent := pendingVerificationTask.verificationIndent + 2
+			attrIndent := pendingVerificationTask.verificationIndent + 4
 			if match := commandStepPattern.FindStringSubmatch(line); match != nil {
-				argv, err := parseVerificationArgv(match[1], index)
+				if len(match[1]) != stepIndent {
+					return TaskTree{}, fmt.Errorf(
+						"line %d: invalid proof step indentation for task %q: expected %d spaces",
+						index+1, pendingVerificationTask.ID, stepIndent,
+					)
+				}
+				argv, err := parseVerificationArgv(match[2], index)
 				if err != nil {
 					return TaskTree{}, err
 				}
@@ -118,11 +153,17 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				continue
 			}
 			if match := expectExitPattern.FindStringSubmatch(line); match != nil {
+				if len(match[1]) != attrIndent {
+					return TaskTree{}, fmt.Errorf(
+						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
+						index+1, pendingVerificationTask.ID, attrIndent,
+					)
+				}
 				steps := pendingVerificationTask.Proof.Steps
 				if len(steps) == 0 {
 					return TaskTree{}, fmt.Errorf("line %d: expect_exit declared before any command step for task %q", index+1, pendingVerificationTask.ID)
 				}
-				exitCode, err := strconv.Atoi(match[1])
+				exitCode, err := strconv.Atoi(match[2])
 				if err != nil {
 					return TaskTree{}, fmt.Errorf("line %d: invalid expect_exit value: %w", index+1, err)
 				}
@@ -130,11 +171,17 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				continue
 			}
 			if match := expectOutputPattern.FindStringSubmatch(line); match != nil {
+				if len(match[1]) != attrIndent {
+					return TaskTree{}, fmt.Errorf(
+						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
+						index+1, pendingVerificationTask.ID, attrIndent,
+					)
+				}
 				steps := pendingVerificationTask.Proof.Steps
 				if len(steps) == 0 {
 					return TaskTree{}, fmt.Errorf("line %d: expect_output declared before any command step for task %q", index+1, pendingVerificationTask.ID)
 				}
-				expected := strings.TrimSpace(match[1])
+				expected := strings.TrimSpace(match[2])
 				if len(expected) >= 2 && strings.HasPrefix(expected, "\"") && strings.HasSuffix(expected, "\"") {
 					expected = expected[1 : len(expected)-1]
 				}
@@ -145,11 +192,17 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				continue
 			}
 			if match := coversPattern.FindStringSubmatch(line); match != nil {
+				if len(match[1]) != attrIndent {
+					return TaskTree{}, fmt.Errorf(
+						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
+						index+1, pendingVerificationTask.ID, attrIndent,
+					)
+				}
 				steps := pendingVerificationTask.Proof.Steps
 				if len(steps) == 0 {
 					return TaskTree{}, fmt.Errorf("line %d: covers declared before any command step for task %q", index+1, pendingVerificationTask.ID)
 				}
-				covers, err := parseCoversField(match[1], index)
+				covers, err := parseCoversField(match[2], index)
 				if err != nil {
 					return TaskTree{}, err
 				}
@@ -212,12 +265,20 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				return TaskTree{}, fmt.Errorf("line %d: task metadata declared before any task", index+1)
 			}
 
-			value := strings.TrimSpace(match[2])
-			if match[1] != "Verification" && value == "" {
-				return TaskTree{}, fmt.Errorf("line %d: empty %s metadata", index+1, match[1])
+			indent := len(match[1])
+			if !metadataOffsetLegal(currentTask.Level, indent) {
+				return TaskTree{}, fmt.Errorf(
+					"line %d: invalid metadata indentation for task %q: expected %s",
+					index+1, currentTask.ID, metadataOffsetsLabel(currentTask.Level),
+				)
 			}
 
-			switch match[1] {
+			value := strings.TrimSpace(match[3])
+			if match[2] != "Verification" && value == "" {
+				return TaskTree{}, fmt.Errorf("line %d: empty %s metadata", index+1, match[2])
+			}
+
+			switch match[2] {
 			case "Requirements":
 				currentTask.Requirements = parseRequirementRefs(value)
 				currentTask.requirementsLine = index
@@ -233,6 +294,7 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 			case "Verification":
 				currentTask.Proof = VerificationSpec{}
 				currentTask.verificationLine = index
+				currentTask.verificationIndent = indent
 				if value == "" {
 					pendingVerificationTask = currentTask
 					continue
@@ -251,6 +313,12 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 		case strings.HasPrefix(trimmed, "- ["):
 			return TaskTree{}, fmt.Errorf("line %d: invalid task indentation", index+1)
 		case strings.HasPrefix(trimmed, "- Requirements:"), strings.HasPrefix(trimmed, "- Design:"), strings.HasPrefix(trimmed, "- Verification:"):
+			if currentTask != nil {
+				return TaskTree{}, fmt.Errorf(
+					"line %d: invalid metadata indentation for task %q: expected %s",
+					index+1, currentTask.ID, metadataOffsetsLabel(currentTask.Level),
+				)
+			}
 			return TaskTree{}, fmt.Errorf("line %d: invalid metadata indentation", index+1)
 		default:
 			continue
