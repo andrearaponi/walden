@@ -13,6 +13,9 @@ import (
 )
 
 func runRelease(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("release", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "check" {
 		return runReleaseCheck(args[1:], stdout, stderr)
 	}
@@ -23,30 +26,13 @@ func runRelease(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
-	// --json is resolved first so even flag errors honor the envelope contract.
-	jsonMode := false
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-		}
+	parsed, handled, code := triageArgs("release check", "release-check", args, stdout, stderr)
+	if handled {
+		return code
 	}
-
-	strict := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		switch arg {
-		case "--json":
-		case "--strict":
-			strict = true
-		default:
-			if strings.HasPrefix(arg, "--") {
-				// Certification has no bypasses by design (R3.AC2): every
-				// unrecognized flag is rejected, never ignored.
-				return emitResult("release-check", errorResult(fmt.Errorf("unknown flag %s: release check accepts only --strict and --json", arg)), jsonMode, stdout, stderr)
-			}
-			positional = append(positional, arg)
-		}
-	}
+	jsonMode := parsed.Bool("--json")
+	strict := parsed.Bool("--strict")
+	positional := parsed.Positionals
 
 	if len(positional) > 1 {
 		return emitResult("release-check", errorResult(errors.New("release check takes at most one feature name")), jsonMode, stdout, stderr)
@@ -114,11 +100,12 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 	result.Blockers = append(result.Blockers, report.WorktreeBlockers...)
 	result.Release = status
 
-	for _, path := range report.WaldenDirty {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("uncommitted under .walden/ (not blocking): %s", path))
-	}
-	if report.GitSkipped {
-		result.Warnings = append(result.Warnings, "worktree criterion skipped: no usable git repository")
+	if !report.Strict {
+		// Under strict these paths are already blockers; the not-blocking
+		// warning would contradict the verdict.
+		for _, path := range report.WaldenDirty {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("uncommitted under .walden/ (not blocking): %s", path))
+		}
 	}
 
 	if report.Releasable() {

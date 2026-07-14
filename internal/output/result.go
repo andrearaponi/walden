@@ -9,34 +9,42 @@ import (
 
 // Result is the shared structured output model for CLI commands.
 type Result struct {
-	Summary               string            `json:"summary"`
-	CreatedFiles          []string          `json:"created_files,omitempty"`
-	UpdatedFiles          []string          `json:"updated_files,omitempty"`
-	ChangedFiles          []string          `json:"changed_files"`
-	SkippedFiles          []string          `json:"skipped_files"`
-	CompletedTasks        []string          `json:"completed_tasks,omitempty"`
-	AutoCompleted         []string          `json:"auto_completed,omitempty"`
-	ValidatedPhases       []string          `json:"validated_phases,omitempty"`
-	SkippedPhases         []string          `json:"skipped_phases,omitempty"`
-	GitInitialized        bool              `json:"git_initialized,omitempty"`
-	GitAlreadyInitialized bool              `json:"git_already_initialized,omitempty"`
-	CurrentPhase          string            `json:"current_phase,omitempty"`
-	BranchName            string            `json:"branch_name,omitempty"`
-	Document              string            `json:"document,omitempty"`
-	Documents             []DocumentStatus  `json:"documents,omitempty"`
-	Task                  *TaskStatus       `json:"task,omitempty"`
-	Blockers              []string          `json:"blockers,omitempty"`
-	NextAction            string            `json:"next_action,omitempty"`
-	Warnings              []string          `json:"warnings"`
-	EARSValidation        []EARSCriterion   `json:"ears_validation,omitempty"`
-	Coverage              *CoverageReport   `json:"coverage,omitempty"`
-	EARSDistribution      *EARSDistribution `json:"ears_distribution,omitempty"`
-	Skills                []SkillStatus     `json:"skills,omitempty"`
-	Evidence              []EvidenceStatus  `json:"evidence,omitempty"`
-	Update                *UpdateStatus     `json:"update,omitempty"`
-	Release               *ReleaseStatus    `json:"release,omitempty"`
-	Content               string            `json:"content,omitempty"`
-	ExitCode              int               `json:"exit_code"`
+	Summary               string              `json:"summary"`
+	CreatedFiles          []string            `json:"created_files,omitempty"`
+	UpdatedFiles          []string            `json:"updated_files,omitempty"`
+	ChangedFiles          []string            `json:"changed_files"`
+	SkippedFiles          []string            `json:"skipped_files"`
+	CompletedTasks        []string            `json:"completed_tasks,omitempty"`
+	AutoCompleted         []string            `json:"auto_completed,omitempty"`
+	ValidatedPhases       []string            `json:"validated_phases,omitempty"`
+	SkippedPhases         []string            `json:"skipped_phases,omitempty"`
+	GitInitialized        bool                `json:"git_initialized,omitempty"`
+	GitAlreadyInitialized bool                `json:"git_already_initialized,omitempty"`
+	CurrentPhase          string              `json:"current_phase,omitempty"`
+	BranchName            string              `json:"branch_name,omitempty"`
+	Document              string              `json:"document,omitempty"`
+	Documents             []DocumentStatus    `json:"documents,omitempty"`
+	Task                  *TaskStatus         `json:"task,omitempty"`
+	Blockers              []string            `json:"blockers,omitempty"`
+	NextAction            string              `json:"next_action,omitempty"`
+	Warnings              []string            `json:"warnings"`
+	EARSValidation        []EARSCriterion     `json:"ears_validation,omitempty"`
+	Coverage              *CoverageReport     `json:"coverage,omitempty"`
+	EARSDistribution      *EARSDistribution   `json:"ears_distribution,omitempty"`
+	Features              []FeatureValidation `json:"features,omitempty"`
+	Skills                []SkillStatus       `json:"skills,omitempty"`
+	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
+	Update                *UpdateStatus       `json:"update,omitempty"`
+	Release               *ReleaseStatus      `json:"release,omitempty"`
+	Content               string              `json:"content,omitempty"`
+	ExitCode              int                 `json:"exit_code"`
+}
+
+// FeatureValidation is one feature's verdict in a portfolio validation run.
+type FeatureValidation struct {
+	Feature string `json:"feature"`
+	Valid   bool   `json:"valid"`
+	Summary string `json:"summary"`
 }
 
 // ReleaseStatus is the JSON output view of a release certification run.
@@ -245,6 +253,17 @@ func PrintText(w io.Writer, result Result) {
 		}
 	}
 
+	if len(result.Features) > 0 {
+		_, _ = fmt.Fprintln(w, "Features:")
+		for _, feature := range result.Features {
+			verdict := "VALID"
+			if !feature.Valid {
+				verdict = feature.Summary
+			}
+			_, _ = fmt.Fprintf(w, "- %s: %s\n", feature.Feature, verdict)
+		}
+	}
+
 	if len(result.Skills) > 0 {
 		_, _ = fmt.Fprintln(w, "Skills:")
 		for _, skill := range result.Skills {
@@ -293,7 +312,7 @@ func PrintText(w io.Writer, result Result) {
 		}
 		switch {
 		case result.Release.Worktree.GitSkipped:
-			_, _ = fmt.Fprintln(w, "- worktree: skipped (no usable git)")
+			_, _ = fmt.Fprintln(w, "- worktree: no usable git (blocking)")
 		case len(result.Release.Worktree.Blockers) > 0:
 			_, _ = fmt.Fprintf(w, "- worktree: %d uncommitted path(s)\n", len(result.Release.Worktree.Blockers))
 		default:

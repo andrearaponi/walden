@@ -13,22 +13,14 @@ import (
 )
 
 func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	all := false
-	check := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		switch arg {
-		case "--json":
-			jsonMode = true
-		case "--all":
-			all = true
-		case "--check":
-			check = true
-		default:
-			positional = append(positional, arg)
-		}
+	parsed, handled, code := triageArgs("verify", "verify", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	all := parsed.Bool("--all")
+	check := parsed.Bool("--check")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("verify", errorResult(errors.New("verify requires exactly one feature name")), jsonMode, stdout, stderr)

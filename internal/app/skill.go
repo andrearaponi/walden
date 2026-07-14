@@ -12,6 +12,9 @@ import (
 )
 
 func runSkill(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("skill", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "show" {
 		return runSkillShow(args[1:], stdout, stderr)
 	}
@@ -31,12 +34,11 @@ func runSkill(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runSkillStatus(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-		}
+	parsed, handled, code := triageArgs("skill status", "skill-status", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
 
 	opts, err := skillOptions()
 	if err != nil {
@@ -83,21 +85,15 @@ type skillFlags struct {
 	agents   []string
 }
 
-func parseSkillFlags(args []string) skillFlags {
-	flags := skillFlags{}
-	for _, arg := range args {
-		switch arg {
-		case "--json":
-			flags.jsonMode = true
-		case "--project":
-			flags.project = true
-		case "--all":
-			flags.all = true
-		default:
-			flags.agents = append(flags.agents, arg)
-		}
+// parseSkillFlags adapts the shared parse to the skillFlags shape install and
+// uninstall consume. It assumes triage already ran in the caller.
+func parseSkillFlags(parsed commandArgs) skillFlags {
+	return skillFlags{
+		jsonMode: parsed.Bool("--json"),
+		project:  parsed.Bool("--project"),
+		all:      parsed.Bool("--all"),
+		agents:   parsed.Positionals,
 	}
-	return flags
 }
 
 // resolveSkillTarget validates the flag combination and returns the selected
@@ -140,7 +136,11 @@ func skillOptions() (skilldist.Options, error) {
 }
 
 func runSkillInstall(args []string, stdout io.Writer, stderr io.Writer) int {
-	flags := parseSkillFlags(args)
+	parsed, handled, code := triageArgs("skill install", "skill-install", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	flags := parseSkillFlags(parsed)
 	agent, err := resolveSkillTarget("install", flags)
 	if err != nil {
 		return emitResult("skill-install", errorResult(err), flags.jsonMode, stdout, stderr)
@@ -201,7 +201,11 @@ func installResult(flags skillFlags, reports []skilldist.Report) output.Result {
 }
 
 func runSkillUninstall(args []string, stdout io.Writer, stderr io.Writer) int {
-	flags := parseSkillFlags(args)
+	parsed, handled, code := triageArgs("skill uninstall", "skill-uninstall", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	flags := parseSkillFlags(parsed)
 	agent, err := resolveSkillTarget("uninstall", flags)
 	if err != nil {
 		return emitResult("skill-uninstall", errorResult(err), flags.jsonMode, stdout, stderr)
@@ -269,12 +273,11 @@ func uninstallResult(flags skillFlags, reports []skilldist.Report) output.Result
 }
 
 func runSkillShow(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-		}
+	parsed, handled, code := triageArgs("skill show", "skill-show", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
 
 	if jsonMode {
 		result := output.Result{

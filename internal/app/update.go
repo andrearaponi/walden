@@ -17,28 +17,18 @@ var updateOptions = func(currentVersion string) (selfupdate.Options, error) {
 }
 
 func runUpdate(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	checkMode := false
-	pinned := ""
+	parsed, handled, code := triageArgs("update", "update", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	jsonMode := parsed.Bool("--json")
+	checkMode := parsed.Bool("--check")
+	pinned := parsed.Value("--version")
 
-	for index := 0; index < len(args); index++ {
-		switch args[index] {
-		case "--json":
-			jsonMode = true
-		case "--check":
-			checkMode = true
-		case "--version":
-			if index+1 >= len(args) {
-				_, _ = fmt.Fprintf(stderr, "update --version requires a tag (e.g. --version v0.7.0)\n")
-				return 1
-			}
-			pinned = args[index+1]
-			index++
-		default:
-			_, _ = fmt.Fprintf(stderr, "unknown command: update %s\n\n", strings.Join(args, " "))
-			printUsage(stderr)
-			return 1
-		}
+	if len(parsed.Positionals) > 0 {
+		_, _ = fmt.Fprintf(stderr, "unknown command: update %s\n\n", strings.Join(parsed.Positionals, " "))
+		printUsage(stderr)
+		return 1
 	}
 
 	// The dev-build guard runs before options are assembled, so a source

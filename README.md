@@ -191,7 +191,7 @@ walden lesson log --feature user-auth --phase execute \
 | `repo init` | Bootstrap `.walden/` and `.github/` in the current repository |
 | `feature init <name>` | Scaffold spec files for a new feature |
 | `status <feature> [--json]` | Show current phase, blockers, and next action |
-| `validate <feature> [--all] [--json]` | Validate spec documents for the current or all phases |
+| `validate [<feature>] [--all] [--json]` | Validate one feature — or every feature when the name is omitted — for the current or all phases |
 | `review open <feature> --phase <phase>` | Move a document to `in-review` |
 | `review approve <feature> --phase <phase>` | Approve a document and record timestamps |
 | `task status <feature> [--json]` | Check execution readiness and next runnable task |
@@ -385,11 +385,11 @@ walden release check --json      # machine-readable verdict for pipelines
 | --- | --- |
 | `chain` | Any document is unapproved or stale |
 | `validation` | Full-spec validation fails |
-| `decisions` | An approved document carries an unresolved `[decision:]` marker |
+| `decisions` | An approved document carries an unresolved `[decision:]` marker or an unterminated HTML comment |
 | `evidence` | A completed task is not `verified` |
-| `worktree` | Uncommitted changes outside `.walden/` |
+| `worktree` | Uncommitted changes outside `.walden/`, no usable git, or (under `--strict`) uncommitted `.walden/` state |
 
-Planned-but-unexecuted tasks never block — the plan is a promise, not a debt (`--strict` opts into plans-complete). Uncommitted code has no bypass flag: what you certify is exactly what you tag. Dirty `.walden/` only warns, because a freshly refreshed ledger legitimately precedes its own commit. Every blocker names its remedy, so a failed certification is a work list, not just a verdict.
+Planned-but-unexecuted tasks never block — the plan is a promise, not a debt (`--strict` opts into plans-complete). Uncommitted code has no bypass flag: what you certify is exactly what you tag, and a repository without usable git fails closed — a verdict must name the tree it certified. Dirty `.walden/` warns by default, because a freshly refreshed ledger legitimately precedes its own commit, but blocks under `--strict`: a plans-complete certification must be reproducible from the commit it judges. Every blocker names its remedy, so a failed certification is a work list, not just a verdict.
 
 The CI recipe composes production and judgment:
 

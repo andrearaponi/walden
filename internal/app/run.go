@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/andrearaponi/walden/internal/output"
@@ -30,29 +31,9 @@ type commandUsage struct {
 	Summary string
 }
 
-var commandUsages = []commandUsage{
-	{"version [--json]", "Print the CLI and schema version"},
-	{"update [--check] [--version <tag>] [--json]", "Update the walden binary from GitHub releases and re-sync installed skills"},
-	{"repo init [--json]", "Initialize Walden in the current repository"},
-	{"feature init <name> [--json]", "Scaffold a new feature spec"},
-	{"status <feature> [--json]", "Show a feature's phase, blockers, and next action"},
-	{"reconcile <feature> [--json]", "Re-sync the approval chain after upstream edits"},
-	{"lesson log --feature <name> --phase <phase> --trigger <text> --lesson <text> --guardrail <text> [--json]", "Append a structured lesson to .walden/lessons.md"},
-	{"task status <feature> [--json]", "Show execution readiness and the next runnable task"},
-	{"task start <feature> [task-id] [--json]", "Resolve normalized execution context for a task"},
-	{"task complete <feature> <task-id> [--json]", "Run a task's proofs and mark it complete"},
-	{"task complete-all <feature> [--json]", "Complete all runnable tasks in order"},
-	{"verify <feature> [--all] [--check] [--json]", "Re-prove completed tasks against the current code and refresh evidence"},
-	{"evidence status <feature> [--json]", "Report each completed task's derived execution-evidence state"},
-	{"release check [<feature>] [--strict] [--json]", "Certify the repository (or one feature) as releasable: chain, validation, decisions, evidence, worktree"},
-	{"validate <feature> [--all] [--json]", "Check EARS, traceability, and freshness"},
-	{"review open <feature> --phase <phase> [--json]", "Open the review gate (move to in-review)"},
-	{"review approve <feature> --phase <phase> [--json]", "Approve the review gate (move to approved)"},
-	{"skill install <agent>|--all [--project] [--json]", "Install the embedded AI skill (claude|codex|copilot|opencode)"},
-	{"skill uninstall <agent>|--all [--project] [--json]", "Remove an installed AI skill"},
-	{"skill status [--json]", "Report installed skills and drift against the embedded copy"},
-	{"skill show [--json]", "Print the embedded SKILL.md"},
-}
+// commandUsages is the flat usage table for the global help, derived from
+// commandRegistry so global and per-command help share one source of truth.
+var commandUsages = buildCommandUsages()
 
 var commandRunner shell.Runner = shell.NewExecRunner()
 
@@ -103,12 +84,11 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-		}
+	parsed, handled, code := triageArgs("version", "version", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
 
 	result := output.Result{
 		Summary:  fmt.Sprintf("walden %s (schema %s)", effectiveVersion(), "v0beta1"),
@@ -128,17 +108,26 @@ func runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runRepo(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	if groupHelp("repo", args, stdout) {
+		return 0
+	}
+	if len(args) > 0 && args[0] == "init" {
+		return runRepoInit(args[1:], stdout, stderr)
 	}
 
-	if len(positional) == 1 && positional[0] == "init" {
+	_, _ = fmt.Fprintf(stderr, "unknown command: repo %s\n\n", strings.Join(args, " "))
+	printUsage(stderr)
+	return 1
+}
+
+func runRepoInit(args []string, stdout io.Writer, stderr io.Writer) int {
+	parsed, handled, code := triageArgs("repo init", "repo-init", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	jsonMode := parsed.Bool("--json")
+
+	if len(parsed.Positionals) == 0 {
 		root, err := os.Getwd()
 		if err != nil {
 			return emitResult("repo-init", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
@@ -172,33 +161,41 @@ func runRepo(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 0
 	}
 
-	_, _ = fmt.Fprintf(stderr, "unknown command: repo %s\n\n", strings.Join(positional, " "))
+	return emitResult("repo-init", errorResult(fmt.Errorf("repo init takes no arguments, got %q", strings.Join(parsed.Positionals, " "))), jsonMode, stdout, stderr)
+}
+
+func runFeature(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("feature", args, stdout) {
+		return 0
+	}
+	if len(args) > 0 && args[0] == "init" {
+		return runFeatureInit(args[1:], stdout, stderr)
+	}
+
+	_, _ = fmt.Fprintf(stderr, "unknown command: feature %s\n\n", strings.Join(args, " "))
 	printUsage(stderr)
 	return 1
 }
 
-func runFeature(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+func runFeatureInit(args []string, stdout io.Writer, stderr io.Writer) int {
+	parsed, handled, code := triageArgs("feature init", "feature-init", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
-	if len(positional) == 1 && positional[0] == "init" {
+	if len(positional) == 0 {
 		return emitResult("feature-init", errorResult(errors.New("feature init requires a feature name")), jsonMode, stdout, stderr)
 	}
 
-	if len(positional) >= 2 && positional[0] == "init" {
+	{
 		root, err := os.Getwd()
 		if err != nil {
 			return emitResult("feature-init", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 		}
 
-		report, err := repo.InitFeature(root, strings.Join(positional[1:], " "))
+		report, err := repo.InitFeature(root, strings.Join(positional, " "))
 		if err != nil {
 			return emitResult("feature-init", errorResult(err), jsonMode, stdout, stderr)
 		}
@@ -231,30 +228,19 @@ func runFeature(args []string, stdout io.Writer, stderr io.Writer) int {
 		output.PrintText(stdout, result)
 		return 0
 	}
-
-	_, _ = fmt.Fprintf(stderr, "unknown command: feature %s\n\n", strings.Join(positional, " "))
-	printUsage(stderr)
-	return 1
 }
 
 func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	fullSpecMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		if arg == "--all" {
-			fullSpecMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("validate", "validate", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	fullSpecMode := parsed.Bool("--all")
+	positional := parsed.Positionals
 
-	if len(positional) != 1 {
-		return emitResult("validate", errorResult(errors.New("validate requires exactly one feature name")), jsonMode, stdout, stderr)
+	if len(positional) > 1 {
+		return emitResult("validate", errorResult(errors.New("validate requires at most one feature name")), jsonMode, stdout, stderr)
 	}
 
 	root, err := os.Getwd()
@@ -265,6 +251,11 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 	scope := validation.ScopeCurrentPhase
 	if fullSpecMode {
 		scope = validation.ScopeFullSpec
+	}
+
+	// Portfolio mode: no feature name validates every feature (R3).
+	if len(positional) == 0 {
+		return runValidatePortfolio(root, scope, jsonMode, stdout, stderr)
 	}
 
 	result, err := validation.ValidateFeatureWithScope(root, positional[0], scope)
@@ -343,16 +334,80 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 	return 1
 }
 
-func runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+// runValidatePortfolio validates every feature under .walden/specs/ with the
+// given scope, reporting one verdict per feature (R3).
+func runValidatePortfolio(root string, scope validation.Scope, jsonMode bool, stdout, stderr io.Writer) int {
+	specsDir := filepath.Join(root, ".walden", "specs")
+	entries, err := os.ReadDir(specsDir)
+	if err != nil {
+		return emitResult("validate", errorResult(errors.New("no feature specs found: run 'walden feature init <feature-name>' to create one")), jsonMode, stdout, stderr)
 	}
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+
+	if len(names) == 0 {
+		return emitResult("validate", errorResult(errors.New("no feature specs found: run 'walden feature init <feature-name>' to create one")), jsonMode, stdout, stderr)
+	}
+
+	features := make([]output.FeatureValidation, 0, len(names))
+	invalid := 0
+	for _, name := range names {
+		result, err := validation.ValidateFeatureWithScope(root, name, scope)
+		if err != nil {
+			return emitResult("validate", errorResult(fmt.Errorf("validate feature %s: %w", name, err)), jsonMode, stdout, stderr)
+		}
+		if !result.Valid {
+			invalid++
+		}
+		features = append(features, output.FeatureValidation{
+			Feature: name,
+			Valid:   result.Valid,
+			Summary: result.Message,
+		})
+	}
+
+	exitCode := 0
+	summary := fmt.Sprintf("VALID: %d feature(s) validated", len(names))
+	if invalid > 0 {
+		exitCode = 1
+		summary = fmt.Sprintf("INVALID: %d of %d feature(s) failed validation", invalid, len(names))
+	}
+
+	outputResult := output.Result{
+		Summary:  summary,
+		Features: features,
+		ExitCode: exitCode,
+	}
+
+	if jsonMode {
+		if err := output.PrintJSON(stdout, "validate", outputResult); err != nil {
+			_, _ = fmt.Fprintf(stderr, "render json output: %v\n", err)
+			return 1
+		}
+		return exitCode
+	}
+
+	if exitCode == 0 {
+		output.PrintText(stdout, outputResult)
+		return 0
+	}
+	output.PrintText(stderr, outputResult)
+	return 1
+}
+
+func runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
+	parsed, handled, code := triageArgs("status", "status", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("status", errorResult(errors.New("status requires exactly one feature name")), jsonMode, stdout, stderr)
@@ -397,15 +452,12 @@ func runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runReconcile(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("reconcile", "reconcile", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("reconcile", errorResult(errors.New("reconcile requires exactly one feature name")), jsonMode, stdout, stderr)
@@ -450,6 +502,9 @@ func runReconcile(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runReview(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("review", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "open" {
 		return runReviewOpen(args[1:], stdout, stderr)
 	}
@@ -463,6 +518,9 @@ func runReview(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runLesson(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("lesson", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "log" {
 		return runLessonLog(args[1:], stdout, stderr)
 	}
@@ -473,6 +531,9 @@ func runLesson(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runTask(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("task", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "status" {
 		return runTaskStatus(args[1:], stdout, stderr)
 	}
@@ -492,15 +553,12 @@ func runTask(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runTaskStatus(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("task status", "task-status", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("task-status", errorResult(errors.New("task status requires exactly one feature name")), jsonMode, stdout, stderr)
@@ -545,20 +603,18 @@ func runTaskStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runLessonLog(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	values := map[string]string{}
-	for index := 0; index < len(args); index++ {
-		arg := args[index]
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		if !strings.HasPrefix(arg, "--") || index+1 >= len(args) {
-			return emitResult("lesson-log", errorResult(fmt.Errorf("lesson log cannot parse argument %q", arg)), jsonMode, stdout, stderr)
-		}
+	parsed, handled, code := triageArgs("lesson log", "lesson-log", args, stdout, stderr)
+	if handled {
+		return code
+	}
+	jsonMode := parsed.Bool("--json")
+	if len(parsed.Positionals) > 0 {
+		return emitResult("lesson-log", errorResult(fmt.Errorf("lesson log cannot parse argument %q", parsed.Positionals[0])), jsonMode, stdout, stderr)
+	}
 
-		values[strings.TrimPrefix(arg, "--")] = args[index+1]
-		index++
+	values := map[string]string{}
+	for _, name := range []string{"feature", "phase", "trigger", "lesson", "guardrail"} {
+		values[name] = parsed.Value("--" + name)
 	}
 
 	for _, required := range []string{"feature", "phase", "trigger", "lesson", "guardrail"} {
@@ -607,15 +663,12 @@ func runLessonLog(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runTaskStart(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("task start", "task-start", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) < 1 || len(positional) > 2 {
 		return emitResult("task-start", errorResult(errors.New("task start requires a feature name and an optional task id")), jsonMode, stdout, stderr)
@@ -664,15 +717,12 @@ func runTaskStart(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runTaskComplete(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("task complete", "task-complete", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 2 {
 		return emitResult("task-complete", errorResult(errors.New("task complete requires a feature name and a task id")), jsonMode, stdout, stderr)
@@ -716,15 +766,12 @@ func runTaskComplete(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runTaskCompleteAll(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("task complete-all", "task-complete-all", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("task-complete-all", errorResult(errors.New("task complete-all requires exactly one feature name")), jsonMode, stdout, stderr)
@@ -769,28 +816,18 @@ func runTaskCompleteAll(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runReviewOpen(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("review open", "review-open", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
 
-	if len(positional) < 3 {
+	if len(parsed.Positionals) != 1 {
 		return emitResult("review-open", errorResult(errors.New("review open requires a feature and --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
-	featureName := positional[0]
-	phaseName := ""
-	for index := 1; index < len(positional); index++ {
-		if positional[index] == "--phase" && index+1 < len(positional) {
-			phaseName = positional[index+1]
-			index++
-		}
-	}
+	featureName := parsed.Positionals[0]
+	phaseName := parsed.Value("--phase")
 
 	if phaseName == "" {
 		return emitResult("review-open", errorResult(errors.New("review open requires --phase requirements|design|tasks")), jsonMode, stdout, stderr)
@@ -832,28 +869,18 @@ func runReviewOpen(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runReviewApprove(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("review approve", "review-approve", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
 
-	if len(positional) < 3 {
+	if len(parsed.Positionals) != 1 {
 		return emitResult("review-approve", errorResult(errors.New("review approve requires a feature and --phase requirements|design|tasks")), jsonMode, stdout, stderr)
 	}
 
-	featureName := positional[0]
-	phaseName := ""
-	for index := 1; index < len(positional); index++ {
-		if positional[index] == "--phase" && index+1 < len(positional) {
-			phaseName = positional[index+1]
-			index++
-		}
-	}
+	featureName := parsed.Positionals[0]
+	phaseName := parsed.Value("--phase")
 
 	if phaseName == "" {
 		return emitResult("review-approve", errorResult(errors.New("review approve requires --phase requirements|design|tasks")), jsonMode, stdout, stderr)
@@ -867,6 +894,17 @@ func runReviewApprove(args []string, stdout io.Writer, stderr io.Writer) int {
 	root, err := os.Getwd()
 	if err != nil {
 		return emitResult("review-approve", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
+	}
+
+	// Fail-closed gate: a document the toolchain cannot validate (and, for
+	// tasks, cannot execute) must never become approved. Validation runs
+	// before any approval state is written.
+	validationResult, err := validation.ValidateFeatureWithScope(root, featureName, validation.ScopeCurrentPhase)
+	if err != nil {
+		return emitResult("review-approve", errorResult(fmt.Errorf("pre-approval validation: %w", err)), jsonMode, stdout, stderr)
+	}
+	if !validationResult.Valid {
+		return emitResult("review-approve", errorResult(fmt.Errorf("approval refused: %s", validationResult.Message)), jsonMode, stdout, stderr)
 	}
 
 	approveResult, err := workflow.ApproveReview(root, featureName, phase)

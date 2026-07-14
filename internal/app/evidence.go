@@ -13,6 +13,9 @@ import (
 )
 
 func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
+	if groupHelp("evidence", args, stdout) {
+		return 0
+	}
 	if len(args) > 0 && args[0] == "status" {
 		return runEvidenceStatus(args[1:], stdout, stderr)
 	}
@@ -23,15 +26,12 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
-	jsonMode := false
-	positional := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--json" {
-			jsonMode = true
-			continue
-		}
-		positional = append(positional, arg)
+	parsed, handled, code := triageArgs("evidence status", "evidence-status", args, stdout, stderr)
+	if handled {
+		return code
 	}
+	jsonMode := parsed.Bool("--json")
+	positional := parsed.Positionals
 
 	if len(positional) != 1 {
 		return emitResult("evidence-status", errorResult(errors.New("evidence status requires exactly one feature name")), jsonMode, stdout, stderr)
