@@ -17,39 +17,78 @@ import (
 // never invalidate the evidence it carries.
 const waldenDir = ".walden"
 
-// Identity derives a deterministic identity of the working tree as one
-// uniform path→blob map: the .walden-filtered HEAD listing seeds committed
-// blob ids, and every dirty or untracked path overrides its entry with the
-// blob id of its current content (git hash-object). Uniform blob ids on both
-// layers mean committing an unchanged file never moves the identity.
-// Identical content yields identical identities regardless of branch names,
-// timestamps, or .walden contents. The second return is false when git is
-// unavailable — callers record the absence and continue.
-func Identity(ctx context.Context, runner shell.Runner, root string) (string, bool) {
+// Manifest is the working tree's uniform path→"mode:blob" map — the raw
+// material of the code identity, exported so re-verification can attribute a
+// working-tree change to the proof that ran between two captures and name
+// the paths involved.
+type Manifest map[string]string
+
+// CaptureManifest derives the deterministic manifest of the working tree:
+// the .walden-filtered HEAD listing seeds committed blob ids, and every
+// dirty or untracked path overrides its entry with the blob id of its
+// current content (git hash-object). Uniform blob ids on both layers mean
+// committing an unchanged file never moves the manifest. The second return
+// is false when git is unavailable — callers record the absence and continue.
+func CaptureManifest(ctx context.Context, runner shell.Runner, root string) (Manifest, bool) {
 	status, err := runner.Run(ctx, "git", "-C", root, "status", "--porcelain", "--untracked-files=all", "-z", "--", ".", ":(exclude)"+waldenDir)
 	if err != nil || status.ExitCode != 0 {
-		return "", false
+		return nil, false
 	}
 
 	// Unborn HEAD (no commits yet) degrades to the overlay alone; the
 	// repository itself is proven present by the successful status call.
-	blobs := map[string]string{}
+	blobs := Manifest{}
 	if lsTree, err := runner.Run(ctx, "git", "-C", root, "ls-tree", "-r", "HEAD"); err == nil && lsTree.ExitCode == 0 {
 		seedListing(blobs, lsTree.Stdout)
 	}
 
 	if !applyOverlay(ctx, runner, root, status.Stdout, blobs) {
-		return "", false
+		return nil, false
 	}
+	return blobs, true
+}
 
-	entries := make([]string, 0, len(blobs))
-	for path, blob := range blobs {
+// Digest folds the manifest into the identity string. Identical content
+// yields identical digests regardless of branch names, timestamps, or
+// .walden contents.
+func (m Manifest) Digest() string {
+	entries := make([]string, 0, len(m))
+	for path, blob := range m {
 		entries = append(entries, path+":"+blob)
 	}
 	sort.Strings(entries)
 
 	sum := sha256.Sum256([]byte(strings.Join(entries, "\n")))
-	return "sha256:" + hex.EncodeToString(sum[:]), true
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// DiffPaths returns the sorted union of paths whose entries differ between
+// two manifests: added, removed, or content-changed.
+func DiffPaths(before, after Manifest) []string {
+	changed := []string{}
+	for path, blob := range before {
+		if other, exists := after[path]; !exists || other != blob {
+			changed = append(changed, path)
+		}
+	}
+	for path := range after {
+		if _, exists := before[path]; !exists {
+			changed = append(changed, path)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+// Identity derives the deterministic identity of the working tree — the
+// digest of its manifest. The second return is false when git is
+// unavailable.
+func Identity(ctx context.Context, runner shell.Runner, root string) (string, bool) {
+	manifest, ok := CaptureManifest(ctx, runner, root)
+	if !ok {
+		return "", false
+	}
+	return manifest.Digest(), true
 }
 
 // seedListing fills the map from a `git ls-tree -r HEAD` listing (format:

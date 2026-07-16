@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/andrearaponi/walden/internal/evidence"
@@ -27,13 +28,18 @@ type VerifyResult struct {
 	Checked  bool
 	Skipped  []string
 	Pruned   []string
+	// Warnings carry run-level purity observations: the tree drifted across
+	// the run, or side-effect detection had to be skipped.
+	Warnings []string
 }
 
 // Verify re-executes the proofs of completed tasks against the current
 // working tree: non-verified ones by default, every one with all. Fresh
 // evidence replaces each task's entry unless check is set, which reports
 // without persisting anything. A failing proof never aborts the run — every
-// selected task is re-proven and failures are collected.
+// selected task is re-proven and failures are collected. Re-verification is
+// pure by contract: a proof that modifies the working tree fails its task,
+// with `.walden/` excluded as the ledger's own legitimate write path.
 func Verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner) (VerifyResult, error) {
 	if runner == nil {
 		return VerifyResult{}, fmt.Errorf("proof runner is required")
@@ -62,12 +68,18 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	}
 	ledger.Feature = feature.Name
 
-	// Selection compares against the pre-run identity; the identity written
-	// into refreshed records is computed AFTER the proofs, because proofs
-	// that regenerate tracked artifacts (builds, go generate) change the
-	// tree they prove — the record must bind to the tree that exists once
-	// the proof has passed, exactly as CompleteTask does.
-	identity, _ := evidence.Identity(ctx, identityRunner, root)
+	// Purity chain: one manifest before the loop (its digest doubles as the
+	// selection identity) and one after each task's proof. Completion may
+	// legitimately mutate the tree; re-verification claims the current tree
+	// satisfies the proofs, so a proof that moves the manifest fails its
+	// task instead of silently dirtying the repository being certified.
+	previous, manifestOK := evidence.CaptureManifest(ctx, identityRunner, root)
+	initial := previous
+	detectionDegraded := !manifestOK
+	identity := ""
+	if manifestOK {
+		identity = previous.Digest()
+	}
 	current := evidence.ChainFingerprints{
 		Requirements: feature.Requirements.Fields["approved_fingerprint"],
 		Design:       feature.Design.Fields["approved_fingerprint"],
@@ -97,7 +109,7 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		fingerprint := executableTaskFingerprint(executable)
 
 		if !all {
-			derived := evidence.Derive(ledger, current, identity, identity != "", []evidence.LeafTask{
+			derived := evidence.Derive(ledger, current, identity, manifestOK, []evidence.LeafTask{
 				{ID: task.ID, Completed: true, Fingerprint: fingerprint},
 			})
 			if derived[0].State == evidence.StateVerified {
@@ -107,22 +119,45 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		}
 
 		stepResults, _, proofErr := executeProof(ctx, runner, executable)
+
+		// The record binds the tree the proof actually left behind; when the
+		// proof was pure that is the same tree it started from.
+		var sideEffectPaths []string
+		recordIdentity := ""
+		if manifestOK {
+			if post, postOK := evidence.CaptureManifest(ctx, identityRunner, root); postOK {
+				sideEffectPaths = evidence.DiffPaths(previous, post)
+				previous = post
+				recordIdentity = post.Digest()
+			} else {
+				detectionDegraded = true
+			}
+		}
+
 		record := evidence.Record{
 			TaskFingerprint:         fingerprint,
 			RequirementsFingerprint: current.Requirements,
 			DesignFingerprint:       current.Design,
 			TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
+			CodeIdentity:            recordIdentity,
 			Steps:                   stepResults,
 			Result:                  evidence.ResultPassed,
 			VerifiedAt:              verifiedAt,
 		}
 
 		outcome := VerifyOutcome{TaskID: task.ID, State: evidence.StateVerified, Passed: true}
-		if proofErr != nil {
+		switch {
+		case proofErr != nil:
 			record.Result = evidence.ResultFailed
 			outcome.State = evidence.StateFailed
 			outcome.Passed = false
 			outcome.Failure = proofErr.Error()
+			result.Failed = append(result.Failed, task.ID)
+		case len(sideEffectPaths) > 0:
+			record.Result = evidence.ResultFailed
+			outcome.State = evidence.StateFailed
+			outcome.Passed = false
+			outcome.Failure = fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatChangedPaths(sideEffectPaths))
 			result.Failed = append(result.Failed, task.ID)
 		}
 
@@ -132,11 +167,17 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		result.Outcomes = append(result.Outcomes, outcome)
 	}
 
+	if detectionDegraded {
+		result.Warnings = append(result.Warnings, "side-effect detection skipped: code identity unavailable (git not usable here)")
+	}
+	if manifestOK {
+		if drift := evidence.DiffPaths(initial, previous); len(drift) > 0 {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("proof side effects modified the repository: %s", formatChangedPaths(drift)))
+		}
+	}
+
 	if !check && (len(refreshed) > 0 || len(result.Pruned) > 0) {
-		// The post-proof identity: the tree the proofs actually left behind.
-		finalIdentity, _ := evidence.Identity(ctx, identityRunner, root)
 		for taskID, record := range refreshed {
-			record.CodeIdentity = finalIdentity
 			ledger.Tasks[taskID] = record
 		}
 		// The state map is a claim about the current plan: entries for task
@@ -153,6 +194,16 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		_ = check
 	}
 	return result, nil
+}
+
+// formatChangedPaths keeps side-effect failures readable on wide mutations:
+// the first ten paths verbatim, the rest as a count.
+func formatChangedPaths(paths []string) string {
+	const maxListed = 10
+	if len(paths) <= maxListed {
+		return strings.Join(paths, ", ")
+	}
+	return fmt.Sprintf("%s, +%d more", strings.Join(paths[:maxListed], ", "), len(paths)-maxListed)
 }
 
 // toExecutableTask bridges a parsed task into the execution view.

@@ -447,7 +447,17 @@ type proofCommand struct {
 	Display      string
 	ExpectExit   int
 	ExpectOutput string
+	Timeout      time.Duration
+	TimeoutLabel string
 }
+
+// defaultProofStepTimeout bounds every proof step without a declared timeout:
+// a hung proof must fail its command, never block it indefinitely. The label
+// is what failure messages name for the default budget.
+const (
+	defaultProofStepTimeout      = 10 * time.Minute
+	defaultProofStepTimeoutLabel = "10m"
+)
 
 func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 	if len(task.Proof.Steps) > 0 {
@@ -464,12 +474,27 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 			if step.ExpectOutput != nil {
 				expectOutput = *step.ExpectOutput
 			}
+			timeout := defaultProofStepTimeout
+			timeoutLabel := defaultProofStepTimeoutLabel
+			if step.Timeout != nil {
+				parsed, err := time.ParseDuration(*step.Timeout)
+				if err != nil {
+					return nil, "", fmt.Errorf("invalid timeout value %q for task %q: %v", *step.Timeout, task.ID, err)
+				}
+				if parsed <= 0 {
+					return nil, "", fmt.Errorf("invalid timeout value %q for task %q: must be positive", *step.Timeout, task.ID)
+				}
+				timeout = parsed
+				timeoutLabel = *step.Timeout
+			}
 			commands = append(commands, proofCommand{
 				Name:         step.Argv[0],
 				Args:         append([]string(nil), step.Argv[1:]...),
 				Display:      formatCommandProofStep(step.Argv),
 				ExpectExit:   expectExit,
 				ExpectOutput: expectOutput,
+				Timeout:      timeout,
+				TimeoutLabel: timeoutLabel,
 			})
 		}
 		return commands, task.Verification, nil
@@ -479,7 +504,13 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return []proofCommand{{Name: name, Args: args, Display: display}}, display, nil
+	return []proofCommand{{
+		Name:         name,
+		Args:         args,
+		Display:      display,
+		Timeout:      defaultProofStepTimeout,
+		TimeoutLabel: defaultProofStepTimeoutLabel,
+	}}, display, nil
 }
 
 // executableTaskFingerprint bridges the execution view back to the spec
@@ -505,7 +536,19 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 
 	results := make([]evidence.StepResult, 0, len(proofCommands))
 	for _, proofStep := range proofCommands {
-		response, err := runner.Run(ctx, proofStep.Name, proofStep.Args...)
+		stepCtx, cancel := context.WithTimeout(ctx, proofStep.Timeout)
+		response, err := runner.Run(stepCtx, proofStep.Name, proofStep.Args...)
+		timedOut := stepCtx.Err() == context.DeadlineExceeded
+		cancel()
+		if timedOut {
+			results = append(results, evidence.StepResult{
+				Command:      append([]string{proofStep.Name}, proofStep.Args...),
+				ExpectedExit: proofStep.ExpectExit,
+				ActualExit:   response.ExitCode,
+				OutputDigest: evidence.DigestOutput(response.Stdout + response.Stderr),
+			})
+			return results, display, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s", task.ID, proofStep.Display, proofStep.TimeoutLabel)
+		}
 		if err != nil {
 			hint := ""
 			if strings.Contains(err.Error(), "executable file not found") {
