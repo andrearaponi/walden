@@ -61,6 +61,7 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 	if len(verifyResult.Pruned) > 0 && !verifyResult.Checked {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("pruned %d orphaned evidence entr%s no longer in the plan: %s", len(verifyResult.Pruned), map[bool]string{true: "y", false: "ies"}[len(verifyResult.Pruned) == 1], strings.Join(verifyResult.Pruned, ", ")))
 	}
+	result.Warnings = append(result.Warnings, verifyResult.Warnings...)
 	switch {
 	case len(verifyResult.Failed) > 0:
 		result.Summary = fmt.Sprintf("verification failed for %s: %s%s", verifyResult.Feature, strings.Join(verifyResult.Failed, ", "), suffix)

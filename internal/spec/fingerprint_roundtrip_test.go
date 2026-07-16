@@ -11,7 +11,7 @@ func TestFingerprintFieldsRoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "design.md")
 
 	body := "# Feature Design\n\nContent under review.\n"
-	fingerprint := Fingerprint(body)
+	fingerprint := Fingerprint(path, body)
 
 	document := Document{
 		Path:   path,
@@ -43,7 +43,7 @@ func TestFingerprintFieldsRoundTrip(t *testing.T) {
 	if loaded.SourceRequirementsFingerprint != fingerprint {
 		t.Fatalf("SourceRequirementsFingerprint = %q, want %q", loaded.SourceRequirementsFingerprint, fingerprint)
 	}
-	if got := Fingerprint(loaded.Body); got != fingerprint {
+	if got := Fingerprint(path, loaded.Body); got != fingerprint {
 		t.Fatalf("body fingerprint changed across save/load round-trip: %q != %q", got, fingerprint)
 	}
 }
@@ -53,7 +53,7 @@ func TestFingerprintUnchangedByFrontmatterOnlyEdit(t *testing.T) {
 	path := filepath.Join(dir, "requirements.md")
 
 	body := "# Requirements Document\n\n1. `R1.AC1` WHEN x, the system SHALL y.\n"
-	fingerprint := Fingerprint(body)
+	fingerprint := Fingerprint(path, body)
 
 	document := Document{
 		Path:   path,
@@ -82,7 +82,7 @@ func TestFingerprintUnchangedByFrontmatterOnlyEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadDocument: %v", err)
 	}
-	if got := Fingerprint(loaded.Body); got != fingerprint {
+	if got := Fingerprint(path, loaded.Body); got != fingerprint {
 		t.Fatalf("frontmatter-only edit changed the body fingerprint: %q != %q", got, fingerprint)
 	}
 }
@@ -94,16 +94,16 @@ func TestFingerprintResetClearsFields(t *testing.T) {
 		Status:                  "approved",
 		ApprovedAt:              "2026-07-02T08:00:00Z",
 		LastModified:            "2026-07-02T08:00:00Z",
-		ApprovedFingerprint:     Fingerprint(body),
+		ApprovedFingerprint:     Fingerprint("tasks.md", body),
 		SourceDesignApprovedAt:  "2026-07-02T07:50:00Z",
-		SourceDesignFingerprint: Fingerprint("design body"),
+		SourceDesignFingerprint: Fingerprint("design.md", "design body"),
 		Fields: map[string]string{
 			"status":                    "approved",
 			"approved_at":               "2026-07-02T08:00:00Z",
 			"last_modified":             "2026-07-02T08:00:00Z",
-			"approved_fingerprint":      Fingerprint(body),
+			"approved_fingerprint":      Fingerprint("tasks.md", body),
 			"source_design_approved_at": "2026-07-02T07:50:00Z",
-			"source_design_fingerprint": Fingerprint("design body"),
+			"source_design_fingerprint": Fingerprint("design.md", "design body"),
 		},
 		Exists: true,
 		Body:   body,

@@ -128,7 +128,10 @@ func renderSpecTemplate(templateFS fs.FS, name, timestamp string) ([]byte, error
 	}
 
 	var rendered bytes.Buffer
-	if err := tmpl.Execute(&rendered, struct{ Timestamp string }{Timestamp: timestamp}); err != nil {
+	if err := tmpl.Execute(&rendered, struct {
+		Timestamp     string
+		SchemaVersion string
+	}{Timestamp: timestamp, SchemaVersion: spec.DocumentSchemaVersion}); err != nil {
 		return nil, fmt.Errorf("render spec template %q: %w", name, err)
 	}
 

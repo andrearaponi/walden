@@ -43,8 +43,8 @@ func TestLoadFeatureStateMarksDesignAndTasksStaleAfterRequirementsChange(t *test
 	// Requirements were re-approved with different content: the design's
 	// recorded source fingerprint no longer matches.
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T15:00:00Z"))
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:30:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("some earlier requirements content")))
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(approveTasksBody, "2026-03-21T14:40:00Z", "2026-03-21T14:30:00Z", spec.Fingerprint(approveDesignBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:30:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", "some earlier requirements content")))
+	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(approveTasksBody, "2026-03-21T14:40:00Z", "2026-03-21T14:30:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	state, err := LoadFeatureState(root, "todo-app-demo")
 	if err != nil {
@@ -74,7 +74,7 @@ func TestLoadFeatureStateMarksTamperedRequirementsStale(t *testing.T) {
 	root := t.TempDir()
 	tampered := approvedRequirementsContent(approveReqBody, "2026-03-21T15:00:00Z") + "\nInjected after approval.\n"
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", tampered)
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T15:10:00Z", "2026-03-21T15:00:00Z", spec.Fingerprint(approveReqBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T15:10:00Z", "2026-03-21T15:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 
 	state, err := LoadFeatureState(root, "todo-app-demo")
 	if err != nil {
@@ -125,8 +125,8 @@ source_requirements_approved_at:
 func TestLoadFeatureStateReturnsExecutionNextActionWhenAllSpecsAreApproved(t *testing.T) {
 	root := t.TempDir()
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint(approveDesignBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	state, err := LoadFeatureState(root, "todo-app-demo")
 	if err != nil {
@@ -177,7 +177,7 @@ func TestFingerprintComparisonDecidesFreshnessDespiteTimestampDivergence(t *test
 	// The chain must stay fresh — fingerprint comparison alone decides.
 	root := t.TempDir()
 	writeFeatureDoc(t, root, "ts-test", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T18:00:00Z"))
-	writeFeatureDoc(t, root, "ts-test", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
+	writeFeatureDoc(t, root, "ts-test", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 
 	state, err := LoadFeatureState(root, "ts-test")
 	if err != nil {
@@ -203,8 +203,8 @@ func TestLoadFeatureStateReportsCompletedImplementationPlan(t *testing.T) {
     - Verification: ` + "`go test ./internal/spec`" + `
 `
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
-	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
-	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(completedPlanBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint(approveDesignBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
+	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md", approvedTasksContent(completedPlanBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	state, err := LoadFeatureState(root, "todo-app-demo")
 	if err != nil {

@@ -13,9 +13,9 @@ func TestReconcileFeatureResetsTamperedRequirementsAndDownstream(t *testing.T) {
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md",
 		approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z")+"\nInjected after approval.\n")
 	writeFeatureDoc(t, root, "todo-app-demo", "design.md",
-		approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
+		approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md",
-		approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint(approveDesignBody)))
+		approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	result, err := reconcileFeatureAt(root, "todo-app-demo", "2026-03-21T18:55:00Z")
 	if err != nil {
@@ -63,9 +63,9 @@ func TestReconcileFeatureResetsDesignAndTasksOnSourceFingerprintMismatch(t *test
 		approvedRequirementsContent(approveReqBody, "2026-03-21T14:30:00Z"))
 	// Design was approved against different requirements content.
 	writeFeatureDoc(t, root, "todo-app-demo", "design.md",
-		approvedDesignContent(approveDesignBody, "2026-03-21T14:40:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("some earlier requirements content")))
+		approvedDesignContent(approveDesignBody, "2026-03-21T14:40:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", "some earlier requirements content")))
 	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md",
-		approvedTasksContent(approveTasksBody, "2026-03-21T14:50:00Z", "2026-03-21T14:40:00Z", spec.Fingerprint(approveDesignBody)))
+		approvedTasksContent(approveTasksBody, "2026-03-21T14:50:00Z", "2026-03-21T14:40:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	result, err := reconcileFeatureAt(root, "todo-app-demo", "2026-03-21T18:55:00Z")
 	if err != nil {
@@ -103,10 +103,10 @@ func TestReconcileFeatureResetsTasksOnSourceFingerprintMismatch(t *testing.T) {
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md",
 		approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
 	writeFeatureDoc(t, root, "todo-app-demo", "design.md",
-		approvedDesignContent(approveDesignBody, "2026-03-21T14:30:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
+		approvedDesignContent(approveDesignBody, "2026-03-21T14:30:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 	// Tasks were approved against different design content.
 	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md",
-		approvedTasksContent(approveTasksBody, "2026-03-21T14:50:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("some earlier design content")))
+		approvedTasksContent(approveTasksBody, "2026-03-21T14:50:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("design.md", "some earlier design content")))
 
 	result, err := reconcileFeatureAt(root, "todo-app-demo", "2026-03-21T18:55:00Z")
 	if err != nil {
@@ -196,9 +196,9 @@ func TestReconcileFeatureLeavesFreshChainUntouched(t *testing.T) {
 	writeFeatureDoc(t, root, "todo-app-demo", "requirements.md",
 		approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
 	writeFeatureDoc(t, root, "todo-app-demo", "design.md",
-		approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
+		approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 	writeFeatureDoc(t, root, "todo-app-demo", "tasks.md",
-		approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint(approveDesignBody)))
+		approvedTasksContent(approveTasksBody, "2026-03-21T14:20:00Z", "2026-03-21T14:10:00Z", spec.Fingerprint("design.md", approveDesignBody)))
 
 	result, err := reconcileFeatureAt(root, "todo-app-demo", "2026-03-21T18:55:00Z")
 	if err != nil {

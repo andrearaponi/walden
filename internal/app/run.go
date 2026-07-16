@@ -91,8 +91,9 @@ func runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonMode := parsed.Bool("--json")
 
 	result := output.Result{
-		Summary:  fmt.Sprintf("walden %s (schema %s)", effectiveVersion(), "v0beta1"),
-		ExitCode: 0,
+		Summary:               fmt.Sprintf("walden %s (schema %s, documents %s)", effectiveVersion(), "v0beta1", spec.DocumentSchemaVersion),
+		DocumentSchemaVersion: spec.DocumentSchemaVersion,
+		ExitCode:              0,
 	}
 
 	if jsonMode {

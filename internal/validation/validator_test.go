@@ -1382,7 +1382,7 @@ func stampFixtureFingerprint(t *testing.T, root, featureName, name string) {
 		return
 	}
 
-	document.ApprovedFingerprint = spec.Fingerprint(document.Body)
+	document.ApprovedFingerprint = spec.Fingerprint(document.Path, document.Body)
 	document.Fields["approved_fingerprint"] = document.ApprovedFingerprint
 
 	switch name {
@@ -1390,7 +1390,7 @@ func stampFixtureFingerprint(t *testing.T, root, featureName, name string) {
 		if feature.Requirements.Status == "approved" {
 			fingerprint := feature.Requirements.ApprovedFingerprint
 			if fingerprint == "" {
-				fingerprint = spec.Fingerprint(feature.Requirements.Body)
+				fingerprint = spec.Fingerprint(feature.Requirements.Path, feature.Requirements.Body)
 			}
 			document.SourceRequirementsFingerprint = fingerprint
 			document.Fields["source_requirements_fingerprint"] = fingerprint
@@ -1399,7 +1399,7 @@ func stampFixtureFingerprint(t *testing.T, root, featureName, name string) {
 		if feature.Design.Status == "approved" {
 			fingerprint := feature.Design.ApprovedFingerprint
 			if fingerprint == "" {
-				fingerprint = spec.Fingerprint(feature.Design.Body)
+				fingerprint = spec.Fingerprint(feature.Design.Path, feature.Design.Body)
 			}
 			document.SourceDesignFingerprint = fingerprint
 			document.Fields["source_design_fingerprint"] = fingerprint

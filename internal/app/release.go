@@ -99,6 +99,9 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 	}
 	result.Blockers = append(result.Blockers, report.WorktreeBlockers...)
 	result.Release = status
+	// Facts, not verdicts: both hold whether or not the check is releasable.
+	result.Completion = report.Completion()
+	result.CertifiedCommit = report.CertifiedCommit
 
 	if !report.Strict {
 		// Under strict these paths are already blockers; the not-blocking
@@ -112,6 +115,13 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 		result.Summary = fmt.Sprintf("RELEASABLE — %d feature(s) certified", len(report.Features))
 		if pendingTotal > 0 {
 			result.Summary += fmt.Sprintf(", %d task(s) still planned", pendingTotal)
+		}
+		if report.CertifiedCommit != "" {
+			short := report.CertifiedCommit
+			if len(short) > 12 {
+				short = short[:12]
+			}
+			result.Summary += ", commit " + short
 		}
 		return result
 	}

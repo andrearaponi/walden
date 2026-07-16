@@ -21,7 +21,7 @@ last_modified: %s
 approved_fingerprint: %s
 ---
 
-%s`, approvedAt, approvedAt, spec.Fingerprint(body), body)
+%s`, approvedAt, approvedAt, spec.Fingerprint("requirements.md", body), body)
 }
 
 func approvedDesignContent(body, approvedAt, sourceApprovedAt, sourceFingerprint string) string {
@@ -34,7 +34,7 @@ source_requirements_approved_at: %s
 source_requirements_fingerprint: %s
 ---
 
-%s`, approvedAt, approvedAt, spec.Fingerprint(body), sourceApprovedAt, sourceFingerprint, body)
+%s`, approvedAt, approvedAt, spec.Fingerprint("design.md", body), sourceApprovedAt, sourceFingerprint, body)
 }
 
 func approvedTasksContent(body, approvedAt, sourceApprovedAt, sourceFingerprint string) string {
@@ -47,7 +47,7 @@ source_design_approved_at: %s
 source_design_fingerprint: %s
 ---
 
-%s`, approvedAt, approvedAt, spec.Fingerprint(body), sourceApprovedAt, sourceFingerprint, body)
+%s`, approvedAt, approvedAt, spec.Fingerprint("tasks.md", body), sourceApprovedAt, sourceFingerprint, body)
 }
 
 // writeFreshFeatureDoc writes a fixture document and, when it is approved,
@@ -69,7 +69,7 @@ func writeFreshFeatureDoc(t *testing.T, root, featureName, name, content string)
 		return
 	}
 
-	document.ApprovedFingerprint = spec.Fingerprint(document.Body)
+	document.ApprovedFingerprint = spec.Fingerprint(document.Path, document.Body)
 	document.Fields["approved_fingerprint"] = document.ApprovedFingerprint
 
 	switch name {
@@ -77,7 +77,7 @@ func writeFreshFeatureDoc(t *testing.T, root, featureName, name, content string)
 		if feature.Requirements.Status == "approved" {
 			fingerprint := feature.Requirements.ApprovedFingerprint
 			if fingerprint == "" {
-				fingerprint = spec.Fingerprint(feature.Requirements.Body)
+				fingerprint = spec.Fingerprint(feature.Requirements.Path, feature.Requirements.Body)
 			}
 			document.SourceRequirementsFingerprint = fingerprint
 			document.Fields["source_requirements_fingerprint"] = fingerprint
@@ -86,7 +86,7 @@ func writeFreshFeatureDoc(t *testing.T, root, featureName, name, content string)
 		if feature.Design.Status == "approved" {
 			fingerprint := feature.Design.ApprovedFingerprint
 			if fingerprint == "" {
-				fingerprint = spec.Fingerprint(feature.Design.Body)
+				fingerprint = spec.Fingerprint(feature.Design.Path, feature.Design.Body)
 			}
 			document.SourceDesignFingerprint = fingerprint
 			document.Fields["source_design_fingerprint"] = fingerprint

@@ -159,7 +159,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 # Implementation Plan
 `)
 	// The design approval was recorded against different requirements content.
-	overrideSpecFingerprintField(t, root, "todo-app-demo", "design.md", "source_requirements_fingerprint", spec.Fingerprint("some earlier requirements content"))
+	overrideSpecFingerprintField(t, root, "todo-app-demo", "design.md", "source_requirements_fingerprint", spec.Fingerprint("requirements.md", "some earlier requirements content"))
 
 	previousWD, err := os.Getwd()
 	if err != nil {

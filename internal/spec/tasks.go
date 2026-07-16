@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -15,6 +16,7 @@ var (
 	expectExitPattern   = regexp.MustCompile(`^( +)expect_exit: ([0-9]+)\s*$`)
 	expectOutputPattern = regexp.MustCompile(`^( +)expect_output: (.+?)\s*$`)
 	coversPattern       = regexp.MustCompile(`^( +)covers: (\[.+\])\s*$`)
+	timeoutPattern      = regexp.MustCompile(`^( +)timeout: (.+?)\s*$`)
 	backtickRefPattern  = regexp.MustCompile("`([^`]+)`")
 )
 
@@ -31,6 +33,9 @@ type VerificationStep struct {
 	ExpectExit   *int
 	ExpectOutput *string
 	Covers       []string
+	// Timeout holds the declared per-step timeout as written (a positive Go
+	// duration string); nil means the executor's default applies.
+	Timeout *string
 }
 
 // Empty reports whether the verification spec contains any executable proof.
@@ -50,7 +55,14 @@ func (spec VerificationSpec) Display() string {
 	rendered := make([]string, 0, len(spec.Steps))
 	for _, step := range spec.Steps {
 		payload, _ := json.Marshal(step.Argv)
-		rendered = append(rendered, fmt.Sprintf("command %s", string(payload)))
+		entry := fmt.Sprintf("command %s", string(payload))
+		// The declared raw string, verbatim: the task fingerprint hashes this
+		// rendering, and steps without a timeout must render byte-identically
+		// to every pre-timeout release so existing evidence never moves.
+		if step.Timeout != nil {
+			entry += " timeout=" + *step.Timeout
+		}
+		rendered = append(rendered, entry)
 	}
 	return strings.Join(rendered, "; ")
 }
@@ -207,6 +219,32 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 					return TaskTree{}, err
 				}
 				steps[len(steps)-1].Covers = covers
+				continue
+			}
+			if match := timeoutPattern.FindStringSubmatch(line); match != nil {
+				if len(match[1]) != attrIndent {
+					return TaskTree{}, fmt.Errorf(
+						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
+						index+1, pendingVerificationTask.ID, attrIndent,
+					)
+				}
+				steps := pendingVerificationTask.Proof.Steps
+				if len(steps) == 0 {
+					return TaskTree{}, fmt.Errorf("line %d: timeout declared before any command step for task %q", index+1, pendingVerificationTask.ID)
+				}
+				value := strings.TrimSpace(match[2])
+				if len(value) >= 2 && strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+					value = value[1 : len(value)-1]
+				}
+				duration, err := time.ParseDuration(value)
+				if err != nil {
+					return TaskTree{}, fmt.Errorf("line %d: invalid timeout value for task %q: %v", index+1, pendingVerificationTask.ID, err)
+				}
+				if duration <= 0 {
+					return TaskTree{}, fmt.Errorf("line %d: invalid timeout value for task %q: must be positive", index+1, pendingVerificationTask.ID)
+				}
+				steps[len(steps)-1].Timeout = &value
+				pendingVerificationTask.Verification = pendingVerificationTask.Proof.Display()
 				continue
 			}
 			if strings.TrimSpace(line) == "" {

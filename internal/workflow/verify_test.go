@@ -271,16 +271,76 @@ func testDigest(content []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func TestVerifyRecordsPostProofIdentity(t *testing.T) {
+func TestVerifySideEffectFailsTask(t *testing.T) {
 	root := t.TempDir()
 	writeVerifyFixture(t, root)
 	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
 	completeBoth(t, root)
 
-	// The proofs regenerate a tracked-visible artifact: the identity at the
-	// start of the run is not the identity of the tree the proofs leave.
-	if _, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root}); err != nil {
+	// Every proof regenerates an artifact inside the tree: re-verification
+	// must fail each mutating task, name the path, and keep going.
+	result, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root})
+	if err != nil {
 		t.Fatalf("Verify returned error: %v", err)
+	}
+
+	if len(result.Outcomes) != 2 {
+		t.Fatalf("expected the run to continue across both tasks, got %d outcomes", len(result.Outcomes))
+	}
+	for _, outcome := range result.Outcomes {
+		if outcome.Passed || outcome.State != evidence.StateFailed {
+			t.Fatalf("task %s = %s, want a side-effect failure", outcome.TaskID, outcome.State)
+		}
+		if !strings.Contains(outcome.Failure, "working tree changed while task "+outcome.TaskID+" proof ran") {
+			t.Fatalf("failure does not attribute the side effect: %q", outcome.Failure)
+		}
+		if !strings.Contains(outcome.Failure, "generated.txt") {
+			t.Fatalf("failure does not name the modified path: %q", outcome.Failure)
+		}
+	}
+	if len(result.Failed) != 2 {
+		t.Fatalf("expected both tasks in Failed, got %v", result.Failed)
+	}
+
+	// Persisting mode records the side-effect failures, bound to the tree
+	// each proof left behind.
+	ledger, err := evidence.Load(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("load ledger: %v", err)
+	}
+	for _, taskID := range []string{"1.1", "1.2"} {
+		record, exists := ledger.Tasks[taskID]
+		if !exists {
+			t.Fatalf("no record persisted for task %s", taskID)
+		}
+		if record.Result != evidence.ResultFailed {
+			t.Fatalf("task %s recorded %q, want failed", taskID, record.Result)
+		}
+		if record.CodeIdentity == "" {
+			t.Fatalf("task %s record lacks the post-proof identity", taskID)
+		}
+	}
+}
+
+func TestVerifyPureProofsStayVerified(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+	completeBoth(t, root)
+
+	// Pure proofs: no writes anywhere — every task re-verifies clean.
+	runner := testutil.NewFakeRunner(
+		testutil.Response{Stdout: "ok", ExitCode: 0},
+		testutil.Response{Stdout: "ok", ExitCode: 0},
+	)
+	result, err := Verify(context.Background(), root, "todo-app-demo", true, false, runner)
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	for _, outcome := range result.Outcomes {
+		if !outcome.Passed || outcome.State != evidence.StateVerified {
+			t.Fatalf("pure proof for task %s = %s (%s), want verified", outcome.TaskID, outcome.State, outcome.Failure)
+		}
 	}
 
 	_, entries, err := EvidenceReport(context.Background(), root, "todo-app-demo")
@@ -289,7 +349,7 @@ func TestVerifyRecordsPostProofIdentity(t *testing.T) {
 	}
 	for _, entry := range entries {
 		if entry.State != evidence.StateVerified {
-			t.Fatalf("task %s = %s immediately after verify, want verified (identity recorded pre-proof?)", entry.TaskID, entry.State)
+			t.Fatalf("task %s = %s after a pure verify, want verified", entry.TaskID, entry.State)
 		}
 	}
 }
@@ -337,5 +397,86 @@ func TestVerifyPrunesOrphanedEntries(t *testing.T) {
 	}
 	if len(final.Tasks) != 2 {
 		t.Fatalf("ledger holds %d entries, want the 2 plan tasks", len(final.Tasks))
+	}
+}
+
+func TestVerifySideEffectWarnings(t *testing.T) {
+	t.Run("run-level drift warning", func(t *testing.T) {
+		root := t.TempDir()
+		writeVerifyFixture(t, root)
+		overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+		completeBoth(t, root)
+
+		result, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root})
+		if err != nil {
+			t.Fatalf("Verify returned error: %v", err)
+		}
+		found := false
+		for _, warning := range result.Warnings {
+			if strings.Contains(warning, "proof side effects modified the repository") && strings.Contains(warning, "generated.txt") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected a run-level drift warning naming the path, got %v", result.Warnings)
+		}
+	})
+
+	t.Run("detection skipped when git unusable", func(t *testing.T) {
+		root := t.TempDir()
+		writeVerifyFixture(t, root)
+		overrideIdentityRunner(t, identityYielding("100644 blob aaa\tmain.go\n"))
+		completeBoth(t, root)
+
+		overrideIdentityRunner(t, &scriptedIdentityRunner{
+			statusResponse: shell.Response{ExitCode: 128},
+			lsTreeResponse: shell.Response{ExitCode: 128},
+		})
+		result, err := Verify(context.Background(), root, "todo-app-demo", true, false, testutil.NewFakeRunner(
+			testutil.Response{Stdout: "ok", ExitCode: 0},
+			testutil.Response{Stdout: "ok", ExitCode: 0},
+		))
+		if err != nil {
+			t.Fatalf("Verify returned error: %v", err)
+		}
+		found := false
+		for _, warning := range result.Warnings {
+			if strings.Contains(warning, "side-effect detection skipped") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected a detection-skipped warning, got %v", result.Warnings)
+		}
+	})
+}
+
+func TestVerifyCheckLeavesLedgerUntouched(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+	completeBoth(t, root)
+
+	ledgerPath := evidence.DocumentPath(root, "todo-app-demo")
+	before, err := os.ReadFile(ledgerPath)
+	if err != nil {
+		t.Fatalf("read ledger before check: %v", err)
+	}
+
+	// Even a mutating proof in check mode reports failures without writing.
+	result, err := Verify(context.Background(), root, "todo-app-demo", true, true, &sideEffectRunner{root: root})
+	if err != nil {
+		t.Fatalf("Verify --check returned error: %v", err)
+	}
+	if len(result.Failed) != 2 {
+		t.Fatalf("check mode should report the side-effect failures, got %v", result.Failed)
+	}
+
+	after, err := os.ReadFile(ledgerPath)
+	if err != nil {
+		t.Fatalf("read ledger after check: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("check mode modified the evidence ledger")
 	}
 }
