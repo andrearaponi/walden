@@ -1,43 +1,59 @@
-## Walden v0.9.1
+## Walden v0.9.2
 
-The first five minutes matter. This release polishes the surface a newcomer actually touches — `--help`, flag errors, "validate everything" — and hardens the gates underneath so that what Walden certifies is even harder to fake.
+What a proof may do is now part of the contract. This release bounds every proof in time, guarantees that re-verification never touches the repository it certifies, and teaches the document format to declare its own version — the groundwork every future extension will stand on.
 
-### Help that helps
+### Every proof step is bounded
 
-Every command and subcommand now answers `--help`/`-h` with its syntax, summary, and flags — resolved before positional validation, on stdout, exit 0:
-
-```bash
-walden validate --help     # explains itself
-walden task --help         # lists the task subcommands
+```markdown
+    - Verification:
+      - command: ["go", "test", "-run", "TestSlowIntegration", "./internal/integration"]
+        timeout: 30m
 ```
 
-Previously `walden validate --help` answered `feature spec not found: help`. Help output derives from a single command registry — the same table that builds the top-level usage — so per-command help and the usage screen can never drift apart.
+Declare a `timeout:` on steps that legitimately run long; everything else runs under a 10-minute default. Expiry kills the step's **whole process group** — `sh -c` pipelines, test binaries, their children — and reports a proof failure naming the exceeded budget. A hung proof fails your pipeline in minutes instead of blocking it forever; an orphan process holding stdout, which previously hung the command even without a timeout, now surfaces as a prompt, explicit error.
 
-Unknown flags are rejected uniformly: non-zero exit, an error naming the flag, a pointer to `--help`. With `--json`, even the rejection honors the envelope contract. A registry-driven uniformity test makes every current and future command inherit both behaviors by registration alone.
+A declared timeout is part of the task definition — changing it invalidates evidence. Plans that declare none render byte-identically: no existing fingerprint or ledger moves on upgrade.
 
-### Validate the whole repository
+### Re-verification is pure
 
-```bash
-walden validate            # every feature under .walden/specs/, sorted
-walden validate --all      # full-spec scope, per feature
+`walden verify` re-executes proofs to prove the current tree still satisfies them — so a proof that *modifies* the tree contradicts the claim. It now fails its task:
+
+```text
+working tree changed while task 1.2 proof ran: modified paths: go.mod
 ```
 
-One verdict per feature, exit 1 if any fails — mirroring `release check [<feature>]`. The JSON envelope gains an additive `features` array (`feature`, `valid`, `summary`). An empty repository fails with a pointer to `walden feature init`.
+The run continues across remaining tasks, the failure is recorded as evidence, and a run-level warning reports overall drift. `--check` stays byte-untouched. `task complete` is deliberately exempt: implementation proofs legitimately mutate (generators, builds), and the recorded identity binds the tree the proof leaves behind. The rule of thumb ships in the skill: author verify-able proofs as read-only assertions, route build outputs outside the repository.
 
-### Gates that fail closed
+This closes a real field defect: a completed task's proof running `go mod tidy` inside `verify --check` used to silently rewrite the host repository's `go.mod`.
 
-- **`review approve` now runs full validation before recording approval.** A document the validator rejects can no longer become approved and detonate at execution time: the gate refuses with `approval refused: <defect>` and exit 1, leaving the document untouched.
-- **`release check` requires a git-backed code identity.** A repository without usable git used to skip the worktree criterion and could certify releasable; it now emits a repository-level blocker — a verdict must name the exact tree it certified.
-- **`--strict` requires committed `.walden/` state.** Dirty ledger paths still warn in the default mode, but a plans-complete certification must be reproducible from the commit it judges.
-- **Unterminated HTML comments block the decisions criterion** instead of swallowing every marker after them.
+### The document evolution contract
 
-### Top-level leaf tasks execute
+Every spec document now declares its format:
 
-A leaf task at the top level of `tasks.md`, written with natural two-space metadata, validated as a draft but failed `task start`/`complete` with `invalid metadata indentation`. Offsets are now relative to task nesting, and draft validation and the executor share one layout check — a draft that validates can no longer be structurally rejected at execution time. Every document that parsed before still parses.
+```yaml
+walden_schema_version: v1alpha1
+```
+
+Scaffolded on `feature init`, stamped on every save — existing repositories converge through normal use, no migration command needed. Legacy documents keep loading; a document from a newer CLI is refused with the exact remedy instead of being silently misread.
+
+Two more halves of the same contract:
+
+- **`x-` frontmatter extensions survive every mutation**, verbatim, deterministically ordered — attach tracking links or provenance metadata without forking the format. Approval fingerprints stay body-only, so extensions never invalidate approvals.
+- **Unknown non-namespaced fields are refused, not silently deleted.** The writer used to drop them on the next save; the loader now names the field and the remedy (`rename it to x-<field>, or remove it`). A typo'd core field is a loud error instead of a quiet data loss.
+
+And one correction to fingerprint semantics: checkbox normalization is now scoped to `tasks.md`, the one document where a checkbox is execution progress. A checkbox edit in approved requirements or design counts as a content change and stales the approval — as it always should have. Marker-free documents keep byte-identical fingerprints; the rare affected document migrates with one reconcile and re-approval.
+
+### The verdict names what it certified
+
+```text
+RELEASABLE — 3 feature(s) certified, commit dbbfb20dffa2
+```
+
+`walden release check` output gains two kernel-derived facts, additive in JSON: `certified_commit` — the HEAD revision an auditor checks out to reproduce the judgment — and `completion`, distinguishing `complete` (every planned leaf task executed) from `with-pending`. Pipeline policy can gate on completeness today; `with-waivers` is reserved for the planned strict-by-default flip.
 
 ### Compatibility
 
-JSON output changes are additive within `schema_version: v0beta1`; evidence schema `v1alpha1` and spec frontmatter are untouched. Two behavioral changes are breaking by design and documented in the changelog: invalid documents can no longer be approved, and gate criteria tightened (`git_skipped`, `--strict`). Documents that used to slip through must be fixed before re-approval — `walden validate <feature>` reproduces the refusal reason exactly.
+JSON output changes are additive within `schema_version: v0beta1`; the evidence schema stays `v1alpha1`. Three behavioral changes are breaking by design and documented in the changelog: mutating proofs fail re-verification, unknown frontmatter fields are refused at load, and checkbox edits in approved requirements/design stale the approval. Field-validated on two production-scale portfolios (135 and 26 features) before shipping: portfolio validation and full certification stay under a quarter second, with zero loader refusals across ~430 real documents.
 
 ---
 

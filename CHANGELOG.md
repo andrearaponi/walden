@@ -4,6 +4,34 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.9.2] - 2026-07-16
+
+What a proof may do is now part of the contract: every step is bounded in time, re-verification is guaranteed not to touch the repository it certifies, and the document format learns to declare its own version.
+
+### Added
+
+- **Per-step proof timeouts.** Every proof step runs under an effective timeout: a `timeout:` attribute (positive Go duration string, e.g. `30m`) at the same indentation as `expect_output`, or a 10-minute default when none is declared. Expiry terminates the step's whole process group and reports a proof failure naming the exceeded budget. A declared timeout participates in the task-definition fingerprint — changing it invalidates evidence — while plans that declare none render byte-identically, so no existing fingerprint or ledger moves on upgrade. Invalid values are rejected identically by validate, complete, and verify (one parser, one verdict).
+- **Document schema versioning.** Every generated spec document carries `walden_schema_version: v1alpha1`, scaffolded by `feature init` and stamped on every save — stamping-on-save migrates existing repositories through normal use, no migration command needed for this step. Documents without the field load as legacy; a document declaring an unsupported version is refused naming the declared version, the supported one, and the remedy. `walden version` reports the supported document schema (additive `document_schema_version` in JSON).
+- **Frontmatter extensions.** `x-` prefixed frontmatter fields survive every CLI mutation verbatim, serialized in lexicographic order after the core keys — integrators can attach durable metadata (tracking links, provenance experiments) without forking the format. Approval fingerprints remain body-only: extensions never invalidate approvals.
+- **Release verdict facts.** The certification result gains a kernel-derived `completion` class — `complete` when every planned leaf task is executed, `with-pending` otherwise (`with-waivers` is reserved for the future strict-by-default flip) — and `certified_commit`, the HEAD revision the verdict ran against. Both are additive JSON fields, populated for releasable and blocked outcomes alike; the releasable summary names the short commit.
+- The embedded skill teaches the `timeout:` attribute, the re-verification purity contract, and the new verdict facts.
+
+### Changed
+
+- **Breaking (verify contract): re-verification is pure.** A proof that modifies the working tree during `walden verify` — in persisting or `--check` mode — now fails its task with `working tree changed while task N proof ran: modified paths: …` instead of silently binding the mutated tree. The run continues across remaining tasks, records the failure as evidence in persisting mode, and warns at the end when the tree drifted overall. `.walden/` stays exempt as the ledger's own write path. `task complete` is untouched: implementation proofs legitimately mutate (generators, builds), and the recorded identity still binds the tree the proof leaves behind. Author verify-able proofs as read-only assertions and route build outputs outside the repository.
+- **Breaking (load contract): unknown frontmatter fields are refused, not silently deleted.** The writer used to drop any field outside its per-document allowlist on the next save; the loader now refuses unknown non-namespaced fields with a rename-to-`x-` or remove remedy. The writer's allowlist doubles as the loader's rejection list, so no silent path remains. A schema-version mismatch is reported first.
+- **Breaking (fingerprint contract): checkbox normalization is scoped to `tasks.md`.** Checked task markers are fingerprinted as unchecked only where checkbox state is execution progress; a checkbox edit in approved requirements or design now counts as a content change and stales the approval. Documents without checked markers keep byte-identical fingerprints — only requirements/design documents that actually contain `- [x]` re-fingerprint, and one reconcile plus re-approval migrates them.
+- Every proof step is now bounded: a proof that used to hang a command indefinitely fails at its budget instead.
+
+### Fixed
+
+- A proof leaving an orphan process holding the output pipes hung the command until the orphan exited — even without any timeout involved. `Run` now returns within a bounded wait and reports an explicit error.
+
+### Compatibility
+
+- JSON output changes are additive within `schema_version: v0beta1`; the evidence schema stays `v1alpha1`.
+- Field-validated on two production-scale portfolios (135 and 26 features) before shipping: portfolio validation and full certification stay under a quarter second, zero loader refusals across ~430 real documents, legacy documents load unchanged.
+
 ## [0.9.1] - 2026-07-14
 
 ### Added
