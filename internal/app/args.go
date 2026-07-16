@@ -308,11 +308,15 @@ var commandRegistry = []commandSpec{
 		Subcommands: []commandSpec{
 			{
 				Path:    "release check",
-				Syntax:  "release check [<feature>] [--strict] [--json]",
+				Syntax:  "release check [<feature>] [--strict] [--allow-pending --reason <text>] [--json]",
 				Summary: "Certify the repository (or one feature) as releasable: chain, validation, decisions, evidence, worktree",
 				BoolFlags: []flagSpec{
-					{Name: "--strict", Description: "Also require every planned task to be executed"},
+					{Name: "--strict", Description: "Also require committed .walden/ state (final certification)"},
+					{Name: "--allow-pending", Description: "Waive pending tasks for this verdict; requires --reason"},
 					jsonFlag,
+				},
+				ValueFlags: []flagSpec{
+					{Name: "--reason", Description: "The recorded justification for waiving pending tasks", Placeholder: "<text>"},
 				},
 			},
 		},

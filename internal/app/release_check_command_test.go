@@ -296,28 +296,29 @@ Bare.
 	}
 }
 
-func TestRunReleaseCheckStrictPromotesPending(t *testing.T) {
+// The flip's app-level witness: pending work blocks the default verdict and
+// the blocker teaches the waiver syntax.
+func TestRunReleaseCheckPendingBlocksByDefault(t *testing.T) {
 	setupReleasableFeature(t, "gate-demo")
 
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"release", "check", "--json"}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("pending-only plan blocked a non-strict run: %s", stdout.String())
+	if code == 0 {
+		t.Fatalf("pending-only plan certified releasable under the flipped default: %s", stdout.String())
 	}
 	envelope := decodeReleaseEnvelope(t, &stdout)
+	if envelope.OK {
+		t.Fatalf("envelope reports ok on a blocked verdict: %+v", envelope.Result)
+	}
 	if pending := envelope.Result.Release.Features[0].Pending; len(pending) != 2 {
-		t.Fatalf("pending = %v, want both planned tasks", pending)
+		t.Fatalf("pending fact list = %v, want both planned tasks", pending)
 	}
-
-	stdout.Reset()
-	stderr.Reset()
-	code = Run([]string{"release", "check", "--strict", "--json"}, &stdout, &stderr)
-	if code == 0 {
-		t.Fatal("--strict did not block pending work")
+	if envelope.Result.Completion != "with-pending" {
+		t.Fatalf("completion = %q, want with-pending", envelope.Result.Completion)
 	}
-	envelope = decodeReleaseEnvelope(t, &stdout)
-	if envelope.OK || !envelope.Result.Release.Strict {
-		t.Fatalf("strict envelope wrong: %+v", envelope.Result.Release)
+	blockers := strings.Join(envelope.Result.Blockers, " ")
+	if !strings.Contains(blockers, "--allow-pending --reason") {
+		t.Fatalf("blocker does not teach the waiver: %v", envelope.Result.Blockers)
 	}
 }
 
@@ -367,7 +368,7 @@ func TestRunReleaseCheckUsageListed(t *testing.T) {
 		t.Fatalf("--help failed: %s", stderr.String())
 	}
 	usage := stdout.String()
-	if !strings.Contains(usage, "release check [<feature>] [--strict] [--json]") {
+	if !strings.Contains(usage, "release check [<feature>] [--strict] [--allow-pending --reason <text>] [--json]") {
 		t.Fatalf("usage does not list release check: %q", usage)
 	}
 }

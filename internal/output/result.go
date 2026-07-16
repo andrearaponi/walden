@@ -40,6 +40,7 @@ type Result struct {
 	Update                *UpdateStatus       `json:"update,omitempty"`
 	Release               *ReleaseStatus      `json:"release,omitempty"`
 	Adoption              *AdoptionStatus     `json:"adoption,omitempty"`
+	Waiver                *WaiverStatus       `json:"waiver,omitempty"`
 	Content               string              `json:"content,omitempty"`
 	ExitCode              int                 `json:"exit_code"`
 }
@@ -78,6 +79,13 @@ type ReleaseWorktree struct {
 	Blockers    []string `json:"blockers,omitempty"`
 	WaldenDirty []string `json:"walden_dirty,omitempty"`
 	GitSkipped  bool     `json:"git_skipped"`
+}
+
+// WaiverStatus is the verdict-carried record of a pending-task waiver: the
+// operator's reason and the feature-qualified tasks it covered.
+type WaiverStatus struct {
+	Reason string   `json:"reason"`
+	Tasks  []string `json:"tasks"`
 }
 
 // AdoptionStatus is the JSON output view of a brownfield adoption plan or run.

@@ -26,7 +26,7 @@ func TestReleaseReportCompletion(t *testing.T) {
 
 	// Integration: the green gate repo has every task executed.
 	root := gateRepo(t)
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestReleaseCheckCertifiedCommit(t *testing.T) {
 	}
 	expected := strings.TrimSpace(string(out))
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestReleaseCheckCertifiedCommitEmptyWithoutGit(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}

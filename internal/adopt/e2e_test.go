@@ -153,7 +153,7 @@ func TestAdoptEndToEndCertifiable(t *testing.T) {
 	gitIn(t, root, "commit", "-qm", "pre-fingerprint era")
 
 	// Before adoption: the feature cannot certify — the chain is stale.
-	before, err := release.ReleaseCheck(context.Background(), root, "old-era", false)
+	before, err := release.ReleaseCheck(context.Background(), root, "old-era", release.Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck before: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestAdoptEndToEndCertifiable(t *testing.T) {
 
 	// After adoption: every criterion passes and the verdict is RELEASABLE —
 	// adoption's writes live under .walden/, which only warns.
-	after, err := release.ReleaseCheck(context.Background(), root, "old-era", false)
+	after, err := release.ReleaseCheck(context.Background(), root, "old-era", release.Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck after: %v", err)
 	}
