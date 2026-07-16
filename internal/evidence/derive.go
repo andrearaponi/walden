@@ -31,6 +31,11 @@ type TaskEvidence struct {
 	State            string
 	RecordedIdentity string
 	CurrentIdentity  string
+	// Profile context is filled by presentation layers, never by Derive:
+	// the profile diagnoses, it does not judge.
+	RecordedProfile Profile
+	ProfileDrift    []ProfileDrift
+	ProfileLegacy   bool
 }
 
 // Derive computes every task's state from facts at read time — the record's

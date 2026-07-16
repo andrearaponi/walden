@@ -51,12 +51,22 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	rendered := make([]output.EvidenceStatus, 0, len(entries))
 	for _, entry := range entries {
 		counts[entry.State]++
-		rendered = append(rendered, output.EvidenceStatus{
+		view := output.EvidenceStatus{
 			TaskID:           entry.TaskID,
 			State:            entry.State,
 			RecordedIdentity: entry.RecordedIdentity,
 			CurrentIdentity:  entry.CurrentIdentity,
-		})
+			Profile:          entry.RecordedProfile,
+			ProfileLegacy:    entry.ProfileLegacy,
+		}
+		for _, drift := range entry.ProfileDrift {
+			view.ProfileDrift = append(view.ProfileDrift, output.ProfileDriftEntry{
+				Key:      drift.Key,
+				Recorded: drift.Recorded,
+				Current:  drift.Current,
+			})
+		}
+		rendered = append(rendered, view)
 	}
 
 	summaryParts := []string{}

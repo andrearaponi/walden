@@ -81,12 +81,23 @@ type ReleaseWorktree struct {
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
 type EvidenceStatus struct {
-	TaskID           string `json:"task_id"`
-	State            string `json:"state"`
-	Passed           *bool  `json:"passed,omitempty"`
-	Failure          string `json:"failure,omitempty"`
-	RecordedIdentity string `json:"recorded_identity,omitempty"`
-	CurrentIdentity  string `json:"current_identity,omitempty"`
+	TaskID           string              `json:"task_id"`
+	State            string              `json:"state"`
+	Passed           *bool               `json:"passed,omitempty"`
+	Failure          string              `json:"failure,omitempty"`
+	RecordedIdentity string              `json:"recorded_identity,omitempty"`
+	CurrentIdentity  string              `json:"current_identity,omitempty"`
+	Profile          map[string]string   `json:"profile,omitempty"`
+	ProfileDrift     []ProfileDriftEntry `json:"profile_drift,omitempty"`
+	ProfileLegacy    bool                `json:"profile_legacy,omitempty"`
+}
+
+// ProfileDriftEntry is one differing execution-profile entry: the recorded
+// value against the current machine's.
+type ProfileDriftEntry struct {
+	Key      string `json:"key"`
+	Recorded string `json:"recorded"`
+	Current  string `json:"current"`
 }
 
 // UpdateStatus is the JSON output view of an update check or run.
@@ -288,7 +299,13 @@ func PrintText(w io.Writer, result Result) {
 			if entry.Failure != "" {
 				_, _ = fmt.Fprintf(w, " (%s)", entry.Failure)
 			}
+			if entry.ProfileLegacy {
+				_, _ = fmt.Fprintf(w, " (legacy record: no profile)")
+			}
 			_, _ = fmt.Fprintln(w)
+			for _, drift := range entry.ProfileDrift {
+				_, _ = fmt.Fprintf(w, "  profile drift: %s: recorded %q → current %q\n", drift.Key, drift.Recorded, drift.Current)
+			}
 		}
 	}
 
