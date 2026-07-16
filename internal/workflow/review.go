@@ -91,7 +91,7 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 	document.Status = "approved"
 	document.ApprovedAt = approvedAt
 	document.LastModified = approvedAt
-	document.ApprovedFingerprint = spec.Fingerprint(document.Body)
+	document.ApprovedFingerprint = spec.Fingerprint(document.Path, document.Body)
 	document.Fields["status"] = document.Status
 	document.Fields["approved_at"] = document.ApprovedAt
 	document.Fields["last_modified"] = document.LastModified

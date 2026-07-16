@@ -176,7 +176,7 @@ source_design_approved_at: 2026-03-21T14:10:00Z
 `)
 
 	// The tasks approval was recorded against different design content.
-	overrideFrontmatterField(t, root, "todo-app-demo", "tasks.md", "source_design_fingerprint", spec.Fingerprint("some earlier design content"))
+	overrideFrontmatterField(t, root, "todo-app-demo", "tasks.md", "source_design_fingerprint", spec.Fingerprint("design.md", "some earlier design content"))
 
 	readiness, err := LoadExecutionReadiness(root, "todo-app-demo")
 	if err != nil {

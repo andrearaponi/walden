@@ -21,6 +21,7 @@ type Result struct {
 	GitInitialized        bool                `json:"git_initialized,omitempty"`
 	GitAlreadyInitialized bool                `json:"git_already_initialized,omitempty"`
 	CurrentPhase          string              `json:"current_phase,omitempty"`
+	DocumentSchemaVersion string              `json:"document_schema_version,omitempty"`
 	BranchName            string              `json:"branch_name,omitempty"`
 	Document              string              `json:"document,omitempty"`
 	Documents             []DocumentStatus    `json:"documents,omitempty"`

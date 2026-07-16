@@ -8,18 +8,18 @@ func TestResetDocumentToDraftClearsFingerprintFields(t *testing.T) {
 		Status:                        "approved",
 		ApprovedAt:                    "2026-03-21T14:10:00Z",
 		LastModified:                  "2026-03-21T14:10:00Z",
-		ApprovedFingerprint:           Fingerprint("# Feature Design\n"),
+		ApprovedFingerprint:           Fingerprint("design.md", "# Feature Design\n"),
 		SourceRequirementsApprovedAt:  "2026-03-21T14:00:00Z",
-		SourceRequirementsFingerprint: Fingerprint("# Requirements Document\n"),
+		SourceRequirementsFingerprint: Fingerprint("requirements.md", "# Requirements Document\n"),
 		Exists:                        true,
 		Body:                          "# Feature Design\n",
 		Fields: map[string]string{
 			"status":                          "approved",
 			"approved_at":                     "2026-03-21T14:10:00Z",
 			"last_modified":                   "2026-03-21T14:10:00Z",
-			"approved_fingerprint":            Fingerprint("# Feature Design\n"),
+			"approved_fingerprint":            Fingerprint("design.md", "# Feature Design\n"),
 			"source_requirements_approved_at": "2026-03-21T14:00:00Z",
-			"source_requirements_fingerprint": Fingerprint("# Requirements Document\n"),
+			"source_requirements_fingerprint": Fingerprint("requirements.md", "# Requirements Document\n"),
 		},
 	}
 

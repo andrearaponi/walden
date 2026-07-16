@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -24,7 +25,27 @@ func SaveDocument(document Document) error {
 
 	var builder strings.Builder
 	builder.WriteString("---\n")
+	// Every save stamps the current schema version first: stamping-on-save
+	// is the migration mechanism for legacy documents.
+	builder.WriteString("walden_schema_version: ")
+	builder.WriteString(DocumentSchemaVersion)
+	builder.WriteString("\n")
 	for _, key := range orderedKeys {
+		builder.WriteString(key)
+		builder.WriteString(": ")
+		builder.WriteString(document.Fields[key])
+		builder.WriteString("\n")
+	}
+	// Namespaced extensions survive every mutation, verbatim and in
+	// lexicographic order — deterministic bytes for identical content.
+	extensionKeys := make([]string, 0)
+	for key := range document.Fields {
+		if strings.HasPrefix(key, "x-") {
+			extensionKeys = append(extensionKeys, key)
+		}
+	}
+	sort.Strings(extensionKeys)
+	for _, key := range extensionKeys {
 		builder.WriteString(key)
 		builder.WriteString(": ")
 		builder.WriteString(document.Fields[key])

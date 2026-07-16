@@ -105,6 +105,12 @@ func loadDocument(path string) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+	if err := checkDocumentSchemaVersion(path, values.Fields); err != nil {
+		return Document{}, err
+	}
+	if err := checkUnknownFrontmatterFields(path, values.Fields); err != nil {
+		return Document{}, err
+	}
 
 	return Document{
 		Path:                          path,

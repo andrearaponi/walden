@@ -17,7 +17,7 @@ func approvedDocument(name, body string) Document {
 		Status:              "approved",
 		ApprovedAt:          "2026-07-02T08:00:00Z",
 		LastModified:        "2026-07-02T08:00:00Z",
-		ApprovedFingerprint: Fingerprint(body),
+		ApprovedFingerprint: Fingerprint(name, body),
 		Fields:              map[string]string{},
 		Exists:              true,
 		Body:                body,
@@ -116,7 +116,7 @@ func TestEvaluateFreshnessTamperedBody(t *testing.T) {
 
 func TestEvaluateFreshnessChainMismatch(t *testing.T) {
 	feature := approvedChain()
-	feature.Design.SourceRequirementsFingerprint = Fingerprint("some other requirements content")
+	feature.Design.SourceRequirementsFingerprint = Fingerprint("requirements.md", "some other requirements content")
 
 	report := EvaluateFreshness(feature)
 	if !report.Design.Intact {

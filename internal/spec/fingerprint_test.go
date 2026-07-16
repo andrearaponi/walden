@@ -34,7 +34,7 @@ func TestFingerprintGoldenVectors(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := Fingerprint(test.body); got != test.want {
+			if got := Fingerprint("requirements.md", test.body); got != test.want {
 				t.Fatalf("Fingerprint(%q) = %q, want %q", test.body, got, test.want)
 			}
 		})
@@ -42,7 +42,7 @@ func TestFingerprintGoldenVectors(t *testing.T) {
 }
 
 func TestFingerprintLineEndingNormalization(t *testing.T) {
-	reference := Fingerprint("# Title\n\nBody line one\nBody line two\n")
+	reference := Fingerprint("requirements.md", "# Title\n\nBody line one\nBody line two\n")
 
 	tests := []struct {
 		name string
@@ -56,7 +56,7 @@ func TestFingerprintLineEndingNormalization(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := Fingerprint(test.body); got != reference {
+			if got := Fingerprint("requirements.md", test.body); got != reference {
 				t.Fatalf("Fingerprint(%q) = %q, want reference %q", test.body, got, reference)
 			}
 		})
@@ -68,11 +68,11 @@ func TestFingerprintCheckboxStateInsensitivity(t *testing.T) {
 	partiallyChecked := "# Implementation Plan\n\n- [ ] 1. Objective\n  - [x] 1.1 Step one\n  - [ ] 1.2 Step two\n"
 	fullyChecked := "# Implementation Plan\n\n- [x] 1. Objective\n  - [x] 1.1 Step one\n  - [X] 1.2 Step two\n"
 
-	reference := Fingerprint(unchecked)
-	if got := Fingerprint(partiallyChecked); got != reference {
+	reference := Fingerprint("tasks.md", unchecked)
+	if got := Fingerprint("tasks.md", partiallyChecked); got != reference {
 		t.Fatalf("partially checked plan fingerprint diverged: %q != %q", got, reference)
 	}
-	if got := Fingerprint(fullyChecked); got != reference {
+	if got := Fingerprint("tasks.md", fullyChecked); got != reference {
 		t.Fatalf("fully checked plan fingerprint diverged: %q != %q", got, reference)
 	}
 }
@@ -80,35 +80,35 @@ func TestFingerprintCheckboxStateInsensitivity(t *testing.T) {
 func TestFingerprintCheckboxNormalizationScope(t *testing.T) {
 	// Only a line's leading task marker is normalized: inline bracket text
 	// and non-list lines remain distinguishing content.
-	if Fingerprint("verify the [x] flag") == Fingerprint("verify the [ ] flag") {
+	if Fingerprint("tasks.md", "verify the [x] flag") == Fingerprint("tasks.md", "verify the [ ] flag") {
 		t.Fatal("inline bracket text must remain distinguishing content")
 	}
-	if Fingerprint("- [x] done") != Fingerprint("- [ ] done") {
+	if Fingerprint("tasks.md", "- [x] done") != Fingerprint("tasks.md", "- [ ] done") {
 		t.Fatal("leading task marker must be normalized")
 	}
-	if Fingerprint("note - [x] not a marker") == Fingerprint("note - [ ] not a marker") {
+	if Fingerprint("tasks.md", "note - [x] not a marker") == Fingerprint("tasks.md", "note - [ ] not a marker") {
 		t.Fatal("mid-line dashes must not be treated as task markers")
 	}
 }
 
 func TestFingerprintIsDeterministic(t *testing.T) {
 	body := "# Requirements\n\n1. `R1.AC1` WHEN x, the system SHALL y.\n"
-	first := Fingerprint(body)
+	first := Fingerprint("requirements.md", body)
 	for i := 0; i < 100; i++ {
-		if got := Fingerprint(body); got != first {
+		if got := Fingerprint("requirements.md", body); got != first {
 			t.Fatalf("Fingerprint is not deterministic: %q != %q", got, first)
 		}
 	}
 }
 
 func TestFingerprintDistinguishesContent(t *testing.T) {
-	if Fingerprint("alpha") == Fingerprint("beta") {
+	if Fingerprint("requirements.md", "alpha") == Fingerprint("requirements.md", "beta") {
 		t.Fatal("different bodies produced the same fingerprint")
 	}
 }
 
 func TestFingerprintValidation(t *testing.T) {
-	valid := Fingerprint("any content")
+	valid := Fingerprint("requirements.md", "any content")
 
 	tests := []struct {
 		name  string
@@ -136,7 +136,7 @@ func TestFingerprintValidation(t *testing.T) {
 
 func TestFingerprintBodyMatch(t *testing.T) {
 	body := "# Design\n\nContent under approval.\n"
-	recorded := Fingerprint(body)
+	recorded := Fingerprint("design.md", body)
 
 	tests := []struct {
 		name        string
@@ -153,8 +153,8 @@ func TestFingerprintBodyMatch(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := BodyMatchesFingerprint(test.body, test.fingerprint); got != test.want {
-				t.Fatalf("BodyMatchesFingerprint(%q, %q) = %t, want %t", test.body, test.fingerprint, got, test.want)
+			if got := BodyMatchesFingerprint("design.md", test.body, test.fingerprint); got != test.want {
+				t.Fatalf("BodyMatchesFingerprint(design.md, %q, %q) = %t, want %t", test.body, test.fingerprint, got, test.want)
 			}
 		})
 	}

@@ -78,7 +78,7 @@ func documentIntegrity(document Document) DocumentFreshness {
 		return DocumentFreshness{Causes: []string{CauseFingerprintMissing}}
 	case !ValidFingerprint(document.ApprovedFingerprint):
 		return DocumentFreshness{Causes: []string{CauseFingerprintMalformed}}
-	case !BodyMatchesFingerprint(document.Body, document.ApprovedFingerprint):
+	case !BodyMatchesFingerprint(document.Path, document.Body, document.ApprovedFingerprint):
 		return DocumentFreshness{Causes: []string{CauseContentMismatch}}
 	default:
 		return DocumentFreshness{Intact: true, Fresh: true}

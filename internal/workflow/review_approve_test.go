@@ -44,7 +44,7 @@ last_modified: 2026-03-21T14:00:00Z
 	if !spec.ValidFingerprint(feature.Requirements.ApprovedFingerprint) {
 		t.Fatalf("expected a valid approval fingerprint, got %q", feature.Requirements.ApprovedFingerprint)
 	}
-	if !spec.BodyMatchesFingerprint(feature.Requirements.Body, feature.Requirements.ApprovedFingerprint) {
+	if !spec.BodyMatchesFingerprint(feature.Requirements.Path, feature.Requirements.Body, feature.Requirements.ApprovedFingerprint) {
 		t.Fatal("recorded approval fingerprint does not match the approved body")
 	}
 	if result.Document != ".walden/specs/todo-app-demo/requirements.md" {
@@ -84,10 +84,10 @@ source_requirements_approved_at:
 	if feature.Design.SourceRequirementsApprovedAt != "2026-03-21T14:00:00Z" {
 		t.Fatalf("unexpected source requirements approval timestamp %q", feature.Design.SourceRequirementsApprovedAt)
 	}
-	if feature.Design.SourceRequirementsFingerprint != spec.Fingerprint(approveReqBody) {
+	if feature.Design.SourceRequirementsFingerprint != spec.Fingerprint("requirements.md", approveReqBody) {
 		t.Fatalf("source requirements fingerprint %q does not match upstream approval fingerprint", feature.Design.SourceRequirementsFingerprint)
 	}
-	if !spec.BodyMatchesFingerprint(feature.Design.Body, feature.Design.ApprovedFingerprint) {
+	if !spec.BodyMatchesFingerprint(feature.Design.Path, feature.Design.Body, feature.Design.ApprovedFingerprint) {
 		t.Fatal("recorded design approval fingerprint does not match the approved body")
 	}
 	if !timestampLike(feature.Design.ApprovedAt) {
@@ -101,7 +101,7 @@ source_requirements_approved_at:
 func TestApproveReviewTasksCopiesUpstreamApprovalTimestampAndFingerprint(t *testing.T) {
 	root := t.TempDir()
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T14:00:00Z"))
-	writeApproveFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint(approveReqBody)))
+	writeApproveFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", approveReqBody)))
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: in-review
 approved_at:
@@ -128,7 +128,7 @@ source_design_approved_at:
 	if feature.Tasks.SourceDesignApprovedAt != "2026-03-21T14:10:00Z" {
 		t.Fatalf("unexpected source design approval timestamp %q", feature.Tasks.SourceDesignApprovedAt)
 	}
-	if feature.Tasks.SourceDesignFingerprint != spec.Fingerprint(approveDesignBody) {
+	if feature.Tasks.SourceDesignFingerprint != spec.Fingerprint("design.md", approveDesignBody) {
 		t.Fatalf("source design fingerprint %q does not match upstream approval fingerprint", feature.Tasks.SourceDesignFingerprint)
 	}
 	if result.NextAction != "Start execution from the next unchecked task" {
@@ -169,7 +169,7 @@ func TestApproveReviewBlocksWhenDesignIsStaleForTasksApproval(t *testing.T) {
 	root := t.TempDir()
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "requirements.md", approvedRequirementsContent(approveReqBody, "2026-03-21T15:00:00Z"))
 	// Design was approved against different requirements content: chain mismatch.
-	writeApproveFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("some earlier requirements content")))
+	writeApproveFeatureDoc(t, root, "todo-app-demo", "design.md", approvedDesignContent(approveDesignBody, "2026-03-21T14:10:00Z", "2026-03-21T14:00:00Z", spec.Fingerprint("requirements.md", "some earlier requirements content")))
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "tasks.md", `---
 status: in-review
 approved_at:
@@ -206,7 +206,7 @@ approved_fingerprint: %s
 # Requirements Document
 
 Injected after approval.
-`, spec.Fingerprint(approveReqBody))
+`, spec.Fingerprint("requirements.md", approveReqBody))
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "requirements.md", tampered)
 	writeApproveFeatureDoc(t, root, "todo-app-demo", "design.md", `---
 status: in-review
