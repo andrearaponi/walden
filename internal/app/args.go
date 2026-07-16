@@ -280,6 +280,15 @@ var commandRegistry = []commandSpec{
 		},
 	},
 	{
+		Path:    "adopt",
+		Syntax:  "adopt [<feature>] [--apply] [--json]",
+		Summary: "Plan or apply brownfield adoption: seal recorded approvals, re-prove unrecorded work",
+		BoolFlags: []flagSpec{
+			{Name: "--apply", Description: "Execute the plan: seal absent fingerprints and re-prove evidence"},
+			jsonFlag,
+		},
+	},
+	{
 		Path:    "evidence",
 		Syntax:  "evidence <subcommand>",
 		Summary: "Execution evidence operations",

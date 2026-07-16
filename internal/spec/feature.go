@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -48,6 +49,23 @@ func NormalizeFeatureName(raw string) (string, error) {
 	}
 
 	return normalized, nil
+}
+
+// ListFeatures returns the sorted feature directories under .walden/specs/.
+// Plain files are ignored: a feature is a directory by layout contract.
+func ListFeatures(root string) ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(root, ".walden", "specs"))
+	if err != nil {
+		return nil, fmt.Errorf("read feature specs: %w", err)
+	}
+	features := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			features = append(features, entry.Name())
+		}
+	}
+	sort.Strings(features)
+	return features, nil
 }
 
 // LoadFeature loads the three Walden documents for a feature from disk.

@@ -39,6 +39,7 @@ type Result struct {
 	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
 	Update                *UpdateStatus       `json:"update,omitempty"`
 	Release               *ReleaseStatus      `json:"release,omitempty"`
+	Adoption              *AdoptionStatus     `json:"adoption,omitempty"`
 	Content               string              `json:"content,omitempty"`
 	ExitCode              int                 `json:"exit_code"`
 }
@@ -77,6 +78,25 @@ type ReleaseWorktree struct {
 	Blockers    []string `json:"blockers,omitempty"`
 	WaldenDirty []string `json:"walden_dirty,omitempty"`
 	GitSkipped  bool     `json:"git_skipped"`
+}
+
+// AdoptionStatus is the JSON output view of a brownfield adoption plan or run.
+type AdoptionStatus struct {
+	Apply    bool              `json:"apply"`
+	Features []AdoptionFeature `json:"features"`
+}
+
+// AdoptionFeature is one feature's adoption classification and outcome.
+type AdoptionFeature struct {
+	Feature      string   `json:"feature"`
+	Class        string   `json:"class"`
+	SealableDocs []string `json:"sealable_docs,omitempty"`
+	SealedDocs   []string `json:"sealed_docs,omitempty"`
+	ReproveCount int      `json:"reprove_count,omitempty"`
+	Verified     []string `json:"verified,omitempty"`
+	Failed       []string `json:"failed,omitempty"`
+	Skipped      int      `json:"skipped,omitempty"`
+	Reason       string   `json:"reason,omitempty"`
 }
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
@@ -312,6 +332,28 @@ func PrintText(w io.Writer, result Result) {
 	if result.Update != nil {
 		_, _ = fmt.Fprintf(w, "Update: current=%s target=%s available=%t applied=%t\n",
 			result.Update.CurrentVersion, result.Update.TargetVersion, result.Update.UpdateAvailable, result.Update.Applied)
+	}
+
+	if result.Adoption != nil {
+		_, _ = fmt.Fprintln(w, "Adoption:")
+		for _, feature := range result.Adoption.Features {
+			_, _ = fmt.Fprintf(w, "- %s: %s", feature.Feature, feature.Class)
+			if len(feature.SealableDocs) > 0 {
+				_, _ = fmt.Fprintf(w, " (%d doc(s) to seal, %d task(s) to re-prove)", len(feature.SealableDocs), feature.ReproveCount)
+			} else if !result.Adoption.Apply && feature.ReproveCount > 0 {
+				_, _ = fmt.Fprintf(w, " (%d task(s) to re-prove)", feature.ReproveCount)
+			}
+			if len(feature.SealedDocs) > 0 {
+				_, _ = fmt.Fprintf(w, " sealed=%d", len(feature.SealedDocs))
+			}
+			if len(feature.Verified) > 0 || len(feature.Failed) > 0 || feature.Skipped > 0 {
+				_, _ = fmt.Fprintf(w, " verified=%d failed=%d skipped=%d", len(feature.Verified), len(feature.Failed), feature.Skipped)
+			}
+			if feature.Reason != "" {
+				_, _ = fmt.Fprintf(w, " (%s)", feature.Reason)
+			}
+			_, _ = fmt.Fprintln(w)
+		}
 	}
 
 	if result.Release != nil {

@@ -72,6 +72,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runValidate(args[1:], stdout, stderr)
 	case "verify":
 		return runVerify(args[1:], stdout, stderr)
+	case "adopt":
+		return runAdopt(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
 	case "release":
