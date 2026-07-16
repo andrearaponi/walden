@@ -45,6 +45,10 @@ type ReleaseReport struct {
 	WaldenDirty      []string
 	GitSkipped       bool
 	Strict           bool
+	// CertifiedCommit is the HEAD revision the certification ran against —
+	// the commit an auditor checks out. Empty when git is unusable (already
+	// a repository-level blocker) or HEAD is unborn.
+	CertifiedCommit string
 }
 
 // BlockerCount sums every blocker across features and the worktree.
@@ -60,6 +64,26 @@ func (r ReleaseReport) BlockerCount() int {
 
 // Releasable reports the verdict.
 func (r ReleaseReport) Releasable() bool { return r.BlockerCount() == 0 }
+
+// Completion classes: the verdict's answer to "was anything still planned
+// when this certification ran?". `with-waivers` is reserved for the v0.10.0
+// strict-by-default flip.
+const (
+	CompletionComplete    = "complete"
+	CompletionWithPending = "with-pending"
+)
+
+// Completion derives the completion class from the certified features'
+// pending lists — a reading of report state, never stored input, so it can
+// never disagree with the data it summarizes.
+func (r ReleaseReport) Completion() string {
+	for _, feature := range r.Features {
+		if len(feature.Pending) > 0 {
+			return CompletionWithPending
+		}
+	}
+	return CompletionComplete
+}
 
 // ReleaseCheck certifies one feature (or, with an empty name, every feature
 // under .walden/specs/ in sorted order) against the release criteria. It
@@ -77,6 +101,13 @@ func ReleaseCheck(ctx context.Context, root, featureName string, strict bool) (R
 	identity, identityOK := evidence.Identity(ctx, gitRunner, root)
 
 	report := ReleaseReport{Strict: strict}
+	// The revision being certified: identity proves what tree, the commit
+	// names where in history. Failure leaves it empty — unusable git is
+	// already a blocker below, and an unborn HEAD cannot pass the worktree
+	// criterion.
+	if head, err := gitRunner.Run(ctx, "git", "-C", root, "rev-parse", "HEAD"); err == nil && head.ExitCode == 0 {
+		report.CertifiedCommit = strings.TrimSpace(head.Stdout)
+	}
 	for _, name := range features {
 		report.Features = append(report.Features, certifyFeature(root, name, strict, identity, identityOK))
 	}
