@@ -38,7 +38,7 @@ Walden is an open source spec-driven delivery kernel. It is not a complete enter
 - Use `walden review open <feature-name> --phase requirements|design|tasks` and `walden review approve <feature-name> --phase requirements|design|tasks` for deterministic review-state transitions.
 - Use `walden task status <feature-name> [--json]`, `walden task start <feature-name> [task-id] [--json]`, and `walden task complete <feature-name> <task-id> [--json]` for deterministic execution flow.
 - Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
-- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything.
+- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything. Re-verification is pure: a proof that modifies the working tree fails its task naming the changed paths — author proofs as read-only assertions and route build outputs outside the repository (task completion keeps accepting generator mutations; the recorded identity binds the resulting tree).
 - Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
 - Use `walden release check [<feature-name>] [--strict] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing.
 - Use `walden reconcile <feature-name> [--json]` when approved upstream documents changed or the approval chain is stale.
@@ -407,7 +407,8 @@ Task generation starts only from approved and non-stale design.
 - Reference design sections on every leaf task.
 - Add a `Verification:` block on every leaf task using the structured `command` format (Kubernetes pattern). The CLI executes commands via `exec.Command` without a shell, so use JSON arrays for exact argument control.
 - Optionally add a `covers:` field on proof steps to declare which acceptance criteria the proof demonstrates.
-- Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
+- Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously.
+- Declare `timeout:` on proof steps that legitimately run long; every step is otherwise bounded by the executor's 10-minute default, and exceeding the budget is a proof failure. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
 
 ### Verification Format
@@ -459,6 +460,14 @@ For proof reference coverage, add `covers:` to declare which acceptance criteria
 ```
 
 The CLI validates that `covers:` IDs reference known acceptance criteria and reports proof reference coverage separately from task reference coverage in the JSON output.
+
+Per-step `timeout:` (a positive Go duration string) bounds a slow proof; steps without one run under the executor's 10-minute default, and exceeding the budget is a proof failure:
+
+```markdown
+    - Verification:
+      - command: ["go", "test", "-run", "TestSlowIntegration", "./internal/integration"]
+        timeout: 30m
+```
 
 Legacy single-line format (`Verification: go test ./...`) still works but does not support quotes, pipes, or shell operators.
 
@@ -544,7 +553,7 @@ Execution is for approved specs only.
 - When the user asks whether the work is releasable — or before any tag, release branch, or delivery hand-off — run `walden release check` and report its verdict; do not assemble the answer from separate status checks.
 - The gate certifies and never releases: approved fresh chains, full-spec validation, decision markers in approved documents, execution evidence, and a clean worktree outside `.walden/` fold into one exit code. Tags, changelogs, and publishing stay with you and the user, after certification passes.
 - Read a failed certification as a work list: every blocker names its remedy. Apply the remedies and rerun the gate; never edit state by hand to silence a blocker.
-- Planned-but-unexecuted tasks are informational and never block; pass `--strict` only when the user wants plans-complete certification. Strict certification also requires committed `.walden/` state — commit specs and evidence before certifying.
+- Planned-but-unexecuted tasks are informational and never block; pass `--strict` only when the user wants plans-complete certification. The verdict names the certified commit and a completion class — `complete` when every planned leaf task is executed, `with-pending` otherwise; JSON carries `certified_commit` and `completion` for pipeline policy. Strict certification also requires committed `.walden/` state — commit specs and evidence before certifying.
 - The dirty-worktree blocker has no bypass by design: the remedy is committing the work. Do not look for a flag. Certification also fails closed without usable git — a verdict must name the code identity it certified — and on unterminated HTML comments in approved documents.
 - Compose production and judgment: `walden verify <feature-name>` re-proves execution, then `walden release check` judges the result. In CI, gate the pipeline on the exit code and use `--json` for structure.
 
