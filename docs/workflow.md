@@ -2,6 +2,8 @@
 
 The complete command loop, from repository bootstrap to certification. This page is operational — for the *why* behind each step, read [The Spec Lifecycle](lifecycle.md); for every flag, the [CLI reference](reference/cli.md).
 
+In [the agentic flow](agentic.md), the authoring steps below (drafting requirements, design, tasks; implementing code) are what the skill does for you, driving these exact commands and stopping at each gate for your approval. The loop is the same either way — this page describes what runs underneath.
+
 ## 1. Bootstrap
 
 ```bash

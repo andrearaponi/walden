@@ -1,6 +1,6 @@
 # Quickstart
 
-One real feature, from an empty repository to a releasable verdict. Ten minutes, no AI required — the CLI is the whole mechanism; an agent skill can author the documents for you later, but everything below is what actually happens underneath.
+One real feature, from an empty repository to a releasable verdict — by hand, so you see every moving part. In daily use you will rarely type most of this: [the agentic flow](agentic.md) has your coding agent author the documents and drive these same commands, stopping at each gate for your approval. Everything below is what actually happens underneath.
 
 ## Install
 
@@ -138,8 +138,19 @@ One deterministic verdict: approved fresh chains, full-spec validation, no unres
 Summary: RELEASABLE — 1 feature(s) certified, completion complete, commit 3f2a91c40d77
 ```
 
+## The same loop, driven by an agent
+
+Everything you just did by hand is what the embedded skill does for you. Install it once —
+
+```bash
+walden skill install claude     # or codex | copilot | opencode
+```
+
+— then open your agent and state the intent ("We need a small todo CLI… let's use Walden"). The skill drafts each document, runs the validations, and stops at every gate for *your* approval; the CLI seals the decisions and runs the proofs exactly as above. Same gates, same evidence, none of the typing: [The Agentic Flow](agentic.md).
+
 ## Where to next
 
+- How the skill and the CLI divide the work: [The Agentic Flow](agentic.md)
 - The mechanism behind each step: [The Spec Lifecycle](lifecycle.md)
 - The full command loop, including reconciliation and lessons: [The Daily Workflow](workflow.md)
 - An existing repository with specs that predate Walden's current contract: [Brownfield Adoption](adoption.md)
