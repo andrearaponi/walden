@@ -50,6 +50,8 @@ ADOPTION PLAN — 133 backfill, 0 re-prove, 2 complete, 0 blocked (399 doc(s) to
 
 Four classes, one honesty rule: an *absent* fingerprint is sealable — `--apply` stamps the current content's fingerprint under the approval already on record (a stated, reviewable trust assumption) and repairs empty chain links; a *present but wrong* fingerprint is `blocked` — human reconcile territory the lane never writes to. Then it re-proves unrecorded completed work through the verify machinery and hands you the honest partition: verified, or failed with a profile that names why. Interrupted runs resume; a second apply is a no-op; the adoption diff is ordinary git state you review and commit. A 135-feature portfolio plans in half a second and adopts in the time its proofs take to run.
 
+And when the partition says a whole product generation was superseded — old-frontend specs whose tests describe deleted code — those specs want retirement, not repair: delete their directories (history lives in git) and record them in `.walden/RETIRED.md`. The repository ships a companion skill, `walden-history`, that officiates the ceremony and narrates what it preserves: sourced chronicles, product eras, rework archaeology.
+
 ### The skill knows all of this
 
 The embedded skill (re-sync with `walden skill install --all` or `walden update`) teaches the three mechanisms — including the one rule that matters most: **a waiver is the user's decision**; the skill never passes `--allow-pending` without your explicit approval.

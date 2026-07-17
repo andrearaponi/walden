@@ -567,6 +567,7 @@ Execution is for approved specs only.
 - Sealing trusts recorded approvals: it stamps the fingerprint of the document's current body under the approval already recorded. State this assumption when presenting the plan — an edit made between the old approval and the seal is invisible to pre-fingerprint history, and the seal grandfathers it in.
 - `--apply` seals, then re-proves through the verify machinery. The verified/failed partition is the honest work list: failures record real evidence with execution profiles, so environment drift is diagnosable per task. Rerunning `--apply` resumes — verified tasks are skipped, failed ones retry.
 - The adoption diff (sealed documents, new evidence ledgers) is ordinary repository state: review and commit it like any other change. Exit code 1 means the partition contains failures to triage, not that adoption must be repeated from scratch.
+- When the failed partition reflects a superseded product generation rather than broken code, those specs are candidates for retirement, not repair: delete their directories (history lives in git) and record each in `.walden/RETIRED.md` — one line naming the retirement commit and the successor. The `walden-history` companion skill officiates the ceremony and narrates the history it preserves.
 
 ## Environment Probes
 
