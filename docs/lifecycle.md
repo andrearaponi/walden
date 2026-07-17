@@ -8,6 +8,8 @@ A checked checkbox proves that *one day* a test passed. Then the code changes, t
 
 Walden's answer is to make every claim **re-provable**. Approvals are sealed with content fingerprints, completions are recorded with executable proofs bound to a snapshot of the world, and every state you can ask about is *derived by comparison at read time* — never stored, never trusted from memory. When something no longer holds, Walden is the one that tells you.
 
+This matters most in the [agentic flow](agentic.md), where a coding agent authors the documents and writes the code: the guarantees below are enforced by the CLI at every station, so they hold identically whoever — or whatever — did the typing. The skill drafts and implements; the kernel seals, proves, and judges; the human approves. Trust comes from the gates, not from the model.
+
 Two photographs run through everything below: the fingerprint of the **specs** as approved, and the identity of the **code** as proven. Every mechanism in the lifecycle is a way of taking, chaining, or comparing those photographs.
 
 ## Birth
