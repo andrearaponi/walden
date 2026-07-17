@@ -35,3 +35,6 @@ sonar-project.properties
 # Local-only material (reports, demo assets, launch notes)
 temp/
 HACKER_NEWS.md
+
+# Generated docs section (built by tools/sitegen at Pages deploy time)
+site/docs/

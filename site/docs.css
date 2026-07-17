@@ -1,0 +1,159 @@
+/* ============================================================
+   Walden Docs — paper, ink & pine, in reading form.
+   Shares the landing's palette; owns its own layout.
+   ============================================================ */
+
+:root {
+  --paper:      #f2eee4;
+  --paper-2:    #ece6d8;
+  --paper-3:    #e4ddcc;
+  --ink:        #181610;
+  --ink-soft:   rgba(24, 22, 16, 0.66);
+  --ink-mute:   rgba(24, 22, 16, 0.45);
+  --rule:       rgba(24, 22, 16, 0.14);
+  --rule-soft:  rgba(24, 22, 16, 0.08);
+  --pine:       #2c4734;
+  --pine-deep:  #1f3527;
+  --pine-bright:#3b6049;
+
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: clamp(1rem, 0.4vw + 0.94rem, 1.1rem);
+  line-height: 1.65;
+  font-weight: 380;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--pine); color: var(--paper); }
+
+/* header ---------------------------------------------------------------- */
+.site-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap;
+  padding: 1.1rem clamp(1.2rem, 4vw, 3rem);
+  border-bottom: 1px solid var(--rule);
+}
+.brand { display: flex; align-items: baseline; gap: 0.7rem; }
+.wordmark {
+  font-family: var(--serif); font-weight: 600; font-size: 1.15rem;
+  color: var(--ink); text-decoration: none; letter-spacing: 0.01em;
+}
+.wordmark .mark { color: var(--pine); }
+.version-tag {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--pine);
+  border: 1px solid var(--rule); border-radius: 999px;
+  padding: 0.14rem 0.6rem; text-decoration: none;
+}
+.nav { display: flex; gap: 1.3rem; font-family: var(--mono); font-size: 0.78rem; }
+.nav a { color: var(--ink-soft); text-decoration: none; }
+.nav a:hover { color: var(--pine); }
+
+/* layout ---------------------------------------------------------------- */
+.layout {
+  display: grid; grid-template-columns: 15.5rem minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  max-width: 76rem; margin: 0 auto;
+  padding: 2.2rem clamp(1.2rem, 4vw, 3rem) 4rem;
+}
+@media (max-width: 54rem) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; border-right: none; border-bottom: 1px solid var(--rule); padding-bottom: 1.2rem; }
+}
+
+/* sidebar --------------------------------------------------------------- */
+.sidebar {
+  font-family: var(--mono); font-size: 0.78rem; line-height: 1.5;
+  align-self: start; position: sticky; top: 1.4rem;
+}
+.sidebar .lane {
+  margin: 1.3rem 0 0.45rem; font-size: 0.62rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.sidebar .lane:first-child { margin-top: 0; }
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+.sidebar li { margin: 0.28rem 0; }
+.sidebar a {
+  color: var(--ink-soft); text-decoration: none;
+  border-left: 2px solid transparent; padding-left: 0.6rem; display: inline-block;
+}
+.sidebar a:hover { color: var(--pine); }
+.sidebar a.here { color: var(--pine); border-left-color: var(--pine); font-weight: 500; }
+
+/* article --------------------------------------------------------------- */
+.doc { max-width: 46rem; min-width: 0; }
+.doc h1 {
+  font-size: clamp(1.7rem, 3.4vw, 2.2rem); font-weight: 600;
+  line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 1rem;
+}
+.doc h2 {
+  font-size: 1.32rem; font-weight: 600; letter-spacing: -0.005em;
+  margin: 2.4rem 0 0.7rem; padding-top: 1.2rem; border-top: 1px solid var(--rule-soft);
+}
+.doc h3 { font-size: 1.08rem; font-weight: 600; margin: 1.8rem 0 0.5rem; }
+.doc h4 { font-size: 0.95rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
+.doc h1 code, .doc h2 code, .doc h3 code, .doc h4 code { font-size: 0.85em; }
+.doc p { margin: 0 0 1rem; }
+.doc strong { color: var(--pine-deep); font-weight: 600; }
+.doc a { color: var(--pine); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.doc a:hover { color: var(--pine-deep); }
+
+.doc code {
+  font-family: var(--mono); font-size: 0.82em;
+  background: var(--paper-2); border: 1px solid var(--rule-soft);
+  border-radius: 4px; padding: 0.08em 0.35em;
+}
+.doc pre {
+  background: var(--pine-deep); color: #e9e5d8;
+  border-radius: 8px; padding: 1rem 1.2rem; margin: 1.1rem 0 1.4rem;
+  overflow-x: auto; font-size: 0.8rem; line-height: 1.7;
+}
+.doc pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+.doc ul, .doc ol { margin: 0 0 1rem; padding-left: 1.4rem; }
+.doc li { margin: 0.3rem 0; }
+.doc li > ul, .doc li > ol { margin: 0.3rem 0 0.3rem; }
+
+.doc blockquote {
+  margin: 1.2rem 0; padding: 0.5rem 0 0.5rem 1.1rem;
+  border-left: 3px solid var(--pine);
+  font-style: italic; color: var(--ink-soft);
+}
+.doc blockquote p { margin: 0; }
+
+.table-scroll { overflow-x: auto; margin: 1.1rem 0 1.4rem; }
+.doc table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+.doc th {
+  font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-mute); text-align: left;
+  padding: 0.4rem 0.9rem 0.4rem 0; border-bottom: 1px solid var(--rule);
+}
+.doc td {
+  padding: 0.55rem 0.9rem 0.55rem 0; border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+}
+
+/* footer ---------------------------------------------------------------- */
+.foot {
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  max-width: 76rem; margin: 0 auto;
+  padding: 1.2rem clamp(1.2rem, 4vw, 3rem) 2.5rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
+  color: var(--ink-mute);
+}
+.foot a { color: var(--ink-soft); text-decoration: none; }
+.foot a:hover { color: var(--pine); }
