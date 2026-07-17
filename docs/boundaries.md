@@ -6,7 +6,7 @@ This document explains what Walden includes today and what is planned but not ye
 
 The open source release is a spec-driven delivery kernel. It includes:
 
-- **CLI** — deterministic workflow engine for phase enforcement, validation, review gates, task execution with verification proofs, reconciliation, and lesson logging.
+- **CLI** — deterministic workflow engine for phase enforcement, validation, review gates, task execution with verification proofs, the execution evidence ledger with re-verification (`walden verify`), the aggregate release gate (`walden release check`), brownfield adoption (`walden adopt`), reconciliation, and lesson logging.
 - **Skill** — optional AI-powered authoring layer that drafts requirements, designs, and task plans while delegating all deterministic operations to the CLI.
 - **File model** — `.walden/specs/` documents with YAML frontmatter for approval tracking and freshness.
 - **Templates** — repository bootstrap and feature scaffolding templates.
