@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'site/**'
+      - 'docs/**'
+      - 'tools/sitegen/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -30,6 +32,16 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # site/docs/ is generated, never committed: the markdown under docs/
+      # is the single source of truth and the generator is stdlib-only.
+      - name: Generate docs section
+        run: go run ./tools/sitegen
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
