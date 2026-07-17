@@ -382,10 +382,21 @@ func pageHTML(current page, body string) string {
   </header>
   <div class="layout">
     <aside class="sidebar" aria-label="Documentation">
-` + sidebar.String() + `    </aside>
+      <details class="sidenav" open>
+        <summary>Documentation menu</summary>
+        <nav>
+` + sidebar.String() + `        </nav>
+      </details>
+    </aside>
     <main class="doc">
 ` + body + `    </main>
   </div>
+  <script>
+    // Mobile: the menu starts collapsed; without JS it stays open and stacks.
+    if (matchMedia("(max-width: 54rem)").matches) {
+      document.querySelector(".sidenav").removeAttribute("open");
+    }
+  </script>
   <footer class="foot">
     <span>intention before code · proof before completion</span>
     <a href="https://github.com/andrearaponi/walden/tree/main/docs">Edit these pages on GitHub ↗</a>

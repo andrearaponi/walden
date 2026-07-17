@@ -124,7 +124,7 @@ a { color: inherit; }
 
 /* Mobile keeps the two links that matter: the CTA and GitHub. */
 @media (max-width: 620px) {
-  .nav a:not(.nav-gh):not(.nav-cta) { display: none; }
+  .nav a:not(.nav-gh):not(.nav-cta):not(.nav-docs) { display: none; }
   .version-tag { display: none; }
 }
 

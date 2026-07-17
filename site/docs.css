@@ -69,16 +69,15 @@ body {
   max-width: 76rem; margin: 0 auto;
   padding: 2.2rem clamp(1.2rem, 4vw, 3rem) 4rem;
 }
-@media (max-width: 54rem) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { position: static; border-right: none; border-bottom: 1px solid var(--rule); padding-bottom: 1.2rem; }
-}
 
 /* sidebar --------------------------------------------------------------- */
 .sidebar {
   font-family: var(--mono); font-size: 0.78rem; line-height: 1.5;
   align-self: start; position: sticky; top: 1.4rem;
 }
+/* Desktop: the menu is a plain always-open panel — the summary control
+   disappears, and with it the only way to collapse the details. */
+.sidenav > summary { display: none; }
 .sidebar .lane {
   margin: 1.3rem 0 0.45rem; font-size: 0.62rem; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink-mute);
@@ -92,6 +91,23 @@ body {
 }
 .sidebar a:hover { color: var(--pine); }
 .sidebar a.here { color: var(--pine); border-left-color: var(--pine); font-weight: 500; }
+
+/* Mobile: single column, static collapsible menu. This block must stay
+   after the .sidebar base rules — equal specificity, source order wins. */
+@media (max-width: 54rem) {
+  .layout { grid-template-columns: 1fr; padding-top: 1.4rem; }
+  .sidebar { position: static; }
+  .sidenav {
+    border: 1px solid var(--rule); border-radius: 8px;
+    background: var(--paper-2); padding: 0.65rem 0.9rem; margin-bottom: 1.6rem;
+  }
+  .sidenav > summary {
+    display: list-item; cursor: pointer;
+    font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--pine); font-weight: 500;
+  }
+  .sidenav[open] > summary { margin-bottom: 0.8rem; }
+}
 
 /* article --------------------------------------------------------------- */
 .doc { max-width: 46rem; min-width: 0; }
