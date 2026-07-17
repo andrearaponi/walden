@@ -1,3 +1,10 @@
+---
+name: walden-history
+description: "Walden History narrates a Walden repository's past from git history: feature chronicles built from frontmatter transitions, the product story of eras and supersessions, rework reports measuring churn after approvals, and the retirement ceremony for superseded specifications. Use when the user asks how a feature evolved, for a spec timeline or contract history, for rework or churn analysis, for the portfolio's story, or to retire superseded specs from `.walden/specs/`."
+metadata:
+  short-description: Walden spec history and retirement
+---
+
 # Walden History
 
 Use this skill to narrate a Walden repository's past: how a feature evolved, what story the portfolio tells, how much rework followed each approval — and to retire superseded specifications properly. The walden skill drafts and executes the present; this skill reads time. Reply in the user's preferred language when possible.
