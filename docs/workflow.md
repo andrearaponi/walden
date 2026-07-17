@@ -1,59 +1,38 @@
-# Workflow
+# The Daily Workflow
 
-This document walks through the complete Walden workflow from repository bootstrap to lesson logging.
+The complete command loop, from repository bootstrap to certification. This page is operational — for the *why* behind each step, read [The Spec Lifecycle](lifecycle.md); for every flag, the [CLI reference](reference/cli.md).
 
 ## 1. Bootstrap
-
-Initialize Walden in an existing or new repository:
 
 ```bash
 walden repo init
 ```
 
-This creates `.walden/` (including an optional `constitution.md` for project-wide context), `.github/workflows/`, and helper files. If Git is not initialized, the CLI initializes it first.
-
-Then scaffold a feature:
+Creates `.walden/` (`constitution.md` for stable project context, `lessons.md`, a scoped `.gitignore`) and the generated CI workflow `.github/workflows/validate-walden.yml`, pinned to the generating version. If git is not initialized, the CLI initializes it first.
 
 ```bash
-walden feature init user-auth
+walden feature init "User Auth"
 ```
 
-This creates `.walden/specs/user-auth/` with `requirements.md`, `design.md`, and `tasks.md` in draft status.
+Names normalize to kebab-case; the spec scaffolds in `.walden/specs/user-auth/` as three draft documents.
+
+Optionally declare [environment probes](reference/spec-format.md#environmentmd) in `.walden/environment.md` for the toolchains your proofs depend on — evidence records will carry their outputs, and drift becomes a printed diagnosis instead of forensics.
 
 ## 2. Requirements
 
-Edit `requirements.md` with:
-- A problem statement
-- User stories for context
-- EARS acceptance criteria with stable IDs (`R1.AC1`, `R1.AC2`)
-- Non-functional requirements (`NFR1`, `NFR2`)
-- Constraints (`C1`, `C2`)
-- Out-of-scope items
-
-When ready, validate and open review:
+Edit `requirements.md`: introduction, user stories, [EARS acceptance criteria](reference/spec-format.md#ears-acceptance-criteria) with stable IDs (`R1.AC1`), non-functional requirements (`NFR1`), constraints (`C1`), out-of-scope. Then:
 
 ```bash
 walden validate user-auth
 walden review open user-auth --phase requirements
-```
-
-After the reviewer approves:
-
-```bash
 walden review approve user-auth --phase requirements
 ```
 
+Approve runs full phase validation before sealing — nothing structurally invalid gets a fingerprint.
+
 ## 3. Design
 
-With approved requirements, edit `design.md`:
-- Architecture and component boundaries
-- At least one alternative option considered
-- Simplicity review
-- Failure modes and tradeoffs
-- Testing strategy
-- Requirement coverage matrix
-
-Validate, review, and approve:
+Edit `design.md`: architecture, at least one alternative considered, simplicity review, failure modes and tradeoffs, testing strategy, requirement coverage table. Same gate:
 
 ```bash
 walden validate user-auth
@@ -61,12 +40,11 @@ walden review open user-auth --phase design
 walden review approve user-auth --phase design
 ```
 
+Unresolved forks can be parked as `[decision: which store backs this?]` markers — but they must be resolved before certification: the release gate blocks on decision markers in approved documents.
+
 ## 4. Tasks
 
-With approved design, edit `tasks.md`:
-- Two-level task hierarchy
-- Every leaf task references acceptance criteria IDs (e.g., `R1.AC1`) and design sections
-- Every leaf task has a `Verification:` proof
+Edit `tasks.md`: a two-level hierarchy where every leaf task names its acceptance criteria, its design section, and an executable proof:
 
 ```markdown
 - [ ] 1. Implement authentication service
@@ -74,10 +52,12 @@ With approved design, edit `tasks.md`:
     - Requirements: `R1.AC1`, `R1.AC2`, `NFR2`
     - Design: Authentication Service
     - Verification:
-      - command: ["go", "test", "./internal/auth/..."]
+      - command: ["go", "test", "-run", "TestHash", "./internal/auth"]
+        expect_output: "--- PASS: TestHash"
+        covers: ["R1.AC1", "R1.AC2"]
 ```
 
-Validate, review, and approve:
+Declare `expect_output` on test runners so a pattern matching zero tests cannot pass vacuously; declare `timeout:` on steps that legitimately run long (the default budget is 10 minutes per step). Prefer read-only proof commands — `["go", "mod", "tidy", "-diff"]`, not `["go", "mod", "tidy"]` — because [re-verification is pure](lifecycle.md#execution-two-lanes-one-proof-grammar).
 
 ```bash
 walden validate user-auth
@@ -87,42 +67,60 @@ walden review approve user-auth --phase tasks
 
 ## 5. Execute
 
-Check readiness and start working:
-
 ```bash
-walden task status user-auth
-walden task start user-auth
+walden task status user-auth        # readiness, blockers, next runnable task
+walden task start user-auth         # normalized execution context for the next task
+walden task complete user-auth 1.1  # runs the proof; only a pass checks the box
+walden task complete-all user-auth  # all runnable tasks in order, stops at first failure
 ```
 
-Implement the task, then complete it with proof:
-
-```bash
-walden task complete user-auth 1.1
-```
-
-The CLI runs the verification proof. If it passes, the task is marked complete. If it fails, the task stays unchecked and you fix the issue first.
-
-To complete all remaining tasks in order:
-
-```bash
-walden task complete-all user-auth
-```
-
-This stops on the first failing proof while preserving earlier completions.
+A passing completion writes the task's evidence record — proof steps, chain fingerprints, code identity, execution profile — to `.walden/evidence/user-auth.json`. A failing proof leaves the box unchecked; fix and retry.
 
 ## 6. Reconcile
 
-If you edit an approved document, its content no longer matches the `approved_fingerprint` recorded at approval: the document and everything downstream become stale. Reconcile before continuing:
+Editing an approved document breaks its seal: the document and everything downstream become stale, and execution blocks. Repair the chain:
 
 ```bash
 walden reconcile user-auth
 ```
 
-This resets the modified document and stale downstream documents to draft and clears their approval fingerprints; re-approval records fresh ones.
+This resets the modified document and its downstream to draft and clears their fingerprints; re-walk the review gates to record fresh seals. Content-identical re-approval does not stale anything.
 
-## 7. Lessons
+## 7. Verify
 
-After a correction, failed validation, or execution surprise:
+When code or specs move, evidence tells you what still holds:
+
+```bash
+walden evidence status user-auth   # derived state per task; read-only, always exit 0
+walden verify user-auth            # re-prove what is no longer verified
+walden verify user-auth --all      # re-prove everything
+walden verify user-auth --check    # report only, write nothing (CI mode)
+```
+
+A code-only bugfix needs no spec ceremony: evidence goes `stale-code`, and one `verify` proves the acceptance criteria still hold — or names the task whose proof broke. Failures on a drifted machine carry the diagnosis: `environment drift: go: recorded "go1.25.0" → current "go1.24.0"`.
+
+## 8. Certify
+
+```bash
+walden release check               # every feature
+walden release check user-auth     # one feature
+walden release check --strict      # additionally require committed .walden/ state
+```
+
+One deterministic verdict per feature — fresh approved chain, full validation, no decision markers, evidence verified — plus the repository-level criterion: a clean worktree outside `.walden/`. Exit `0` iff no blocker exists; every blocker names its remedy. The gate executes no proofs and writes nothing.
+
+**Pending tasks block by default.** Shipping less than the approved plan is a recorded decision, not a default:
+
+```bash
+walden release check --allow-pending --reason "auth hardening deferred to 1.3"
+# RELEASABLE — 3 feature(s) certified, 2 task(s) waived (reason: auth hardening deferred to 1.3), commit ba53cfe55b40
+```
+
+The reason and the waived task identifiers ride the verdict (completion class `with-waivers`). `--allow-pending` without a non-empty `--reason` is refused. Uncommitted code outside `.walden/` always blocks with no bypass; a repository without usable git fails closed.
+
+## 9. Lessons
+
+After a correction, failed validation, or execution surprise, make the failure reusable:
 
 ```bash
 walden lesson log \
@@ -133,69 +131,14 @@ walden lesson log \
   --guardrail "before approving design, confirm test strategy uses real dependencies"
 ```
 
-Lessons are appended to `.walden/lessons.md` and reviewed before similar future work.
+Lessons append to `.walden/lessons.md` and are reviewed before similar future work.
 
-## Status and Validation
-
-At any point, check where you are:
+## At any point
 
 ```bash
-walden status user-auth
-walden validate user-auth
+walden status user-auth       # phase, blockers, next action
+walden validate user-auth     # structural validation of the current phase
+walden validate --all         # every feature, full spec
 ```
 
-For machine-readable output:
-
-```bash
-walden status user-auth --json
-walden validate user-auth --json
-```
-
-## JSON Contract
-
-All `--json` commands return a versioned envelope:
-
-```json
-{
-  "schema_version": "v0beta1",
-  "command": "status",
-  "ok": true,
-  "result": {
-    "summary": "workflow status for user-auth",
-    "current_phase": "tasks",
-    "next_action": "Start execution from the next unchecked task"
-  }
-}
-```
-
-## 8. Verify
-
-Execution leaves evidence behind: every completed task's proof is recorded in `.walden/evidence/<feature>.json`, bound to the approved chain and to a code identity of the working tree. When the code or the specs move, `walden task status` warns that completed tasks are no longer verified.
-
-```bash
-walden evidence status <feature>   # derived state per task, always exit 0
-walden verify <feature>            # re-prove what is no longer verified
-walden verify <feature> --all      # re-prove everything
-walden verify <feature> --check    # CI mode: report only, write nothing
-```
-
-A code-only bugfix needs no spec ceremony: the evidence goes `stale-code`, and one `verify` proves the acceptance criteria still hold — or names the task whose proof broke.
-
-## 9. Certify
-
-`walden release check` folds everything above into one deterministic verdict per feature — approved fresh chain, full-spec validation, no unresolved `[decision:]` markers in approved documents, execution evidence verified — plus one repository-level criterion: a clean worktree outside `.walden/`. Exit zero iff no blocker exists. It executes no proofs and writes nothing: verify produces evidence, release check judges it.
-
-```bash
-walden release check               # certify every feature
-walden release check <feature>     # certify one feature
-walden release check --strict      # planned-but-unexecuted tasks block too
-```
-
-The CI recipe composes the two:
-
-```bash
-walden verify <feature>            # re-prove execution on the current tree
-walden release check --json        # certify; gate the pipeline on the exit code
-```
-
-Planned work never blocks a release (`--strict` opts into plans-complete). Uncommitted code outside `.walden/` always blocks with no bypass flag — what you certify is what you tag — and a repository without usable git fails closed: certification requires a git-backed code identity. Dirty `.walden/` warns by default, since a refreshed ledger legitimately precedes its own commit, but blocks under `--strict`, where the verdict must be reproducible from the commit it judges. An unterminated HTML comment in an approved document blocks the decision scan it would blind. Every blocker names its remedy.
+Every command takes `--json` for a [versioned machine-readable envelope](reference/json.md) — same information, same exit codes.
