@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/andrearaponi/walden/internal/output"
@@ -103,5 +104,29 @@ func TestAdoptCommandExitsOneOnFailures(t *testing.T) {
 	}
 	if len(envelope.Result.Adoption.Features[0].Failed) != 1 {
 		t.Fatalf("failed partition missing: %+v", envelope.Result.Adoption.Features[0])
+	}
+}
+
+// TestAdoptApplyFailureRendersPartition locks the failed-verdict rendering
+// convention: text mode gets the full per-feature partition on stderr, not
+// the two-line error summary.
+func TestAdoptApplyFailureRendersPartition(t *testing.T) {
+	adoptFixture(t)
+
+	overrideCommandRunner(t, testutil.NewFakeRunner(testutil.Response{Stderr: "broken", ExitCode: 1}))
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"adopt", "--apply"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 on a failed partition, got %d", code)
+	}
+	text := stderr.String()
+	if !strings.Contains(text, "Adoption:") || !strings.Contains(text, "- old-era:") {
+		t.Fatalf("failed apply does not render the per-feature partition: %s", text)
+	}
+	if !strings.Contains(text, "failed=1") {
+		t.Fatalf("partition line lacks the failure count: %s", text)
+	}
+	if !strings.Contains(text, "Next action:") {
+		t.Fatalf("failed apply lost the next action: %s", text)
 	}
 }

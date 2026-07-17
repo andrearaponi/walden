@@ -53,7 +53,18 @@ func runAdopt(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitResult("adopt", errorResult(err), jsonMode, stdout, stderr)
 	}
-	return emitResult("adopt", adoptApplyResult(report), jsonMode, stdout, stderr)
+	result := adoptApplyResult(report)
+	if jsonMode {
+		return emitResult("adopt", result, jsonMode, stdout, stderr)
+	}
+	if result.ExitCode != 0 {
+		// A failed adoption is a work list, not an invocation error: render
+		// the full partition, mirroring release check's convention.
+		output.PrintText(stderr, result)
+		return result.ExitCode
+	}
+	output.PrintText(stdout, result)
+	return 0
 }
 
 func adoptPlanResult(report adopt.PlanReport) output.Result {

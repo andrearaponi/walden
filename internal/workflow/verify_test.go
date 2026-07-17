@@ -303,7 +303,7 @@ func TestVerifySideEffectFailsTask(t *testing.T) {
 	}
 
 	// Persisting mode records the side-effect failures, bound to the tree
-	// each proof left behind.
+	// the run started from.
 	ledger, err := evidence.Load(root, "todo-app-demo")
 	if err != nil {
 		t.Fatalf("load ledger: %v", err)
@@ -317,7 +317,130 @@ func TestVerifySideEffectFailsTask(t *testing.T) {
 			t.Fatalf("task %s recorded %q, want failed", taskID, record.Result)
 		}
 		if record.CodeIdentity == "" {
-			t.Fatalf("task %s record lacks the post-proof identity", taskID)
+			t.Fatalf("task %s record lacks the run-start identity", taskID)
+		}
+	}
+}
+
+// TestVerifyRecordsRunStartIdentity is the run-start contract witness: every
+// verify record binds the tree the run started from, so one mutant cannot
+// poison its successors' identity — while completion keeps binding the
+// post-proof tree, the lane where mutation is legitimate.
+func TestVerifyRecordsRunStartIdentity(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+
+	// Completion with a mutating proof: the record binds the post-proof
+	// tree, generated.txt included.
+	if _, err := CompleteAllTasks(context.Background(), root, "todo-app-demo", &sideEffectRunner{root: root}); err != nil {
+		t.Fatalf("complete fixture tasks: %v", err)
+	}
+	postCompletion, ok := evidence.CaptureManifest(context.Background(), &dynamicIdentityRunner{root: root}, root)
+	if !ok {
+		t.Fatal("capture post-completion manifest")
+	}
+	completionLedger, err := evidence.Load(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("load ledger: %v", err)
+	}
+	// Each completion binds the tree its own proof left: the last task's
+	// record matches the final tree, and the two records differ because the
+	// second proof mutated again.
+	if got := completionLedger.Tasks["1.2"].CodeIdentity; got != postCompletion.Digest() {
+		t.Fatalf("completion record for 1.2 binds %q, want the post-proof tree %q", got, postCompletion.Digest())
+	}
+	if completionLedger.Tasks["1.1"].CodeIdentity == completionLedger.Tasks["1.2"].CodeIdentity {
+		t.Fatal("completion records bind one shared identity, want each proof's own post tree")
+	}
+
+	// The verify run starts from this tree; its first proof mutates it.
+	runStart, ok := evidence.CaptureManifest(context.Background(), &dynamicIdentityRunner{root: root}, root)
+	if !ok {
+		t.Fatal("capture run-start manifest")
+	}
+	if _, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root}); err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	ledger, err := evidence.Load(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("load ledger: %v", err)
+	}
+	for _, taskID := range []string{"1.1", "1.2"} {
+		if got := ledger.Tasks[taskID].CodeIdentity; got != runStart.Digest() {
+			t.Fatalf("verify record for %s binds %q, want the run-start tree %q", taskID, got, runStart.Digest())
+		}
+	}
+}
+
+// TestVerifyWarningNamesPoisonedTasks locks the victim list: the drift
+// warning names the tasks re-proven after the first side effect.
+func TestVerifyWarningNamesPoisonedTasks(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+	completeBoth(t, root)
+
+	result, err := Verify(context.Background(), root, "todo-app-demo", true, false, &sideEffectRunner{root: root})
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	found := false
+	for _, warning := range result.Warnings {
+		if strings.Contains(warning, "proof side effects modified the repository") {
+			found = true
+			if !strings.Contains(warning, "tasks re-proven on the modified tree: 1.2") {
+				t.Fatalf("drift warning does not name the poisoned successor: %q", warning)
+			}
+			if strings.Contains(warning, "modified tree: 1.1") {
+				t.Fatalf("the first mutant is a culprit, not a victim: %q", warning)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected a drift warning, got %v", result.Warnings)
+	}
+}
+
+// TestVerifyPureRunUnchanged proves the anchoring flip is invisible to
+// compliant runs: with pure proofs the run-start digest is the digest every
+// record would have bound before the change.
+func TestVerifyPureRunUnchanged(t *testing.T) {
+	root := t.TempDir()
+	writeVerifyFixture(t, root)
+	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
+	completeBoth(t, root)
+
+	runStart, ok := evidence.CaptureManifest(context.Background(), &dynamicIdentityRunner{root: root}, root)
+	if !ok {
+		t.Fatal("capture run-start manifest")
+	}
+	result, err := Verify(context.Background(), root, "todo-app-demo", true, false, testutil.NewFakeRunner(
+		testutil.Response{Stdout: "ok", ExitCode: 0},
+		testutil.Response{Stdout: "ok", ExitCode: 0},
+	))
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	for _, outcome := range result.Outcomes {
+		if !outcome.Passed || outcome.State != evidence.StateVerified {
+			t.Fatalf("pure proof for task %s = %s (%s), want verified", outcome.TaskID, outcome.State, outcome.Failure)
+		}
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("pure run produced warnings: %v", result.Warnings)
+	}
+	ledger, err := evidence.Load(root, "todo-app-demo")
+	if err != nil {
+		t.Fatalf("load ledger: %v", err)
+	}
+	for _, taskID := range []string{"1.1", "1.2"} {
+		record := ledger.Tasks[taskID]
+		if record.CodeIdentity != runStart.Digest() {
+			t.Fatalf("pure record for %s binds %q, want %q", taskID, record.CodeIdentity, runStart.Digest())
+		}
+		if record.Result != evidence.ResultPassed {
+			t.Fatalf("pure record for %s = %q, want passed", taskID, record.Result)
 		}
 	}
 }

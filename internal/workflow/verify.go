@@ -18,6 +18,12 @@ type VerifyOutcome struct {
 	State   string
 	Passed  bool
 	Failure string
+	// RecordedIdentity is the run-start digest the task's record binds;
+	// CurrentIdentity is the digest of the tree its proof left — equal when
+	// the proof was pure, visibly divergent on a contaminated run.
+	RecordedIdentity string
+	CurrentIdentity  string
+	Profile          evidence.Profile
 }
 
 // VerifyResult is the outcome of re-proving a feature's completed tasks.
@@ -75,8 +81,9 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		return VerifyResult{}, err
 	}
 
-	// Purity chain: one manifest before the loop (its digest doubles as the
-	// selection identity) and one after each task's proof. Completion may
+	// Purity chain: one manifest before the loop (its digest is both the
+	// selection identity and the identity every record of this run binds)
+	// and one after each task's proof. Completion may
 	// legitimately mutate the tree; re-verification claims the current tree
 	// satisfies the proofs, so a proof that moves the manifest fails its
 	// task instead of silently dirtying the repository being certified.
@@ -95,6 +102,10 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	result := VerifyResult{Feature: feature.Name, Checked: check}
 	refreshed := map[string]evidence.Record{}
 	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	// Tasks proven after the first side effect ran on a tree the run did not
+	// promise; the drift warning names them so the victim list is visible.
+	poisoned := []string{}
+	contaminated := false
 
 	planIDs := map[string]bool{}
 	for _, task := range tree.LeafTasks() {
@@ -127,15 +138,24 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 
 		stepResults, _, proofErr := executeProof(ctx, runner, executable)
 
-		// The record binds the tree the proof actually left behind; when the
-		// proof was pure that is the same tree it started from.
+		// The record binds the tree the run started from: purity forbids a
+		// proof from moving it, so one mutant cannot poison the identity of
+		// the tasks proven after it — it fails alone on its own side effects.
 		var sideEffectPaths []string
 		recordIdentity := ""
+		currentIdentity := ""
 		if manifestOK {
 			if post, postOK := evidence.CaptureManifest(ctx, identityRunner, root); postOK {
 				sideEffectPaths = evidence.DiffPaths(previous, post)
 				previous = post
-				recordIdentity = post.Digest()
+				recordIdentity = identity
+				currentIdentity = post.Digest()
+				if contaminated {
+					poisoned = append(poisoned, task.ID)
+				}
+				if len(sideEffectPaths) > 0 {
+					contaminated = true
+				}
 			} else {
 				detectionDegraded = true
 			}
@@ -153,7 +173,14 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 			VerifiedAt:              verifiedAt,
 		}
 
-		outcome := VerifyOutcome{TaskID: task.ID, State: evidence.StateVerified, Passed: true}
+		outcome := VerifyOutcome{
+			TaskID:           task.ID,
+			State:            evidence.StateVerified,
+			Passed:           true,
+			RecordedIdentity: recordIdentity,
+			CurrentIdentity:  currentIdentity,
+			Profile:          profile,
+		}
 		switch {
 		case proofErr != nil:
 			record.Result = evidence.ResultFailed
@@ -190,7 +217,11 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	}
 	if manifestOK {
 		if drift := evidence.DiffPaths(initial, previous); len(drift) > 0 {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("proof side effects modified the repository: %s", formatChangedPaths(drift)))
+			warning := fmt.Sprintf("proof side effects modified the repository: %s", formatChangedPaths(drift))
+			if len(poisoned) > 0 {
+				warning += fmt.Sprintf("; tasks re-proven on the modified tree: %s", strings.Join(poisoned, ", "))
+			}
+			result.Warnings = append(result.Warnings, warning)
 		}
 	}
 
@@ -293,6 +324,7 @@ func EvidenceReport(ctx context.Context, root, featureName string) (string, []ev
 		if !exists {
 			continue
 		}
+		entries[index].RecordedResult = record.Result
 		entries[index].RecordedProfile = record.Profile
 		if record.Profile == nil {
 			entries[index].ProfileLegacy = true
