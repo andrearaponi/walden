@@ -4,6 +4,21 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.1] - 2026-07-17
+
+One misbehaving proof now fails alone. This patch remediates the first field feedback on v0.10.0's `verify` — reported by a team running it in production within a week of release, and matching what the largest adoption run had already measured.
+
+### Fixed
+
+- **Run-anchored verify identity.** `walden verify` records bind the code identity captured at the start of the run instead of the tree each proof left behind. Under the purity contract the two are identical for every compliant run; when a proof does mutate the tree (a `go mod tidy` in a proof, a build writing into the repository), it still fails its own task naming the modified paths — but the tasks proven after it no longer inherit a poisoned identity that turns `stale-code` the moment the mutation is reverted. The run-level warning now names the victims too: `proof side effects modified the repository: go.mod; tasks re-proven on the modified tree: 5.2, 5.3, 6.1`. Task completion is untouched — that lane legitimately mutates, and its records keep binding the post-proof tree.
+- **One record shape across surfaces.** `verify --json` and `evidence status --json` now populate the same task-evidence union under the same field names: `evidence status` gains `passed` (from the stored result; omitted for tasks without a record), `verify` gains `recorded_identity`, `current_identity`, and `profile`. On a contaminated run the recorded-versus-current divergence is visible directly in verify's output. The three evidence surfaces — the two command views and the on-disk ledger's state map — are now documented in `docs/concepts.md`; consumers should parse the commands, not the file.
+- **`adopt --apply` renders its work list.** A failed apply in text mode prints the full per-feature partition before the summary and next action, mirroring `release check`'s failed-verdict convention, instead of swallowing the report behind a two-line error.
+- The embedded skill teaches the run-start anchoring contract and the read-only proof variant pattern (`["go", "mod", "tidy", "-diff"]` asserts tidiness without mutating the tree mid-verify).
+
+### Compatibility
+
+- JSON output changes are additive within `schema_version: v0beta1`; the evidence ledger schema stays `v1alpha1` and existing ledgers need no migration — the next `verify` rewrites its records with run-start anchoring through normal use.
+
 ## [0.10.0] - 2026-07-16
 
 The plan becomes the contract. This release flips the gate's one unsafe default, gives evidence an execution environment, and opens the adoption lane for every repository that specced before the current contract existed.
