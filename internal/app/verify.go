@@ -45,10 +45,13 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 	for _, outcome := range verifyResult.Outcomes {
 		passed := outcome.Passed
 		entries = append(entries, output.EvidenceStatus{
-			TaskID:  outcome.TaskID,
-			State:   outcome.State,
-			Passed:  &passed,
-			Failure: outcome.Failure,
+			TaskID:           outcome.TaskID,
+			State:            outcome.State,
+			Passed:           &passed,
+			Failure:          outcome.Failure,
+			RecordedIdentity: outcome.RecordedIdentity,
+			CurrentIdentity:  outcome.CurrentIdentity,
+			Profile:          outcome.Profile,
 		})
 	}
 

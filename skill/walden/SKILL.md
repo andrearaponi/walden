@@ -38,7 +38,7 @@ Walden is an open source spec-driven delivery kernel. It is not a complete enter
 - Use `walden review open <feature-name> --phase requirements|design|tasks` and `walden review approve <feature-name> --phase requirements|design|tasks` for deterministic review-state transitions.
 - Use `walden task status <feature-name> [--json]`, `walden task start <feature-name> [task-id] [--json]`, and `walden task complete <feature-name> <task-id> [--json]` for deterministic execution flow.
 - Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
-- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything. Re-verification is pure: a proof that modifies the working tree fails its task naming the changed paths — author proofs as read-only assertions and route build outputs outside the repository (task completion keeps accepting generator mutations; the recorded identity binds the resulting tree).
+- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything. Re-verification is pure: a proof that modifies the working tree fails its task naming the changed paths — author proofs as read-only assertions and route build outputs outside the repository (task completion keeps accepting generator mutations; its recorded identity binds the resulting tree). Verify records bind the tree the run started from, so one mutating proof fails alone instead of staling the tasks proven after it; the run warning names both the modified paths and the tasks re-proven on the modified tree.
 - Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
 - Use `walden release check [<feature-name>] [--strict] [--allow-pending --reason "<text>"] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing. Pending leaf tasks block the verdict by default; the waiver flags are the only relaxation and require the user's explicit approval (see Release Certification).
 - Use `walden adopt [<feature-name>] [--apply] [--json]` to onboard a repository whose specs predate the current contract: the default is a read-only plan classifying every feature; `--apply` seals recorded approvals and re-proves unrecorded work (see Brownfield Adoption).
@@ -469,6 +469,15 @@ Per-step `timeout:` (a positive Go duration string) bounds a slow proof; steps w
       - command: ["go", "test", "-run", "TestSlowIntegration", "./internal/integration"]
         timeout: 30m
 ```
+
+Prefer the read-only variant of ecosystem commands when one exists — the assertion stays, the mutation goes:
+
+```markdown
+    - Verification:
+      - command: ["go", "mod", "tidy", "-diff"]   # asserts tidiness, writes nothing
+```
+
+`["go", "mod", "tidy"]` would rewrite `go.mod` mid-run and fail its task as a side effect; the `-diff` form proves the same fact and keeps re-verification pure.
 
 Legacy single-line format (`Verification: go test ./...`) still works but does not support quotes, pipes, or shell operators.
 

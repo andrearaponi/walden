@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/output"
 	"github.com/andrearaponi/walden/internal/workflow"
 )
@@ -58,6 +59,12 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 			CurrentIdentity:  entry.CurrentIdentity,
 			Profile:          entry.RecordedProfile,
 			ProfileLegacy:    entry.ProfileLegacy,
+		}
+		// The stored result rides beside the derived state under the same
+		// field verify uses; unrecorded tasks have no result to report.
+		if entry.RecordedResult != "" {
+			passed := entry.RecordedResult == evidence.ResultPassed
+			view.Passed = &passed
 		}
 		for _, drift := range entry.ProfileDrift {
 			view.ProfileDrift = append(view.ProfileDrift, output.ProfileDriftEntry{
