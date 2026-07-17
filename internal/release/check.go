@@ -38,6 +38,19 @@ type FeatureCertification struct {
 	Pending  []string
 }
 
+// Options are the certification policy knobs. The zero value is the default
+// policy: plans-complete required, uncommitted .walden/ tolerated.
+type Options struct {
+	// Strict requires committed .walden/ state: a final certification must
+	// be reproducible from the commit it judges.
+	Strict bool
+	// AllowPending waives pending leaf tasks for this verdict. The surface
+	// guarantees a non-empty WaiverReason accompanies it; the report carries
+	// both — the verdict is the waiver's durable record.
+	AllowPending bool
+	WaiverReason string
+}
+
 // ReleaseReport is the aggregate verdict: releasable iff zero blockers.
 type ReleaseReport struct {
 	Features         []FeatureCertification
@@ -45,6 +58,8 @@ type ReleaseReport struct {
 	WaldenDirty      []string
 	GitSkipped       bool
 	Strict           bool
+	AllowPending     bool
+	WaiverReason     string
 	// CertifiedCommit is the HEAD revision the certification ran against —
 	// the commit an auditor checks out. Empty when git is unusable (already
 	// a repository-level blocker) or HEAD is unborn.
@@ -66,23 +81,47 @@ func (r ReleaseReport) BlockerCount() int {
 func (r ReleaseReport) Releasable() bool { return r.BlockerCount() == 0 }
 
 // Completion classes: the verdict's answer to "was anything still planned
-// when this certification ran?". `with-waivers` is reserved for the v0.10.0
-// strict-by-default flip.
+// when this certification ran, and was it waived?".
 const (
 	CompletionComplete    = "complete"
 	CompletionWithPending = "with-pending"
+	CompletionWithWaivers = "with-waivers"
 )
 
 // Completion derives the completion class from the certified features'
-// pending lists — a reading of report state, never stored input, so it can
-// never disagree with the data it summarizes.
+// pending lists and the active waiver — a reading of report state, never
+// stored input, so it can never disagree with the data it summarizes.
 func (r ReleaseReport) Completion() string {
+	pending := false
 	for _, feature := range r.Features {
 		if len(feature.Pending) > 0 {
-			return CompletionWithPending
+			pending = true
+			break
 		}
 	}
-	return CompletionComplete
+	switch {
+	case !pending:
+		return CompletionComplete
+	case r.AllowPending:
+		return CompletionWithWaivers
+	default:
+		return CompletionWithPending
+	}
+}
+
+// WaivedTasks derives the feature-qualified identifiers this verdict waived
+// — derived like Completion, never stored, empty without an active waiver.
+func (r ReleaseReport) WaivedTasks() []string {
+	if !r.AllowPending {
+		return nil
+	}
+	waived := []string{}
+	for _, feature := range r.Features {
+		for _, taskID := range feature.Pending {
+			waived = append(waived, feature.Feature+": "+taskID)
+		}
+	}
+	return waived
 }
 
 // ReleaseCheck certifies one feature (or, with an empty name, every feature
@@ -90,7 +129,7 @@ func (r ReleaseReport) Completion() string {
 // judges existing truths — chain freshness, validation, decision markers,
 // evidence — and executes no proofs and persists nothing: verify produces
 // evidence, release check judges it.
-func ReleaseCheck(ctx context.Context, root, featureName string, strict bool) (ReleaseReport, error) {
+func ReleaseCheck(ctx context.Context, root, featureName string, opts Options) (ReleaseReport, error) {
 	features, err := releaseTargets(root, featureName)
 	if err != nil {
 		return ReleaseReport{}, err
@@ -100,7 +139,7 @@ func ReleaseCheck(ctx context.Context, root, featureName string, strict bool) (R
 	// against the same tree.
 	identity, identityOK := evidence.Identity(ctx, gitRunner, root)
 
-	report := ReleaseReport{Strict: strict}
+	report := ReleaseReport{Strict: opts.Strict, AllowPending: opts.AllowPending, WaiverReason: opts.WaiverReason}
 	// The revision being certified: identity proves what tree, the commit
 	// names where in history. Failure leaves it empty — unusable git is
 	// already a blocker below, and an unborn HEAD cannot pass the worktree
@@ -109,11 +148,11 @@ func ReleaseCheck(ctx context.Context, root, featureName string, strict bool) (R
 		report.CertifiedCommit = strings.TrimSpace(head.Stdout)
 	}
 	for _, name := range features {
-		report.Features = append(report.Features, certifyFeature(root, name, strict, identity, identityOK))
+		report.Features = append(report.Features, certifyFeature(root, name, opts, identity, identityOK))
 	}
 
 	report.WorktreeBlockers, report.WaldenDirty, report.GitSkipped = worktreeCriterion(ctx, root)
-	if strict {
+	if opts.Strict {
 		// Strict certification is plans-complete and final: the .walden/
 		// state the verdict judged must exist in the commit being certified.
 		for _, path := range report.WaldenDirty {
@@ -158,7 +197,7 @@ func releaseTargets(root, featureName string) ([]string, error) {
 
 // certifyFeature evaluates every criterion; nothing short-circuits — a
 // certification is a complete work list, not a first failure.
-func certifyFeature(root, name string, strict bool, identity string, identityOK bool) FeatureCertification {
+func certifyFeature(root, name string, opts Options, identity string, identityOK bool) FeatureCertification {
 	certification := FeatureCertification{Feature: name}
 
 	feature, loadErr := spec.LoadFeature(root, name)
@@ -239,8 +278,11 @@ func certifyFeature(root, name string, strict bool, identity string, identityOK 
 					case evidence.StateVerified:
 					case evidence.StatePending:
 						certification.Pending = append(certification.Pending, derived.TaskID)
-						if strict {
-							evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s not executed (--strict) — complete it or drop --strict", derived.TaskID))
+						// The flip: an unexecuted plan blocks certification
+						// unless explicitly waived — the plan is a promise
+						// the release must keep or visibly defer.
+						if !opts.AllowPending {
+							evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s is pending — execute it, or waive with --allow-pending --reason", derived.TaskID))
 						}
 					default:
 						evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s is %s — run walden verify %s", derived.TaskID, derived.State, name))

@@ -39,6 +39,8 @@ type Result struct {
 	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
 	Update                *UpdateStatus       `json:"update,omitempty"`
 	Release               *ReleaseStatus      `json:"release,omitempty"`
+	Adoption              *AdoptionStatus     `json:"adoption,omitempty"`
+	Waiver                *WaiverStatus       `json:"waiver,omitempty"`
 	Content               string              `json:"content,omitempty"`
 	ExitCode              int                 `json:"exit_code"`
 }
@@ -79,14 +81,51 @@ type ReleaseWorktree struct {
 	GitSkipped  bool     `json:"git_skipped"`
 }
 
+// WaiverStatus is the verdict-carried record of a pending-task waiver: the
+// operator's reason and the feature-qualified tasks it covered.
+type WaiverStatus struct {
+	Reason string   `json:"reason"`
+	Tasks  []string `json:"tasks"`
+}
+
+// AdoptionStatus is the JSON output view of a brownfield adoption plan or run.
+type AdoptionStatus struct {
+	Apply    bool              `json:"apply"`
+	Features []AdoptionFeature `json:"features"`
+}
+
+// AdoptionFeature is one feature's adoption classification and outcome.
+type AdoptionFeature struct {
+	Feature      string   `json:"feature"`
+	Class        string   `json:"class"`
+	SealableDocs []string `json:"sealable_docs,omitempty"`
+	SealedDocs   []string `json:"sealed_docs,omitempty"`
+	ReproveCount int      `json:"reprove_count,omitempty"`
+	Verified     []string `json:"verified,omitempty"`
+	Failed       []string `json:"failed,omitempty"`
+	Skipped      int      `json:"skipped,omitempty"`
+	Reason       string   `json:"reason,omitempty"`
+}
+
 // EvidenceStatus is the JSON output view of one task's execution evidence.
 type EvidenceStatus struct {
-	TaskID           string `json:"task_id"`
-	State            string `json:"state"`
-	Passed           *bool  `json:"passed,omitempty"`
-	Failure          string `json:"failure,omitempty"`
-	RecordedIdentity string `json:"recorded_identity,omitempty"`
-	CurrentIdentity  string `json:"current_identity,omitempty"`
+	TaskID           string              `json:"task_id"`
+	State            string              `json:"state"`
+	Passed           *bool               `json:"passed,omitempty"`
+	Failure          string              `json:"failure,omitempty"`
+	RecordedIdentity string              `json:"recorded_identity,omitempty"`
+	CurrentIdentity  string              `json:"current_identity,omitempty"`
+	Profile          map[string]string   `json:"profile,omitempty"`
+	ProfileDrift     []ProfileDriftEntry `json:"profile_drift,omitempty"`
+	ProfileLegacy    bool                `json:"profile_legacy,omitempty"`
+}
+
+// ProfileDriftEntry is one differing execution-profile entry: the recorded
+// value against the current machine's.
+type ProfileDriftEntry struct {
+	Key      string `json:"key"`
+	Recorded string `json:"recorded"`
+	Current  string `json:"current"`
 }
 
 // UpdateStatus is the JSON output view of an update check or run.
@@ -288,13 +327,41 @@ func PrintText(w io.Writer, result Result) {
 			if entry.Failure != "" {
 				_, _ = fmt.Fprintf(w, " (%s)", entry.Failure)
 			}
+			if entry.ProfileLegacy {
+				_, _ = fmt.Fprintf(w, " (legacy record: no profile)")
+			}
 			_, _ = fmt.Fprintln(w)
+			for _, drift := range entry.ProfileDrift {
+				_, _ = fmt.Fprintf(w, "  profile drift: %s: recorded %q → current %q\n", drift.Key, drift.Recorded, drift.Current)
+			}
 		}
 	}
 
 	if result.Update != nil {
 		_, _ = fmt.Fprintf(w, "Update: current=%s target=%s available=%t applied=%t\n",
 			result.Update.CurrentVersion, result.Update.TargetVersion, result.Update.UpdateAvailable, result.Update.Applied)
+	}
+
+	if result.Adoption != nil {
+		_, _ = fmt.Fprintln(w, "Adoption:")
+		for _, feature := range result.Adoption.Features {
+			_, _ = fmt.Fprintf(w, "- %s: %s", feature.Feature, feature.Class)
+			if len(feature.SealableDocs) > 0 {
+				_, _ = fmt.Fprintf(w, " (%d doc(s) to seal, %d task(s) to re-prove)", len(feature.SealableDocs), feature.ReproveCount)
+			} else if !result.Adoption.Apply && feature.ReproveCount > 0 {
+				_, _ = fmt.Fprintf(w, " (%d task(s) to re-prove)", feature.ReproveCount)
+			}
+			if len(feature.SealedDocs) > 0 {
+				_, _ = fmt.Fprintf(w, " sealed=%d", len(feature.SealedDocs))
+			}
+			if len(feature.Verified) > 0 || len(feature.Failed) > 0 || feature.Skipped > 0 {
+				_, _ = fmt.Fprintf(w, " verified=%d failed=%d skipped=%d", len(feature.Verified), len(feature.Failed), feature.Skipped)
+			}
+			if feature.Reason != "" {
+				_, _ = fmt.Fprintf(w, " (%s)", feature.Reason)
+			}
+			_, _ = fmt.Fprintln(w)
+		}
 	}
 
 	if result.Release != nil {

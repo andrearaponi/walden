@@ -146,7 +146,7 @@ func TestReleaseCheckAllGreen(t *testing.T) {
 		t.Fatalf("read ledger: %v", err)
 	}
 
-	report, err := ReleaseCheck(context.Background(), root, "", false)
+	report, err := ReleaseCheck(context.Background(), root, "", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestReleaseCheckAllGreen(t *testing.T) {
 		t.Fatal("release check mutated the ledger")
 	}
 
-	scoped, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	scoped, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil || len(scoped.Features) != 1 {
 		t.Fatalf("feature-scoped run: %v %+v", err, scoped.Features)
 	}
@@ -183,7 +183,7 @@ func TestReleaseCheckChainBlockerStillEvaluatesEverything(t *testing.T) {
 		t.Fatalf("tamper: %v", err)
 	}
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestReleaseCheckValidationBlocker(t *testing.T) {
 	brokenDesign := draftDesignHeader + "# Feature Design\n\n## Overview\n\nBare.\n\n## Requirement Coverage\n\n| Requirement | Covered By |\n| --- | --- |\n| `R1` | markers |\n"
 	addFeature(t, root, "gate-demo", certifiableRequirements(), brokenDesign, certifiableTasks())
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestReleaseCheckDecisionMarkerBlocksOnlyWhenApproved(t *testing.T) {
 	// Approved design carrying an unresolved checkpoint.
 	addFeature(t, root, "marked", certifiableRequirements(), certifiableDesign("\n\n[decision: which store backs this?]"), certifiableTasks())
 
-	report, err := ReleaseCheck(context.Background(), root, "marked", false)
+	report, err := ReleaseCheck(context.Background(), root, "marked", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestReleaseCheckDecisionMarkerBlocksOnlyWhenApproved(t *testing.T) {
 	write(t, root, ".walden/specs/inflight/design.md", certifiableDesign("\n\n[decision: still open]"))
 	write(t, root, ".walden/specs/inflight/tasks.md", certifiableTasks())
 
-	report, err = ReleaseCheck(context.Background(), root, "inflight", false)
+	report, err = ReleaseCheck(context.Background(), root, "inflight", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck inflight: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 	commented := "\n\n<!-- assumed: no [decision: checkpoints — every fork was resolved during requirements -->"
 	addFeature(t, root, "commented", certifiableRequirements(), certifiableDesign(commented), certifiableTasks())
 
-	report, err := ReleaseCheck(context.Background(), root, "commented", false)
+	report, err := ReleaseCheck(context.Background(), root, "commented", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 	// the scan — the malformed comment itself blocks certification.
 	unterminated := "\n\n<!-- assumed: still drafting\n\n[decision: which store?]"
 	addFeature(t, root, "unterminated", certifiableRequirements(), certifiableDesign(unterminated), certifiableTasks())
-	report, err = ReleaseCheck(context.Background(), root, "unterminated", false)
+	report, err = ReleaseCheck(context.Background(), root, "unterminated", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck unterminated: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 	// A real marker beside a commented one still blocks.
 	mixed := "\n\n<!-- assumed: none open -->\n\n[decision: pick a queue]"
 	addFeature(t, root, "mixed", certifiableRequirements(), certifiableDesign(mixed), certifiableTasks())
-	report, err = ReleaseCheck(context.Background(), root, "mixed", false)
+	report, err = ReleaseCheck(context.Background(), root, "mixed", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck mixed: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestReleaseCheckEvidenceBlockerNamesStateAndRemedy(t *testing.T) {
 	// The code moves after certification-worthy completion.
 	write(t, root, "src.txt", "MARKER-A\nMARKER-B\nchanged\n")
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -320,7 +320,10 @@ func TestReleaseCheckEvidenceBlockerNamesStateAndRemedy(t *testing.T) {
 	}
 }
 
-func TestReleaseCheckPendingInformationalAndStrict(t *testing.T) {
+// halfDoneRepo builds the flip's canonical fixture: a certifiable feature
+// with task 1.1 executed and 1.2 still pending, committed.
+func halfDoneRepo(t *testing.T) string {
+	t.Helper()
 	requireGit(t)
 	root := t.TempDir()
 	gitIn(t, root, "init", "-q", "-b", "main")
@@ -334,25 +337,82 @@ func TestReleaseCheckPendingInformationalAndStrict(t *testing.T) {
 	}
 	gitIn(t, root, "add", "-A")
 	gitIn(t, root, "commit", "-qm", "half done")
+	return root
+}
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+// The v0.10.0 flip's witness: the plan is a promise the release must keep or
+// visibly defer — pending work blocks the default verdict.
+func TestReleaseCheckPendingBlocksByDefault(t *testing.T) {
+	root := halfDoneRepo(t)
+
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	if report.Releasable() {
+		t.Fatalf("pending work certified releasable under the flipped default: %+v", report)
+	}
+	ev := criterion(t, report.Features[0], "evidence")
+	joined := strings.Join(ev.Blockers, " ")
+	if !strings.Contains(joined, "task 1.2 is pending") {
+		t.Fatalf("evidence criterion does not carry the pending blocker: %v", ev.Blockers)
+	}
+	if !strings.Contains(joined, "execute it") || !strings.Contains(joined, "--allow-pending --reason") {
+		t.Fatalf("pending blocker does not name both remedies: %v", ev.Blockers)
+	}
+	if report.Completion() != CompletionWithPending {
+		t.Fatalf("completion = %s, want with-pending", report.Completion())
+	}
+}
+
+func TestReleaseCheckWaiverRestoresInformational(t *testing.T) {
+	root := halfDoneRepo(t)
+
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{AllowPending: true, WaiverReason: "deferred to release 1.3"})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
 	if !report.Releasable() {
-		t.Fatalf("pending work blocked a non-strict release: %+v", report)
+		t.Fatalf("waived pending work still blocked: %+v", report)
 	}
 	if pending := report.Features[0].Pending; len(pending) != 1 || pending[0] != "1.2" {
-		t.Fatalf("pending = %v, want [1.2]", pending)
+		t.Fatalf("pending fact list = %v, want [1.2]", pending)
+	}
+	if report.Completion() != CompletionWithWaivers {
+		t.Fatalf("completion = %s, want with-waivers", report.Completion())
+	}
+	if report.WaiverReason != "deferred to release 1.3" {
+		t.Fatalf("waiver reason not carried: %q", report.WaiverReason)
+	}
+}
+
+func TestWaivedTasksDerivation(t *testing.T) {
+	root := halfDoneRepo(t)
+
+	waived, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{AllowPending: true, WaiverReason: "deferred"})
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	if got := strings.Join(waived.WaivedTasks(), ";"); got != "gate-demo: 1.2" {
+		t.Fatalf("waived tasks = %q", got)
 	}
 
-	strict, err := ReleaseCheck(context.Background(), root, "gate-demo", true)
+	blocked, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
-		t.Fatalf("ReleaseCheck --strict: %v", err)
+		t.Fatalf("ReleaseCheck: %v", err)
 	}
-	ev := criterion(t, strict.Features[0], "evidence")
-	if strict.Releasable() || !strings.Contains(strings.Join(ev.Blockers, " "), "1.2") {
-		t.Fatalf("--strict did not block pending work: %+v", strict)
+	if blocked.WaivedTasks() != nil {
+		t.Fatalf("no waiver must derive no waived tasks, got %v", blocked.WaivedTasks())
+	}
+
+	// A waiver with nothing pending records nothing: the class is complete.
+	green := gateRepo(t)
+	idle, err := ReleaseCheck(context.Background(), green, "gate-demo", Options{AllowPending: true, WaiverReason: "unnecessary"})
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	if idle.Completion() != CompletionComplete || len(idle.WaivedTasks()) != 0 {
+		t.Fatalf("idle waiver = %s %v, want complete with no waived tasks", idle.Completion(), idle.WaivedTasks())
 	}
 }
 
@@ -362,7 +422,7 @@ func TestReleaseCheckWalksFeaturesSorted(t *testing.T) {
 	gitIn(t, root, "add", "-A")
 	gitIn(t, root, "commit", "-qm", "second feature specs")
 
-	report, err := ReleaseCheck(context.Background(), root, "", false)
+	report, err := ReleaseCheck(context.Background(), root, "", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -378,7 +438,7 @@ func TestReleaseCheckWorktreePartitionsPaths(t *testing.T) {
 	write(t, root, ".walden/scratch.txt", "local")
 	gitIn(t, root, "mv", "src.txt", "renamed.txt")
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -408,7 +468,7 @@ func TestReleaseCheckBlocksWithoutGit(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -430,7 +490,7 @@ func TestReleaseCheckStrictBlocksDirtyWalden(t *testing.T) {
 	write(t, root, ".walden/scratch.txt", "refreshed ledger\n")
 
 	// Default mode: dirty .walden/ stays a warning partition, not a blocker.
-	report, err := ReleaseCheck(context.Background(), root, "gate-demo", false)
+	report, err := ReleaseCheck(context.Background(), root, "gate-demo", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}
@@ -442,7 +502,7 @@ func TestReleaseCheckStrictBlocksDirtyWalden(t *testing.T) {
 	}
 
 	// Strict mode: the same path blocks, partition intact, remedy named.
-	report, err = ReleaseCheck(context.Background(), root, "gate-demo", true)
+	report, err = ReleaseCheck(context.Background(), root, "gate-demo", Options{Strict: true})
 	if err != nil {
 		t.Fatalf("ReleaseCheck strict: %v", err)
 	}

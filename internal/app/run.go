@@ -39,6 +39,10 @@ var commandRunner shell.Runner = shell.NewExecRunner()
 
 // Run executes the root CLI flow for the current argument list.
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {
+	// The execution profile records which CLI produced each evidence record;
+	// the version lives here and workflow cannot import upward.
+	workflow.RecordingVersion = effectiveVersion()
+
 	if len(args) == 0 {
 		printUsage(stdout)
 		return 0
@@ -68,6 +72,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runValidate(args[1:], stdout, stderr)
 	case "verify":
 		return runVerify(args[1:], stdout, stderr)
+	case "adopt":
+		return runAdopt(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
 	case "release":

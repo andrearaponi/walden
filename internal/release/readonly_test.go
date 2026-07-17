@@ -32,7 +32,7 @@ func TestReleaseCheckStaysReadOnly(t *testing.T) {
 		t.Fatalf("fixture not clean before the check: %q", before)
 	}
 
-	report, err := ReleaseCheck(context.Background(), root, "", false)
+	report, err := ReleaseCheck(context.Background(), root, "", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck: %v", err)
 	}

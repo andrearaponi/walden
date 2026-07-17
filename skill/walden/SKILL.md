@@ -40,7 +40,8 @@ Walden is an open source spec-driven delivery kernel. It is not a complete enter
 - Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
 - Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything. Re-verification is pure: a proof that modifies the working tree fails its task naming the changed paths — author proofs as read-only assertions and route build outputs outside the repository (task completion keeps accepting generator mutations; the recorded identity binds the resulting tree).
 - Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
-- Use `walden release check [<feature-name>] [--strict] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing.
+- Use `walden release check [<feature-name>] [--strict] [--allow-pending --reason "<text>"] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing. Pending leaf tasks block the verdict by default; the waiver flags are the only relaxation and require the user's explicit approval (see Release Certification).
+- Use `walden adopt [<feature-name>] [--apply] [--json]` to onboard a repository whose specs predate the current contract: the default is a read-only plan classifying every feature; `--apply` seals recorded approvals and re-proves unrecorded work (see Brownfield Adoption).
 - Use `walden reconcile <feature-name> [--json]` when approved upstream documents changed or the approval chain is stale.
 - Use `walden lesson log --feature <feature-name> --phase requirements|design|tasks|execute|release --trigger "<event>" --lesson "<pattern>" --guardrail "<rule>" [--json]` after meaningful corrections, failed validation, or execution surprises.
 - Use `walden version [--json]` to check the installed CLI version and schema version.
@@ -553,9 +554,36 @@ Execution is for approved specs only.
 - When the user asks whether the work is releasable — or before any tag, release branch, or delivery hand-off — run `walden release check` and report its verdict; do not assemble the answer from separate status checks.
 - The gate certifies and never releases: approved fresh chains, full-spec validation, decision markers in approved documents, execution evidence, and a clean worktree outside `.walden/` fold into one exit code. Tags, changelogs, and publishing stay with you and the user, after certification passes.
 - Read a failed certification as a work list: every blocker names its remedy. Apply the remedies and rerun the gate; never edit state by hand to silence a blocker.
-- Planned-but-unexecuted tasks are informational and never block; pass `--strict` only when the user wants plans-complete certification. The verdict names the certified commit and a completion class — `complete` when every planned leaf task is executed, `with-pending` otherwise; JSON carries `certified_commit` and `completion` for pipeline policy. Strict certification also requires committed `.walden/` state — commit specs and evidence before certifying.
+- Pending leaf tasks block certification by default: the plan is a promise the release must keep or visibly defer. The only relaxation is `--allow-pending --reason "<text>"`, which waives them for that verdict and records the reason and the waived task ids in the output. **Never pass `--allow-pending` unless the user explicitly approves the waiver and its reason in the current conversation** — a waiver is the user's recorded decision, not a convenience; report the waived tasks back after the run.
+- The verdict names the certified commit and a completion class — `complete` when every planned leaf task is executed, `with-pending` when pending work blocks, `with-waivers` when it was explicitly waived; JSON carries `certified_commit`, `completion`, and the `waiver` record for pipeline policy.
+- `--strict` requires committed `.walden/` state — commit specs and evidence before a final certification; it composes with a waiver (committed state stays required, pending stays waived).
 - The dirty-worktree blocker has no bypass by design: the remedy is committing the work. Do not look for a flag. Certification also fails closed without usable git — a verdict must name the code identity it certified — and on unterminated HTML comments in approved documents.
 - Compose production and judgment: `walden verify <feature-name>` re-proves execution, then `walden release check` judges the result. In CI, gate the pipeline on the exit code and use `--json` for structure.
+
+## Brownfield Adoption
+
+- When a repository carries specs that predate the current contract — approved documents without approval fingerprints (stale chains, `walden verify` gate-blocked) or completed tasks without evidence (`unrecorded` blockers) — use `walden adopt`, not manual reconciliation: reconcile-and-re-approve ceremony across a portfolio is exactly what the lane eliminates.
+- Always run the read-only plan first and present it to the user before `--apply`. The plan classifies every feature: `backfill` (approved documents to seal), `re-prove` (fresh chain, evidence to record), `complete` (nothing to adopt), `blocked` (a present fingerprint contradicts the content — human reconcile territory; adopt never writes there).
+- Sealing trusts recorded approvals: it stamps the fingerprint of the document's current body under the approval already recorded. State this assumption when presenting the plan — an edit made between the old approval and the seal is invisible to pre-fingerprint history, and the seal grandfathers it in.
+- `--apply` seals, then re-proves through the verify machinery. The verified/failed partition is the honest work list: failures record real evidence with execution profiles, so environment drift is diagnosable per task. Rerunning `--apply` resumes — verified tasks are skipped, failed ones retry.
+- The adoption diff (sealed documents, new evidence ledgers) is ordinary repository state: review and commit it like any other change. Exit code 1 means the partition contains failures to triage, not that adoption must be repeated from scratch.
+- When the failed partition reflects a superseded product generation rather than broken code, those specs are candidates for retirement, not repair: delete their directories (history lives in git) and record each in `.walden/RETIRED.md` — one line naming the retirement commit and the successor. The `walden-history` companion skill officiates the ceremony and narrates the history it preserves.
+
+## Environment Probes
+
+- `.walden/environment.md` declares named probes — commands whose trimmed output joins every evidence record's execution profile, alongside the always-present `platform` and `walden` (CLI version) keys:
+
+```markdown
+# Environment Probes
+
+- go: ["go", "version"]
+- node: ["node", "--version"]
+```
+
+- Declare probes for the toolchains the project's proofs depend on when initializing or adopting a repository; prefer commands that print stable version strings — nondeterministic output (timestamps, paths) reads as permanent drift.
+- Probe names are lowercase kebab; `platform` and `walden` are reserved. A malformed declaration fails evidence-producing commands loudly; a failing or hung probe degrades to a marker value (`probe failed: …`, `probe timed out`) and never blocks the run.
+- Read drift before blaming code: `walden evidence status` prints recorded-versus-current profile differences, and a failed re-verification appends `environment drift: go: recorded "go1.25.0" → current "go1.24.0"` to the failure. Fix the environment (or knowingly re-record on the current one); never edit proofs to paper over drift.
+- Profiles are diagnostic only: they never change a derived evidence state, and records written before profiles existed read as `legacy record: no profile`.
 
 ## Self-Improvement Loop
 

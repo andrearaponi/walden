@@ -68,6 +68,13 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	}
 	ledger.Feature = feature.Name
 
+	// One profile for the whole run, like the identity: a malformed probe
+	// declaration fails the command before any proof executes.
+	profile, err := runProfile(ctx, root)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+
 	// Purity chain: one manifest before the loop (its digest doubles as the
 	// selection identity) and one after each task's proof. Completion may
 	// legitimately mutate the tree; re-verification claims the current tree
@@ -140,6 +147,7 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 			DesignFingerprint:       current.Design,
 			TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
 			CodeIdentity:            recordIdentity,
+			Profile:                 profile,
 			Steps:                   stepResults,
 			Result:                  evidence.ResultPassed,
 			VerifiedAt:              verifiedAt,
@@ -159,6 +167,16 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 			outcome.Passed = false
 			outcome.Failure = fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatChangedPaths(sideEffectPaths))
 			result.Failed = append(result.Failed, task.ID)
+		}
+
+		// A failure on a drifted environment gets the diagnosis appended:
+		// the difference between "the code broke" and "the machine changed".
+		if outcome.Failure != "" {
+			if replaced, exists := ledger.Tasks[task.ID]; exists {
+				if drift := evidence.DiffProfile(replaced.Profile, profile); len(drift) > 0 {
+					outcome.Failure += "; environment drift: " + formatProfileDrift(drift)
+				}
+			}
 		}
 
 		if !check {
@@ -194,6 +212,16 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		_ = check
 	}
 	return result, nil
+}
+
+// formatProfileDrift renders recorded-versus-current pairs — the diagnosis
+// the profile exists to print.
+func formatProfileDrift(drifts []evidence.ProfileDrift) string {
+	parts := make([]string, 0, len(drifts))
+	for _, drift := range drifts {
+		parts = append(parts, fmt.Sprintf("%s: recorded %q → current %q", drift.Key, drift.Recorded, drift.Current))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // formatChangedPaths keeps side-effect failures readable on wide mutations:
@@ -246,10 +274,31 @@ func EvidenceReport(ctx context.Context, root, featureName string) (string, []ev
 	if err != nil {
 		return "", nil, err
 	}
+	currentProfile, err := runProfile(ctx, root)
+	if err != nil {
+		return "", nil, err
+	}
 	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
 	current := evidence.ChainFingerprints{
 		Requirements: feature.Requirements.Fields["approved_fingerprint"],
 		Design:       feature.Design.Fields["approved_fingerprint"],
 	}
-	return feature.Name, evidence.Derive(ledger, current, identity, identityOK, leafs), nil
+
+	entries := evidence.Derive(ledger, current, identity, identityOK, leafs)
+	// Profile context rides beside the derived states: recorded values,
+	// drift against this machine, and the legacy marker for records written
+	// before profiles existed.
+	for index := range entries {
+		record, exists := ledger.Tasks[entries[index].TaskID]
+		if !exists {
+			continue
+		}
+		entries[index].RecordedProfile = record.Profile
+		if record.Profile == nil {
+			entries[index].ProfileLegacy = true
+			continue
+		}
+		entries[index].ProfileDrift = evidence.DiffProfile(record.Profile, currentProfile)
+	}
+	return feature.Name, entries, nil
 }

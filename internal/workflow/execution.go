@@ -318,6 +318,13 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		return TaskCompletionResult{}, err
 	}
 
+	// Captured before the proof runs: a malformed probe declaration must
+	// fail the command before any work executes.
+	profile, err := runProfile(ctx, root)
+	if err != nil {
+		return TaskCompletionResult{}, err
+	}
+
 	stepResults, proofCommand, err := executeProof(ctx, runner, startContext.Task)
 	if err != nil {
 		return TaskCompletionResult{}, err
@@ -349,6 +356,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		DesignFingerprint:       feature.Design.Fields["approved_fingerprint"],
 		TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
 		CodeIdentity:            identity,
+		Profile:                 profile,
 		Steps:                   stepResults,
 		Result:                  evidence.ResultPassed,
 		VerifiedAt:              completedAt,

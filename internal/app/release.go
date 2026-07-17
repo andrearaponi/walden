@@ -32,7 +32,18 @@ func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	jsonMode := parsed.Bool("--json")
 	strict := parsed.Bool("--strict")
+	allowPending := parsed.Bool("--allow-pending")
+	reason := strings.TrimSpace(parsed.Value("--reason"))
 	positional := parsed.Positionals
+
+	// A waiver is a recorded decision: the flags are refused at the boundary
+	// so the kernel never sees an invalid combination.
+	if allowPending && reason == "" {
+		return emitResult("release-check", errorResult(errors.New(`--allow-pending requires --reason "<text>" — a waiver is a recorded decision`)), jsonMode, stdout, stderr)
+	}
+	if reason != "" && !allowPending {
+		return emitResult("release-check", errorResult(errors.New("--reason is only meaningful with --allow-pending")), jsonMode, stdout, stderr)
+	}
 
 	if len(positional) > 1 {
 		return emitResult("release-check", errorResult(errors.New("release check takes at most one feature name")), jsonMode, stdout, stderr)
@@ -47,7 +58,7 @@ func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitResult("release-check", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
-	report, err := release.ReleaseCheck(context.Background(), root, featureName, strict)
+	report, err := release.ReleaseCheck(context.Background(), root, featureName, release.Options{Strict: strict, AllowPending: allowPending, WaiverReason: reason})
 	if err != nil {
 		return emitResult("release-check", errorResult(err), jsonMode, stdout, stderr)
 	}
@@ -102,6 +113,10 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 	// Facts, not verdicts: both hold whether or not the check is releasable.
 	result.Completion = report.Completion()
 	result.CertifiedCommit = report.CertifiedCommit
+	if waived := report.WaivedTasks(); len(waived) > 0 {
+		// The verdict is the waiver's durable record.
+		result.Waiver = &output.WaiverStatus{Reason: report.WaiverReason, Tasks: waived}
+	}
 
 	if !report.Strict {
 		// Under strict these paths are already blockers; the not-blocking
@@ -113,7 +128,9 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 
 	if report.Releasable() {
 		result.Summary = fmt.Sprintf("RELEASABLE — %d feature(s) certified", len(report.Features))
-		if pendingTotal > 0 {
+		if pendingTotal > 0 && report.AllowPending {
+			result.Summary += fmt.Sprintf(", %d task(s) waived (reason: %s)", pendingTotal, report.WaiverReason)
+		} else if pendingTotal > 0 {
 			result.Summary += fmt.Sprintf(", %d task(s) still planned", pendingTotal)
 		}
 		if report.CertifiedCommit != "" {

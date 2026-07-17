@@ -4,6 +4,26 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.0] - 2026-07-16
+
+The plan becomes the contract. This release flips the gate's one unsafe default, gives evidence an execution environment, and opens the adoption lane for every repository that specced before the current contract existed.
+
+### Changed
+
+- **Breaking (release policy — the headline): pending tasks block certification by default.** An approved plan's unexecuted leaf task means unimplemented acceptance criteria in the thing being tagged; the old default certified process consistency, not implementation completeness. `walden release check` now blocks on every pending leaf, with the blocker naming both remedies: execute the task, or waive it explicitly. Repositories with no pending tasks see byte-identical verdicts. The old behavior is expressible — as a recorded decision: `--allow-pending --reason "<text>"` waives pending work for that verdict; the reason and the waived task identifiers ride the verdict itself (additive `waiver` object in JSON, a waived clause in the summary), and the completion class reports `with-waivers` — filling the slot v0.9.2 reserved. `--allow-pending` without a non-empty `--reason` is refused: a waiver is a recorded decision. `--strict` keeps exactly its remaining delta — committed `.walden/` state — and composes with a waiver. The gate still executes no proofs and persists nothing: the verdict is the waiver's durable record.
+
+### Added
+
+- **Execution profiles on evidence (environment binding).** Every evidence record now carries the profile of the machine that produced it: `platform` (OS/arch) and `walden` (recording CLI version) always, plus the trimmed outputs of repository-declared probes from `.walden/environment.md` (`- go: ["go", "version"]` — the proof-step argv format). Probes run once per command run under a 30-second budget; a failing or hung probe degrades to a marker value, never a failed command. Drift is a printed diagnosis instead of forensics: `walden evidence status` shows recorded-versus-current differences, and a failed re-verification appends `environment drift: go: recorded "go1.25.0" → current "go1.24.0"` to the failure detail. Profiles are diagnostic by design — they never change a derived evidence state, so evidence recorded in CI keeps certifying on any machine; records from earlier releases read as legacy, and the ledger schema stays `v1alpha1` (optional additive field).
+- **`walden adopt [<feature>] [--apply] [--json]` — the brownfield adoption lane.** The default is a read-only plan classifying every feature: `backfill` (approved documents missing their fingerprints — sealable), `re-prove` (fresh chain, unrecorded completed work), `complete`, or `blocked` (a present fingerprint contradicting the content — human reconcile territory, never written). `--apply` seals recorded approvals by stamping the current body's fingerprint under the approval already on record — the trust assumption is stated in the plan — repairs empty chain links, then re-proves unrecorded work through the verify machinery, producing an honest verified/failed partition with execution profiles on every record. Interrupted or partially failed runs resume by classification; a second apply over a finished adoption is a no-op. Field-sized: a 135-feature portfolio plans in half a second (399 documents to seal, 931 tasks to re-prove, zero blocked).
+- The embedded skill learns all three mechanisms: the waiver protocol (never `--allow-pending` without the user's explicit approval), the adoption lane (plan first, present, then apply), and environment probes (declare stable-output toolchain probes; read drift before blaming code).
+- **`walden-history` — a repository-shipped companion skill** (`skill/walden-history/SKILL.md`; installs manually, distribution stays single-skill). Sourced feature chronicles with `[sealed]`/`[inferred]` grounding over committed `.walden/` history, product-story and rework-archaeology recipes, and the **retirement ceremony** with the `.walden/RETIRED.md` convention: superseded specifications are deleted — history lives in git — and indexed, so the gate judges only the living portfolio while the narrative keeps its chapters.
+
+### Compatibility
+
+- JSON output changes are additive within `schema_version: v0beta1`; the evidence schema stays `v1alpha1`.
+- The single breaking change is the release-policy flip above, shipped alone as this release's headline per the gate-criteria contract discipline. Everything else — including plans-complete repositories' verdicts — is behavior-identical.
+
 ## [0.9.2] - 2026-07-16
 
 What a proof may do is now part of the contract: every step is bounded in time, re-verification is guaranteed not to touch the repository it certifies, and the document format learns to declare its own version.
