@@ -180,6 +180,15 @@ Generate a first draft before asking clarifying questions. Then iterate with the
 - Give constraints and dependencies stable IDs: `C1`, `C2`.
 - Include explicit out-of-scope items when scope risk is high.
 
+### Mutation Ownership
+
+A spec that mutates shared state without naming who owns each mutation produces silent conflicts. Before approval, complete this checklist for every piece of state the feature touches:
+
+- **State inventory**: List every model, table, file, flag, or cache entry the feature creates or modifies.
+- **Actor per mutation**: For each state item, name exactly one actor (admin, cron, API caller, signal handler, migration) that owns the write. If two actors can write the same field, split the field or document the precedence rule.
+- **Conflated flag check**: If a single boolean field gates behavior driven by different actors, split it into per-actor fields or a discriminated status. A `blocked` flag set by both an admin and an automated process makes unblocking opaque and races on intent.
+- **Clear-ownership rule**: State who may clear the flag and under what condition. An automated process must never clear an admin-set flag unless the spec says so explicitly.
+
 ### EARS Forms
 
 - Ubiquitous: `The system SHALL [response]`
@@ -293,6 +302,26 @@ Design starts only from approved and non-stale requirements.
 - Use diagrams only when they clarify decisions.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_requirements_approved_at`, `source_requirements_fingerprint`).
 - In the Requirement Coverage table, wrap every ID in backticks (e.g., `| `R1` |`, `| `NFR1` |`). The deterministic validator matches this exact format and will reject rows without backticks.
+- Enforce a single entry point for any operation with a canonical output (invoice numbers, sequence generation, ID assignment). If two code paths can produce the same artifact, one will diverge. Name the single function or service in the design.
+- In `## Data Models`, annotate every non-default model field (a field without a `default` or auto-populated timestamp that callers must supply). A field the design does not mark as mandatory will be omitted by the implementer who assumes the database supplies it.
+
+### Batch Processing Integrity
+
+When the design includes a batch or cron job that processes multiple items (customers, records, files):
+
+- Wrap each item's processing in a database savepoint so a single item's failure does not poison the batch transaction.
+- The error handler for a failed item must not itself trigger a database write on the poisoned inner transaction — either use a fresh transaction for error logging or accept the savepoint rollback before logging.
+- Specify which model fields are mandatory on creation (fields without a default value). A batch job that creates `JobLog` records must provide every required field explicitly — a missing `started_at` with no default surfaces only at runtime.
+- Count every item in the batch result, including items that raise exceptions, so the reported total matches the processed set.
+
+### Exception Propagation Contract
+
+Error handlers that swallow the original exception context produce silent regressions. Before approval, complete this contract for every error-handling path in the design:
+
+- **Original message preservation**: A handler that catches an exception and returns a user-facing response must preserve the original exception message unless security dictates redaction. Tests and downstream clients rely on the raw message to diagnose failures. A generic "internal error" response is a regression when the original message was expected.
+- **Exception-type specificity**: Catch the most specific exception type, not a broad `Exception` catch-all. A broad catch silently swallows unrelated errors and hides bugs.
+- **Re-raise vs translate**: If the handler translates an exception to a different type, the new exception must carry the original message and context. A translated exception that drops the original cause breaks debugging chains.
+- **No catch-and-sanitize for tests**: Do not wrap view or handler code in generic exception blocks that return a sanitized 500 response unless the spec explicitly requires it. Test suites assert on the raw exception message; a sanitizer that changes the contract is a regression.
 
 ### `design.md` Template
 
@@ -345,11 +374,11 @@ source_requirements_fingerprint:
 
 ## Data Models
 
-[Entities, schemas, state, or storage decisions]
+[Entities, schemas, state, or storage decisions. Annotate every non-default field as mandatory.]
 
 ## Error Handling
 
-[Validation, retries, failure modes, logging]
+[Validation, retries, failure modes, logging. Apply the Exception Propagation Contract.]
 
 ## Security Considerations
 
@@ -411,6 +440,17 @@ Task generation starts only from approved and non-stale design.
 - Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously.
 - Declare `timeout:` on proof steps that legitimately run long; every step is otherwise bounded by the executor's 10-minute default, and exceeding the budget is a proof failure. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
+- One task = one flow. If a task touches two independent user flows (e.g., deleting a plan AND migrating its subscribers), split it into two tasks. A coarse task hides incomplete coverage behind a single checkbox.
+
+### Verification Strength Tiers
+
+Not all tasks need the same proof. Match the verification to the task type:
+
+- **Tier 1 — Static**: For config, schema, or import-only tasks. Proof: type checker (`go vet`, `tsc --noEmit`, `mypy`, `pyright`), linter (`ruff check`, `golangci-lint run`), or import assertion. Sufficient when no runtime behavior changes.
+- **Tier 2 — Unit**: For logic, calculation, or model-behavior tasks. Proof: targeted test that exercises the changed code path and fails if the behavior breaks. `expect_output` assertion required.
+- **Tier 3 — Behavioral**: For admin UI, view-layer, or any task where the user sees a change. Proof: integration test or browser test that exercises the full request/response cycle. A static type check or lint alone is **not** Tier 3 and must not be the sole proof for a UI task.
+
+Mark each leaf task's `Verification:` with its tier. A task below Tier 3 that changes user-visible behavior is under-verified — escalate or split.
 
 ### Verification Format
 
@@ -497,19 +537,14 @@ source_design_fingerprint:
 
 - [ ] 1. [Top-level implementation objective]
   - [ ] 1.1 [Concrete coding step]
-    - Requirements: `R1.AC1`, `R1.AC2`, `NFR1`
-    - Design: [Relevant section]
-    - Verification:
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
-        covers: ["R1.AC1", "R1.AC2"]
-
-- [ ] 2. [Next incremental objective]
-  - [ ] 2.1 [Concrete coding step]
-    - Requirements: `R2.AC1`
-    - Design: [Relevant section]
-    - Verification:
-      - command: ["grep", "-rq", "old_pattern", "."]
-        expect_exit: 1
+    - Verification: [Tier 1]
+      - command: ["go", "test", "-run", "TestExample", "./..."]
+        expect_output: "--- PASS: TestExample"
+        covers: ["R1.AC1"]
+  - [ ] 1.2 [Concrete coding step]
+    - Verification: [Tier 2]
+      - command: ["pytest", "-q", "tests/test_calculator.py"]
+        expect_output: "passed"
         covers: ["R2.AC1"]
 ```
 
@@ -547,6 +582,31 @@ Execution is for approved specs only.
 - If a test fails or the proof is weaker than expected, stop and re-plan instead of hand-waving the result.
 - Before closing the execution step, report `Lesson Decision: none|logged`.
 - Stop after the requested task or batch and wait for review.
+
+### Real-Artifact Verification
+
+Tests against mocks, stubs, or toy proxies are weaker evidence than tests against the real thing. Proxies hide integration failures, schema drift, and real-world ordering.
+
+- Mock the unit under test only when the real dependency is impractical (network, paid API, slow disk). State why you mocked.
+- Prefer the real database, real filesystem, real HTTP server in tests. Spin them up in CI if needed.
+- A passing test against a mock of X proves your code talks to your model of X — not that it talks to X.
+- When a test uses a context-manager pattern (`with connection.cursor() as cursor:`), ensure test mocks provide a proper `__enter__` return value. A mock that does not set `__enter__.return_value` silently skips the configured cursor and the test passes against nothing.
+
+### Parallel-Lane Reconciliation
+
+When execution dispatches parallel implementation lanes (e.g., multiple fixer subagents on non-overlapping file scopes):
+
+- Before committing, run the full test suite to reconcile results across all lanes — a lane can pass in isolation but fail when merged with another lane's changes.
+- A lane that touches a test file it does not own invalidates that test for the other lanes. Treat test-file ownership as strictly as source-file ownership.
+- After reconciliation, run the linter (`ruff check`, `golangci-lint run`, `eslint`) on the merged tree — a lane that passes lint in isolation can introduce import-ordering or unused-variable violations when merged.
+- Do not claim "zero lint errors" or "all tests pass" without running the command and quoting its output in the report. An assertion without evidence is a lie.
+
+### Honesty In Verification
+
+- Do not claim a check passed without quoting the command output.
+- If you ran the suite earlier and made edits since, the earlier result is stale — re-run before claiming green.
+- A lint error discovered after claiming "zero errors" is a contradiction. Disclose the correction explicitly. Do not silently fix and re-claim.
+- "Done" means observed working, not "looks right." If you did not run it, say so.
 
 ### Spec Drift
 
@@ -598,7 +658,7 @@ Execution is for approved specs only.
 
 - Review `.walden/lessons.md` before non-trivial work when earlier patterns are relevant.
 - After any user correction, failed validation, rejected design, or execution surprise, append a lesson with `walden lesson log ...` when available.
-- Treat these as automatic lesson triggers: user correction, failed validation, rejected draft, explicit simplification request, re-plan, failed test caused by a wrong assumption, or spec gap discovered during execution.
+- Treat these as automatic lesson triggers: user correction, failed validation, rejected draft, explicit simplification request, re-plan, failed test caused by a wrong assumption, spec gap discovered during execution, regression after parallel-lane merge, lint error discovered after claiming zero, test mock that silently skips the configured path, or exception message swallowed by an over-broad catch handler.
 - Record three things in every lesson: the trigger, the mistake pattern, and a guardrail that would have prevented it.
 - Apply the new guardrail in the next revision before presenting it.
 - If no trigger occurred, still make and report the explicit decision: `Lesson Decision: none`.
