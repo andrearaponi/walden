@@ -180,6 +180,15 @@ Generate a first draft before asking clarifying questions. Then iterate with the
 - Give constraints and dependencies stable IDs: `C1`, `C2`.
 - Include explicit out-of-scope items when scope risk is high.
 
+### Mutation Ownership
+
+A spec that mutates shared state without naming who owns each mutation produces silent conflicts. Before approval, complete this checklist for every piece of state the feature touches:
+
+- **State inventory**: List every model, table, file, flag, or cache entry the feature creates or modifies.
+- **Actor per mutation**: For each state item, name exactly one actor (admin, cron, API caller, signal handler, migration) that owns the write. If two actors can write the same field, split the field or document the precedence rule.
+- **Conflated flag check**: If a single boolean field gates behavior driven by different actors, split it into per-actor fields or a discriminated status. A `blocked` flag set by both an admin and an automated process makes unblocking opaque and races on intent.
+- **Clear-ownership rule**: State who may clear the flag and under what condition. An automated process must never clear an admin-set flag unless the spec says so explicitly.
+
 ### EARS Forms
 
 - Ubiquitous: `The system SHALL [response]`
@@ -209,25 +218,6 @@ Apply these rules during drafting, not only during review.
 **NFR promotion.** If an NFR contains IF/THEN language describing a specific system behavior, it is not a non-functional requirement — it is a functional requirement that belongs in the Requirements section with its own ACs. Move the behavioral specification to a new requirement, and reduce the NFR to the quality attribute it represents. Example: "IF a player loses connection, THEN the system SHALL reconnect" belongs in a Reconnection Handling requirement, not in an NFR. The NFR should say: "The system SHALL tolerate intermittent network connectivity without data loss."
 
 **NFR-to-AC bridge.** After writing all requirements and before writing NFRs, draft the NFR list. Then, for each NFR: identify the concrete user-facing behavior it implies and draft at least one AC in the appropriate requirement. If the NFR mentions accessibility, draft ACs for keyboard navigation and screen reader announcements. If the NFR mentions offline support or reliability, draft ACs for what the user sees in degraded conditions. If you cannot identify a concrete behavior, the NFR may be too vague — ask the user what observable outcome they expect. An NFR without a corresponding testable AC is a wish, not a requirement.
-
-### Mutation Ownership Check
-
-Before approving `requirements.md`, verify every requirement that mutates a state field answers: **who is allowed to set this field, who is allowed to clear it, and who is forbidden from touching it?**
-
-State fields include any persistent flag, status, counter, or lock that more than one actor can write. Examples: a `blocked`/`suspended` flag set by both admins and automated jobs; a `verified` flag set by a background worker and cleared by support staff; a `retry_count` incremented by a queue processor and reset by a fixer job.
-
-For each such field, the spec MUST name:
-
-- **The setter actor(s):** who is allowed to set the field to its active value.
-- **The clearer actor(s):** who is allowed to clear it.
-- **The forbidden combination:** if one actor sets it and another clears it, state explicitly whether the clearer may clear a value the setter placed — and if not, that constraint is a requirement.
-
-A requirement that says "the system SHALL unblock the user" without specifying *which kinds of blocks* it may clear is under-specified. If two actors can both set a field to the same value but one is an admin and the other is automated, the spec MUST either:
-
-1. Split the field into two distinct fields (one per actor), each with its own set/clear rules, or
-2. Add an explicit constraint: "WHEN a [non-admin actor] clears [the field], the system SHALL NOT clear values set by [admin actor]."
-
-**Self-check:** scan every AC that contains "set", "clear", "reset", "unblock", "block", "mark", "flag", "activate", "deactivate", "enable", or "disable." For each, identify the actor behind the mutation. If two ACs with different actors mutate the same field, verify the spec states whether one may undo the other. If it does not, the requirement is under-specified — fix it before review.
 
 ### `requirements.md` Template
 
@@ -288,7 +278,6 @@ last_modified: 2026-03-19T10:00:00Z
   - **Failure mode coverage**: If CLI warns "no unwanted-behavior criteria found", or if `ears_distribution.unwanted` is zero with multiple constraints, ask the user to consider failure modes.
   - **NFR-to-AC bridge**: For each NFR, confirm at least one AC specifies the concrete testable behavior. Flag NFRs that remain untestable.
   - **Persistence balance**: If constraints mention storage, check ACs cover both read and write sides.
-  - **Mutation ownership**: Scan ACs that mutate state fields (set, clear, block, unblock, mark, reset). For each, confirm the spec names the actor and whether different actors may undo each other's mutations. Flag any field mutated by two actors without a constraint on cross-actor clearing.
   - **Domain-specific gaps**: Use the constitution and constraint list to surface missing coverage the rules above do not catch.
 - Prefer `walden review open <feature-name> --phase requirements` for the deterministic state change to `in-review`.
 - Ask for approval.
@@ -313,47 +302,26 @@ Design starts only from approved and non-stale requirements.
 - Use diagrams only when they clarify decisions.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_requirements_approved_at`, `source_requirements_fingerprint`).
 - In the Requirement Coverage table, wrap every ID in backticks (e.g., `| `R1` |`, `| `NFR1` |`). The deterministic validator matches this exact format and will reject rows without backticks.
+- Enforce a single entry point for any operation with a canonical output (invoice numbers, sequence generation, ID assignment). If two code paths can produce the same artifact, one will diverge. Name the single function or service in the design.
+- In `## Data Models`, annotate every non-default model field (a field without a `default` or auto-populated timestamp that callers must supply). A field the design does not mark as mandatory will be omitted by the implementer who assumes the database supplies it.
 
-### Single Entry Point Principle
+### Batch Processing Integrity
 
-When a design defines a shared algorithm — invoice numbering, price calculation, tax application, ID generation, slug creation, checksum computation — the design document MUST:
+When the design includes a batch or cron job that processes multiple items (customers, records, files):
 
-1. Name the single service function (or method, procedure, module function) that implements it.
-2. Enumerate every call site that MUST invoke it.
-3. State explicitly: "Inline computation of `<algorithm>` is forbidden. All call sites MUST call `<function>`."
+- Wrap each item's processing in a database savepoint so a single item's failure does not poison the batch transaction.
+- The error handler for a failed item must not itself trigger a database write on the poisoned inner transaction — either use a fresh transaction for error logging or accept the savepoint rollback before logging.
+- Specify which model fields are mandatory on creation (fields without a default value). A batch job that creates `JobLog` records must provide every required field explicitly — a missing `started_at` with no default surfaces only at runtime.
+- Count every item in the batch result, including items that raise exceptions, so the reported total matches the processed set.
 
-This prevents the most common implementation drift: multiple call sites each re-implementing the same algorithm independently, diverging over time, and producing inconsistent results.
+### Exception Propagation Contract
 
-**Self-check:** scan the design for every named algorithm or computation. For each, confirm:
-- There is a named function that owns it.
-- Every place that needs the result is listed as a required call site.
-- The "inline computation forbidden" constraint is stated.
+Error handlers that swallow the original exception context produce silent regressions. Before approval, complete this contract for every error-handling path in the design:
 
-If an algorithm has no named owner function, the design is incomplete. If a call site is missing from the list, the task plan will miss it.
-
-### Batch Processing Transaction Boundaries
-
-When a design specifies a flow that processes multiple items (records, jobs, requests, messages, users) and an error in one item MUST NOT abort the remaining items, the design MUST specify:
-
-- **The transaction isolation mechanism:** the concrete primitive that isolates each item's processing. Framework-neutral examples:
-  - SQL databases: a savepoint per item (`SAVEPOINT` / `RELEASE SAVEPOINT` / `ROLLBACK TO SAVEPOINT`).
-  - Message queues: per-message acknowledgement with dead-letter routing.
-  - Stream processors: per-record checkpoint offsets.
-  - In-memory pipelines: per-item try/catch with the loop continuing on catch.
-- **The error-handling boundary:** where the exception is caught, what state is logged, and how the loop advances to the next item.
-- **The recovery semantics:** after an item fails and its transaction is rolled back, the next item starts from a clean transaction state — not from the poisoned state of the failed item.
-
-"Continue processing remaining items" without a transaction boundary is a design gap, not an implementation concern. The implementation cannot retroactively add correct isolation if the design did not specify the boundary — it will either over-isolate (every item in its own outer transaction, killing performance) or under-isolate (catch the exception but leave the transaction poisoned).
-
-**Self-check:** scan the design for every flow that iterates over a collection and says "continue," "skip," "proceed to next," or "do not abort." For each, confirm the design names the isolation primitive and the error boundary. If it does not, the design is incomplete.
-
-### Field Default Annotation
-
-The data model section MUST annotate every field that has no default and no auto-population mechanism (`auto_now_add`, `DEFAULT` in SQL, `Option<T>` with no fallback in Rust, zero-value initialization in Go). Annotate such fields with: **"must be provided explicitly on every create."**
-
-A `create()` call that omits a no-default field fails at runtime with a constraint violation — a defect the design should have flagged as a hard requirement on the caller. This is especially dangerous in error-handling paths: a `log_job()` call inside an exception handler that omits a required field will itself fail, poisoning the transaction and masking the original error.
-
-**Self-check:** scan every entity, struct, table, or model in the data model. For each field, check: does it have a default? Is it auto-populated? If neither, annotate it as "must be provided explicitly on every create." If a field is used in error-handling or logging paths, double-check that every creation call site in the design provides it.
+- **Original message preservation**: A handler that catches an exception and returns a user-facing response must preserve the original exception message unless security dictates redaction. Tests and downstream clients rely on the raw message to diagnose failures. A generic "internal error" response is a regression when the original message was expected.
+- **Exception-type specificity**: Catch the most specific exception type, not a broad `Exception` catch-all. A broad catch silently swallows unrelated errors and hides bugs.
+- **Re-raise vs translate**: If the handler translates an exception to a different type, the new exception must carry the original message and context. A translated exception that drops the original cause breaks debugging chains.
+- **No catch-and-sanitize for tests**: Do not wrap view or handler code in generic exception blocks that return a sanitized 500 response unless the spec explicitly requires it. Test suites assert on the raw exception message; a sanitizer that changes the contract is a regression.
 
 ### `design.md` Template
 
@@ -404,25 +372,13 @@ source_requirements_fingerprint:
 - Dependencies: [What it relies on]
 - Requirements: `R1`, `R2`
 
-## Shared Algorithms
-
-### [Algorithm name]
-
-- Owner function: `<module.function_name>`
-- Required call sites: [exhaustive list]
-- Constraint: Inline computation of `<algorithm>` is forbidden. All call sites MUST call `<function>`.
-
 ## Data Models
 
-[Entities, schemas, state, or storage decisions. Annotate every no-default field with: "must be provided explicitly on every create."]
-
-## Batch Processing Boundaries
-
-[For each flow that processes multiple items with continue-on-error: name the isolation primitive, the error boundary, and the recovery semantics]
+[Entities, schemas, state, or storage decisions. Annotate every non-default field as mandatory.]
 
 ## Error Handling
 
-[Validation, retries, failure modes, logging]
+[Validation, retries, failure modes, logging. Apply the Exception Propagation Contract.]
 
 ## Security Considerations
 
@@ -459,10 +415,6 @@ source_requirements_fingerprint:
 - Draft or update `design.md`.
 - Re-plan from Requirements if the design exposes new scope, contradictory requirements, or missing acceptance contracts.
 - Run `walden validate <feature-name>` before showing the design for approval when the CLI is available.
-- Verify the design authoring rules were applied during drafting. Specifically check:
-  - **Single entry point**: scan for named algorithms or shared computations. For each, confirm there is a named owner function, an exhaustive call-site list, and the "inline computation forbidden" constraint. Flag any algorithm with no named owner.
-  - **Batch transaction boundaries**: scan for flows that iterate with continue-on-error. For each, confirm the design names the isolation primitive, the error boundary, and the recovery semantics. Flag any "continue processing" statement with no transaction boundary.
-  - **Field default annotation**: scan every data model field. For each without a default or auto-population, confirm it is annotated "must be provided explicitly on every create." Flag unannotated no-default fields, especially those used in error-handling or logging paths.
 - Prefer `walden review open <feature-name> --phase design` for the deterministic state change to `in-review`.
 - Ask for approval.
 - After explicit approval, prefer `walden review approve <feature-name> --phase design` for the deterministic state change to `approved`.
@@ -488,60 +440,31 @@ Task generation starts only from approved and non-stale design.
 - Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously.
 - Declare `timeout:` on proof steps that legitimately run long; every step is otherwise bounded by the executor's 10-minute default, and exceeding the budget is a proof failure. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
 - Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
-
-### Task Granularity: One Distinct Flow Per Task
-
-A task that covers more than one distinct user-facing flow or behavioral unit MUST be split into separate tasks, each with its own verification line.
-
-**Rule:** if a reviewer cannot tell from the task title alone whether a specific sub-behavior is implemented, the task is too coarse.
-
-Examples of flows that must be separate tasks:
-- A CRUD admin interface vs. a migration/reassignment page triggered by deletion.
-- A list view with filters vs. a custom assignment panel on the detail page.
-- A create endpoint vs. a validation rule that rejects duplicates with a specific status code.
-- A form with standard fields vs. a form with a conditional dynamic sub-form.
-
-A sub-bullet is not a task. If a behavior has its own acceptance criterion, it deserves its own task — or at minimum its own verification line that exercises that specific behavior.
-
-**Self-check:** for each task, read the acceptance criteria it covers. If a single task covers two or more ACs that describe different user-facing flows, split it. If a task says "with migration page" or "including validation" as a sub-bullet, the sub-bullet is likely a missing task.
+- One task = one flow. If a task touches two independent user flows (e.g., deleting a plan AND migrating its subscribers), split it into two tasks. A coarse task hides incomplete coverage behind a single checkbox.
 
 ### Verification Strength Tiers
 
-Every task's `Verification:` line MUST specify the strongest applicable tier. State the tier explicitly in a comment on the verification block.
+Not all tasks need the same proof. Match the verification to the task type:
 
-**Tier 1 — Config/Build:** Commands that confirm the project loads, compiles, or type-checks.
-- Examples: `go build ./...`, `tsc --noEmit`, `cargo check`, `python -c "import django; django.setup()"`, `python manage.py check`.
-- Confirms: the code is syntactically valid and the project configuration is correct.
-- Sufficient alone for: infrastructure tasks (config files, migrations that only add columns, dependency updates).
-- **Insufficient alone for:** any task with a behavioral acceptance criterion. A Tier 1 pass does not prove the feature works — it proves the project loads.
+- **Tier 1 — Static**: For config, schema, or import-only tasks. Proof: type checker (`go vet`, `tsc --noEmit`, `mypy`, `pyright`), linter (`ruff check`, `golangci-lint run`), or import assertion. Sufficient when no runtime behavior changes.
+- **Tier 2 — Unit**: For logic, calculation, or model-behavior tasks. Proof: targeted test that exercises the changed code path and fails if the behavior breaks. `expect_output` assertion required.
+- **Tier 3 — Behavioral**: For admin UI, view-layer, or any task where the user sees a change. Proof: integration test or browser test that exercises the full request/response cycle. A static type check or lint alone is **not** Tier 3 and must not be the sole proof for a UI task.
 
-**Tier 2 — Unit:** A named test that exercises the logic of the task in isolation.
-- Examples: `go test -run TestInvoiceNumber ./internal/billing`, `pytest tests/test_invoice.py::test_assign_invoice_number`, `cargo test invoice_number`.
-- Confirms: the function or module under test produces correct output for given inputs.
-- Required for: any task with a computational acceptance criterion (algorithm, calculation, transformation).
-
-**Tier 3 — Functional:** A test that exercises the user-facing flow end-to-end through the public interface.
-- Examples: a test that submits a form and asserts the response, a test that calls an API endpoint and checks the status code and body, a test that triggers an admin action and verifies the database state changed.
-- Confirms: the behavior the acceptance criterion describes actually happens when the user interacts with the system.
-- Required for: any task with a UI, API, or admin acceptance criterion. If the AC says "the admin sees a migration page," only a Tier 3 test satisfies it.
-
-**Mandatory tier assignment:** every leaf task MUST state its verification tier. If a task's AC describes a user-facing behavior (Tier 3) but the verification line only lists a config/build command (Tier 1), the task is under-verified — `walden validate` SHOULD reject the tasks phase, and the reviewer MUST flag it before approval.
-
-**Anti-pattern — the Tier 1 false positive:** `python manage.py check` (or `go build`, `tsc --noEmit`, `cargo check`) passing does not mean a feature is implemented. It means the project loads. A task marked complete on Tier 1 evidence alone, when its AC requires Tier 3, is a latent defect — the feature may not exist at all, only the scaffolding does.
+Mark each leaf task's `Verification:` with its tier. A task below Tier 3 that changes user-visible behavior is under-verified — escalate or split.
 
 ### Verification Format
 
 Use the structured `command:` format (follows the Kubernetes `command` pattern):
 
 ```markdown
-    - Verification:  # Tier 2
+    - Verification:
       - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
 ```
 
 For negative assertions (command must fail), use `expect_exit`:
 
 ```markdown
-    - Verification:  # Tier 2
+    - Verification:
       - command: ["grep", "-rq", "old_pattern", "."]
         expect_exit: 1
 ```
@@ -549,7 +472,7 @@ For negative assertions (command must fail), use `expect_exit`:
 For output assertions — and to prevent vacuous passes where a test pattern matches zero tests — add `expect_output`:
 
 ```markdown
-    - Verification:  # Tier 2
+    - Verification:
       - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
         expect_output: "--- PASS: TestExample"
 ```
@@ -557,22 +480,22 @@ For output assertions — and to prevent vacuous passes where a test pattern mat
 For shell operators (pipes, &&, globbing), use the Kubernetes shell pattern:
 
 ```markdown
-    - Verification:  # Tier 1
+    - Verification:
       - command: ["sh", "-c", "test -d .walden && go test ./..."]
 ```
 
 Multi-step verification runs steps in order, stopping on first failure:
 
 ```markdown
-    - Verification:  # Tier 3 (functional)
-      - command: ["go", "build", "./..."]   # Tier 1 gate
-      - command: ["go", "test", "-run", "TestAdminMigrationPage", "./internal/admin"]
+    - Verification:
+      - command: ["go", "build", "./..."]
+      - command: ["go", "test", "./..."]
 ```
 
 For proof reference coverage, add `covers:` to declare which acceptance criteria a proof step demonstrates:
 
 ```markdown
-    - Verification:  # Tier 2
+    - Verification:
       - command: ["go", "test", "-run", "TestAuth", "./internal/auth"]
         covers: ["R1.AC1", "R1.AC2"]
 ```
@@ -582,7 +505,7 @@ The CLI validates that `covers:` IDs reference known acceptance criteria and rep
 Per-step `timeout:` (a positive Go duration string) bounds a slow proof; steps without one run under the executor's 10-minute default, and exceeding the budget is a proof failure:
 
 ```markdown
-    - Verification:  # Tier 3
+    - Verification:
       - command: ["go", "test", "-run", "TestSlowIntegration", "./internal/integration"]
         timeout: 30m
 ```
@@ -590,7 +513,7 @@ Per-step `timeout:` (a positive Go duration string) bounds a slow proof; steps w
 Prefer the read-only variant of ecosystem commands when one exists — the assertion stays, the mutation goes:
 
 ```markdown
-    - Verification:  # Tier 1
+    - Verification:
       - command: ["go", "mod", "tidy", "-diff"]   # asserts tidiness, writes nothing
 ```
 
@@ -613,20 +536,15 @@ source_design_fingerprint:
 # Implementation Plan
 
 - [ ] 1. [Top-level implementation objective]
-  - [ ] 1.1 [Concrete coding step — one distinct flow]
-    - Requirements: `R1.AC1`, `R1.AC2`, `NFR1`
-    - Design: [Relevant section]
-    - Verification:  # Tier 2
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
-        covers: ["R1.AC1", "R1.AC2"]
-
-- [ ] 2. [Next incremental objective]
-  - [ ] 2.1 [Concrete coding step — one distinct flow]
-    - Requirements: `R2.AC1`
-    - Design: [Relevant section]
-    - Verification:  # Tier 3
-      - command: ["go", "test", "-run", "TestMigrationPage", "./internal/admin"]
-        expect_output: "--- PASS: TestMigrationPage"
+  - [ ] 1.1 [Concrete coding step]
+    - Verification: [Tier 1]
+      - command: ["go", "test", "-run", "TestExample", "./..."]
+        expect_output: "--- PASS: TestExample"
+        covers: ["R1.AC1"]
+  - [ ] 1.2 [Concrete coding step]
+    - Verification: [Tier 2]
+      - command: ["pytest", "-q", "tests/test_calculator.py"]
+        expect_output: "passed"
         covers: ["R2.AC1"]
 ```
 
@@ -635,10 +553,6 @@ source_design_fingerprint:
 - Draft or update `tasks.md`.
 - Re-plan from Design if the implementation sequence exposes missing architecture, missing interfaces, or untestable steps.
 - Run `walden validate <feature-name>` before showing the task plan for approval when the CLI is available.
-- Verify the task authoring rules were applied during drafting. Specifically check:
-  - **One flow per task**: scan each task for sub-bullets that describe distinct user-facing flows. If a task covers two flows (e.g., "CRUD admin with migration page"), split it. If a behavior has its own AC, it deserves its own task or verification line.
-  - **Verification tier match**: for each task, read the AC it covers. If the AC describes a user-facing behavior (UI, API, admin action), confirm the verification is Tier 3 (functional), not just Tier 1 (config/build). Flag any task with a Tier 3 AC and only Tier 1 verification as under-verified.
-  - **No Tier 1-only tasks for behavioral ACs**: if a task's AC says "the user sees X" or "the admin can do Y" and the only verification is a build/check command, the task is under-verified and must be rejected before approval.
 - Prefer `walden review open <feature-name> --phase tasks` for the deterministic state change to `in-review`.
 - Ask for approval.
 - After explicit approval, prefer `walden review approve <feature-name> --phase tasks` for the deterministic state change to `approved`.
@@ -668,6 +582,31 @@ Execution is for approved specs only.
 - If a test fails or the proof is weaker than expected, stop and re-plan instead of hand-waving the result.
 - Before closing the execution step, report `Lesson Decision: none|logged`.
 - Stop after the requested task or batch and wait for review.
+
+### Real-Artifact Verification
+
+Tests against mocks, stubs, or toy proxies are weaker evidence than tests against the real thing. Proxies hide integration failures, schema drift, and real-world ordering.
+
+- Mock the unit under test only when the real dependency is impractical (network, paid API, slow disk). State why you mocked.
+- Prefer the real database, real filesystem, real HTTP server in tests. Spin them up in CI if needed.
+- A passing test against a mock of X proves your code talks to your model of X — not that it talks to X.
+- When a test uses a context-manager pattern (`with connection.cursor() as cursor:`), ensure test mocks provide a proper `__enter__` return value. A mock that does not set `__enter__.return_value` silently skips the configured cursor and the test passes against nothing.
+
+### Parallel-Lane Reconciliation
+
+When execution dispatches parallel implementation lanes (e.g., multiple fixer subagents on non-overlapping file scopes):
+
+- Before committing, run the full test suite to reconcile results across all lanes — a lane can pass in isolation but fail when merged with another lane's changes.
+- A lane that touches a test file it does not own invalidates that test for the other lanes. Treat test-file ownership as strictly as source-file ownership.
+- After reconciliation, run the linter (`ruff check`, `golangci-lint run`, `eslint`) on the merged tree — a lane that passes lint in isolation can introduce import-ordering or unused-variable violations when merged.
+- Do not claim "zero lint errors" or "all tests pass" without running the command and quoting its output in the report. An assertion without evidence is a lie.
+
+### Honesty In Verification
+
+- Do not claim a check passed without quoting the command output.
+- If you ran the suite earlier and made edits since, the earlier result is stale — re-run before claiming green.
+- A lint error discovered after claiming "zero errors" is a contradiction. Disclose the correction explicitly. Do not silently fix and re-claim.
+- "Done" means observed working, not "looks right." If you did not run it, say so.
 
 ### Spec Drift
 
@@ -719,7 +658,7 @@ Execution is for approved specs only.
 
 - Review `.walden/lessons.md` before non-trivial work when earlier patterns are relevant.
 - After any user correction, failed validation, rejected design, or execution surprise, append a lesson with `walden lesson log ...` when available.
-- Treat these as automatic lesson triggers: user correction, failed validation, rejected draft, explicit simplification request, re-plan, failed test caused by a wrong assumption, or spec gap discovered during execution.
+- Treat these as automatic lesson triggers: user correction, failed validation, rejected draft, explicit simplification request, re-plan, failed test caused by a wrong assumption, spec gap discovered during execution, regression after parallel-lane merge, lint error discovered after claiming zero, test mock that silently skips the configured path, or exception message swallowed by an over-broad catch handler.
 - Record three things in every lesson: the trigger, the mistake pattern, and a guardrail that would have prevented it.
 - Apply the new guardrail in the next revision before presenting it.
 - If no trigger occurred, still make and report the explicit decision: `Lesson Decision: none`.
