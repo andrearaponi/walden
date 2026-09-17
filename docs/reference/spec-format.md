@@ -63,12 +63,15 @@ Required structure (validated):
 **User Story:** As a <role>, I want <capability>, so that <benefit>
 #### Acceptance Criteria
 1. `R1.AC1` WHEN <trigger>, the system SHALL <response>
+   - Acceptance check: <Observable success/failure distinction, not an implementation command>
 ## Non-Functional Requirements
 - `NFR1` <requirement> (bridged by `R1.AC1`)
 ## Constraints And Dependencies
 - `C1` <constraint>
 ## Out Of Scope
 ```
+
+The skill adds an `Acceptance check:` continuation below each criterion. It is ordinary body text, separate from the EARS sentence; it does not add a required parser field or choose a test framework.
 
 ### EARS acceptance criteria
 
@@ -87,7 +90,18 @@ One `SHALL` per criterion (two SHALLs = two criteria); `IF` requires a matching 
 
 ## `design.md`
 
-Required structure: overview, architecture, **options considered** (at least one alternative with a why-rejected), simplicity review, components and interfaces (each naming the requirements it covers), data models, error handling, security considerations, failure modes and tradeoffs, testing strategy, verification plan, and a requirement coverage table mapping every `R*`/`NFR*` to what covers it.
+The validator requires six headings, checked for presence:
+
+- `## Architecture`
+- `## Options Considered`
+- `## Simplicity And Elegance Review`
+- `## Failure Modes And Tradeoffs`
+- `## Verification Plan`
+- `## Requirement Coverage`
+
+The coverage table must map every `R*`/`NFR*` ID to what covers it. These are the only sections expanded by the canonical scaffold. Overview, components/interfaces, data models, error handling, security, testing strategy, and diagrams are optional additions when relevant.
+
+The skill asks for a real alternative or a concise reason that none is meaningful. A non-applicable discussion may use one line rather than invented detail, but coverage and verification must remain substantive. Structural validation cannot establish the semantic quality of the design.
 
 Open forks can be parked as `[decision: which store backs this?]` markers — visible, greppable, and blocking at the release gate while unresolved in an approved document. HTML comments (`<!-- assumed: … -->`) are the place for recorded assumptions; an *unterminated* HTML comment in an approved document blocks certification, because it would blind the decision scan.
 
@@ -103,7 +117,7 @@ A two-level plan; only leaf tasks execute:
     - Requirements: `R1.AC1`, `NFR1`
     - Design: <Design section name>
     - Verification:
-      - command: ["go", "test", "-run", "TestX", "./internal/x"]
+      - command: ["go", "test", "-v", "-count=1", "-run", "^TestX$", "./internal/x"]
         expect_exit: 0
         expect_output: "--- PASS: TestX"
         timeout: 30m
@@ -117,9 +131,9 @@ Per leaf task:
 - **`Verification:`** — one or more proof steps. Each step:
   - `command:` — argv as a JSON array; no shell interpretation, no quoting pitfalls.
   - `expect_exit:` — required exit code (default `0`).
-  - `expect_output:` — substring the combined output must contain. Declare it on test runners so a `-run` pattern matching zero tests cannot pass vacuously.
+  - `expect_output:` — substring the combined output must contain. Use it when appropriate to prevent a zero-test pass; native runner failure or structured results can also provide the anti-vacuity safeguard. Go's named PASS output needs `-v`, and `-count=1` disables test-cache reuse.
   - `timeout:` — positive Go duration (`90s`, `30m`) bounding the step; default 10 minutes. Expiry kills the step's process group and fails the proof naming the budget. A *declared* timeout participates in the task-definition fingerprint; the default does not.
-  - `covers:` — acceptance-criterion IDs this proof demonstrates; validated, and reported as proof coverage distinct from task references.
+  - `covers:` — acceptance-criterion IDs the step asserts. The skill requires explicit mappings for asserted ACs; the kernel validates supplied IDs and reports reference coverage separately from task references. Declaring an ID does not prove the assertion is semantically sufficient.
 
 A legacy single-line form (`Verification: go test ./...`) still parses but supports no quotes, pipes, or attributes.
 
@@ -152,4 +166,4 @@ The retirement index (see [Adoption](../adoption.md#retirement)): one line per r
 
 ## `evidence/<feature>.json`
 
-The execution ledger, schema `v1alpha1`: a map keyed by task ID, each record holding proof steps and outcomes, the chain fingerprints and code identity at proof time, the execution profile, `result`, and `verified_at`. Facts only — states are derived at read time. Committed and reviewed like the specs it proves; fully regenerable by re-proving (history lives in git). The field-level shape is documented in the [JSON reference](json.md#evidence-one-shape-three-surfaces).
+The execution ledger writes schema `v1alpha2`, independently of document schema `v1alpha1`. Each task record holds the complete task-fingerprint scheme, ordered proof outcomes, chain/code bindings, diagnostic profile, completion/verify execution facts, `result` and `verified_at`. States, including `unattested`, are derived; no container upgrade fabricates legacy provenance. Older `v1alpha1`/missing-version records remain readable, while incompatible readers must not discard or downgrade the file. History is recoverable only when actually preserved. See the [JSON reference](json.md#evidence-one-shape-three-surfaces) for fields and compatibility.

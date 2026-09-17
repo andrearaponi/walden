@@ -126,6 +126,13 @@ func ValidateFeatureWithScope(root, rawFeature string, scope Scope) (Result, err
 		return Result{}, err
 	}
 
+	return ValidateLoadedFeature(feature, scope)
+}
+
+// ValidateLoadedFeature judges one already-captured document set. It is the
+// same validator as the filesystem entry point, with no hidden second read.
+func ValidateLoadedFeature(feature spec.Feature, scope Scope) (Result, error) {
+	featureName, specDir := feature.Name, feature.Root
 	if !feature.Requirements.Exists && !feature.Design.Exists && !feature.Tasks.Exists {
 		return Result{
 			Feature: featureName,

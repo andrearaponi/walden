@@ -4,6 +4,27 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.2] - 2026-09-17
+
+### Added
+
+- **Binary-only installer mode.** `install.sh --no-skill` installs or replaces only the executable, preserving skill files/registration and skipping all skill prompts. It rejects combinations with `--skill` or `--uninstall` before network or installation/removal side effects; native defaults and checksum verification remain unchanged.
+- **Skill-first bootstrap.** The canonical guide checks the actual CLI path/version, requests authorization before downloading/installing, uses the matching pinned release and verifies the executable afterward. Skills CLI and native skill ownership/update paths are documented separately; unavailable releases and failed checks do not trigger incompatible fallback or automatic manager migration.
+
+### Fixed
+
+- **Complete proof identity.** Task fingerprints bind parsed argv, expected exit/output, timeout declaration and asserted coverage, not display text. Changing an approved assertion invalidates its old evidence without invalidating unrelated siblings or checkbox progress.
+- **No revived contaminated passes.** Verify records each proof's actual before/after code observations. A detected mutation or missing required identity contaminates later executions in that invocation, even if source bytes are restored. Assertion outcomes remain distinct from policy failures; valid pure prefixes retain their actual records. Completion keeps its separate generator-capable post-state lane.
+- **Committed strict inputs.** Strict certification compares the actual captured spec/evidence inputs and portfolio inventory with one existing commit, independently of ignore rules or clean-status output. Missing, different or unreadable inputs block; ignored scratch outside the consumed set does not.
+- **Scope-preserving reports and remedies.** Verification, adoption and release expose their selection and assurance, retain specific gaps, and do not broaden feature-scoped retries or recommend deleting historical ledgers as a universal remedy.
+- **Accurate execution reporting in the skill.** A passing named proof does not establish test-first development. Guidance distinguishes original behavioral TDD, tests added afterward, test-driven repairs and mutation testing; it rejects retrospective reconstruction of a TDD history. Final scoped verification follows code/document delivery edits, and staleness explanations follow observed input differences rather than a commit alone.
+
+### Changed
+
+- **Evidence compatibility boundary.** New ledgers write `v1alpha2`; legacy formats remain readable without silent promotion. New records retain fingerprint-scheme and execution-policy facts. The technical state vocabulary adds `unattested`; consumers must not treat unknown assurance as verified. Existing JSON field names/types and envelope `v0beta1` are retained, as are document schema `v1alpha1` and intact approval fingerprints. Older binaries refuse the new ledger format: use a compatible reader, not a destructive downgrade.
+- **Classified legacy adoption.** Read-only planning separates recoverable binding, code freshness and missing execution provenance. Local fingerprint-bound plan recovery does not replay proofs or attest historical purity. A binary upgrade does not automatically execute the portfolio; strong assurance still needs facts for the explicitly selected scope.
+- **Contract-aware skill.** Guidance distinguishes current, superseded, mixed and unresolved intent before proposing replay, preserves human retirement decisions/history, and schedules aggregate re-verification at declared checkpoints rather than after every edit. Authoring quick wins retain contract-impact routing, acceptance-check sketches and smaller canonical scaffolds.
+
 ## [0.10.1] - 2026-07-17
 
 One misbehaving proof now fails alone. This patch remediates the first field feedback on v0.10.0's `verify` — reported by a team running it in production within a week of release, and matching what the largest adoption run had already measured.

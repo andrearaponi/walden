@@ -1,6 +1,6 @@
 # The Agentic Flow
 
-Most teams do not hand-write EARS criteria — their coding agent does. Walden is built for exactly that division of labor: the **skill** authors, the **CLI** enforces. This page is how the two halves compose into the flow you actually run: one prompt in, a reviewed spec tree out, every gate passed, every proof recorded — nothing typed but the intent.
+A coding agent can draft EARS criteria and drive Walden's commands: the **skill** authors, the **CLI** enforces the workflow. You still review the content, approve decisions, and authorize implementation. The agent reduces repetitive typing; it does not remove the cost of judgment.
 
 ## The division of labor
 
@@ -14,7 +14,13 @@ Walden splits every feature into work that needs judgment and work that needs en
 | Writing the code | Deriving states, judging releasability |
 | Deciding when to re-plan | Reconciling stale chains |
 
-The boundary is absolute in both directions: **the CLI never authors content, and the skill never mutates workflow state**. Every status flip, approval seal, checkbox, and evidence record goes through a command — so the guarantees in [the lifecycle](lifecycle.md) hold identically whether a human or a model did the typing. Trust comes from the gates, not from the model.
+**The CLI owns workflow mutations.** The skill edits document bodies and invokes commands for status changes, approval seals, checkboxes, and evidence; it never writes those fields directly. Canonical templates come from `feature init`, not duplicated templates inside the skill. See [the lifecycle](lifecycle.md) for the mechanism.
+
+## Choose the authoring lane
+
+The skill first checks contract impact and project rules. A bugfix restoring approved behavior or a behavior-preserving refactor can stay outside a new spec cycle, while retaining tests and applicable evidence checks. New or changed intended behavior enters authoring at the appropriate phase. Unclear intent prompts a question before speculative documents are created. Explicit user or project requirements for a spec take precedence.
+
+Within authoring, each AC gets a brief **Acceptance check** describing the observable distinction between success and failure, without choosing an implementation command. Design starts with six required headings; optional sections are added only when relevant. Human review still judges substance, including whether an alternative or assertion is meaningful.
 
 ## Install the skill
 
@@ -57,10 +63,10 @@ The skill is deliberately constitution-bound at the points where judgment must b
 The failure mode of agent-driven development is unverifiable velocity: plausible code, green-looking sessions, no durable claim about what was actually specified, reviewed, or proven. Walden inverts the economics — the agent supplies the speed, the kernel supplies claims that survive it:
 
 - The fingerprint seals **what you approved**, not what the model generated afterward — post-approval drift is detected by construction.
-- Evidence doesn't care who typed the code: `verified` means the proof passes on the tree in front of you, today.
+- Evidence records declared proof outcomes against spec and code identities. Authors and reviewers remain responsible for choosing assertions that actually exercise the intended behavior.
 - Every agent action that matters is a CLI invocation — auditable in the same JSON envelope your pipelines already parse.
 
-Onboarding a team is therefore one command and one habit: `walden skill install`, and "let's use Walden" at the start of the session. The ceremony costs the agent, not the human — the human keeps the judgment calls.
+Install the skill once with `walden skill install`, then ask to use Walden when appropriate. Human review still requires attention: the skill removes repeated scaffolding and state bookkeeping, not the responsibility to understand the contract.
 
 ## Companions and internals
 

@@ -12,7 +12,26 @@ import (
 
 // SchemaVersion identifies the evidence document format, versioned
 // independently from the CLI output contract.
-const SchemaVersion = "v1alpha1"
+const SchemaVersion = "v1alpha2"
+
+const (
+	Guarantee        = "walden/evidence-integrity/v2"
+	CompletionPolicy = "completion-post-state/v1"
+	VerifyPolicy     = "verify-purity/v1"
+)
+
+// ExecutionFacts describe the producer lane and observed boundaries, not a
+// derived status. A passing assertion is distinct from policy acceptance.
+type ExecutionFacts struct {
+	Origin             string   `json:"origin"`
+	Policy             string   `json:"policy"`
+	AssertionResult    string   `json:"assertion_result"`
+	Integrity          string   `json:"integrity"`
+	BeforeCodeIdentity string   `json:"before_code_identity,omitempty"`
+	AfterCodeIdentity  string   `json:"after_code_identity,omitempty"`
+	CauseTask          string   `json:"cause_task,omitempty"`
+	ChangedPaths       []string `json:"changed_paths,omitempty"`
+}
 
 // StepResult captures one executed proof step.
 type StepResult struct {
@@ -41,15 +60,17 @@ type ProfileDrift struct {
 // human context only and never influences a derived state; Profile is
 // diagnostic context with the same standing.
 type Record struct {
-	TaskFingerprint         string       `json:"task_fingerprint"`
-	RequirementsFingerprint string       `json:"requirements_fingerprint"`
-	DesignFingerprint       string       `json:"design_fingerprint"`
-	TasksFingerprint        string       `json:"tasks_fingerprint"`
-	CodeIdentity            string       `json:"code_identity,omitempty"`
-	Profile                 Profile      `json:"profile,omitempty"`
-	Steps                   []StepResult `json:"steps"`
-	Result                  string       `json:"result"`
-	VerifiedAt              string       `json:"verified_at"`
+	TaskFingerprint         string          `json:"task_fingerprint"`
+	TaskFingerprintScheme   string          `json:"task_fingerprint_scheme,omitempty"`
+	Execution               *ExecutionFacts `json:"execution,omitempty"`
+	RequirementsFingerprint string          `json:"requirements_fingerprint"`
+	DesignFingerprint       string          `json:"design_fingerprint"`
+	TasksFingerprint        string          `json:"tasks_fingerprint"`
+	CodeIdentity            string          `json:"code_identity,omitempty"`
+	Profile                 Profile         `json:"profile,omitempty"`
+	Steps                   []StepResult    `json:"steps"`
+	Result                  string          `json:"result"`
+	VerifiedAt              string          `json:"verified_at"`
 }
 
 // DiffProfile compares a recorded profile against the current one, sorted by

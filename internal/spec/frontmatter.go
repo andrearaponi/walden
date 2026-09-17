@@ -65,6 +65,15 @@ func parseFrontmatter(text string) (frontmatter, string, error) {
 	return values, text[len(match[0]):], nil
 }
 
+// HistoricalBody extracts the fingerprinted body of a historical snapshot.
+// Its old frontmatter is context only: this never validates or grants a new
+// approval and does not relax the live document loader's field/schema checks.
+func HistoricalBody(data []byte) (string, error) {
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	_, body, err := parseFrontmatter(text)
+	return body, err
+}
+
 // ParseWaldenTimestamp parses a timestamp string into a time.Time value.
 // It accepts RFC3339 and RFC3339Nano formats and normalizes to UTC.
 func ParseWaldenTimestamp(s string) (time.Time, error) {

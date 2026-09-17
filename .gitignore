@@ -35,6 +35,17 @@ sonar-project.properties
 # Local-only material (reports, demo assets, launch notes)
 temp/
 HACKER_NEWS.md
+IDEAS.md
+
+# Agent session exports (never part of the public source)
+pi-session-*.html
+
+# Private experimental skill drafts (only skill/walden and skill/walden-history are published)
+skill/walden-soundings/
+skill/walden-soundings.zip
+
+# Local coverage output
+coverage.out
 
 # Generated docs section (built by tools/sitegen at Pages deploy time)
 site/docs/

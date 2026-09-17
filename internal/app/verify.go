@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/output"
 	"github.com/andrearaponi/walden/internal/workflow"
 )
@@ -44,15 +45,11 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 	entries := make([]output.EvidenceStatus, 0, len(verifyResult.Outcomes))
 	for _, outcome := range verifyResult.Outcomes {
 		passed := outcome.Passed
-		entries = append(entries, output.EvidenceStatus{
-			TaskID:           outcome.TaskID,
-			State:            outcome.State,
-			Passed:           &passed,
-			Failure:          outcome.Failure,
-			RecordedIdentity: outcome.RecordedIdentity,
-			CurrentIdentity:  outcome.CurrentIdentity,
-			Profile:          outcome.Profile,
-		})
+		view := output.EvidenceView(outcome.Assessment)
+		view.TaskID, view.State = outcome.TaskID, outcome.State
+		view.Passed, view.Failure, view.Profile = &passed, outcome.Failure, outcome.Profile
+		view.RecordedIdentity, view.CurrentIdentity = outcome.RecordedIdentity, outcome.CurrentIdentity
+		entries = append(entries, view)
 	}
 
 	suffix := ""
@@ -60,7 +57,8 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 		suffix = " (check mode: nothing persisted)"
 	}
 
-	result := output.Result{Evidence: entries, ExitCode: 0}
+	scope := evidence.NewScope(true, verifyResult.Feature)
+	result := output.Result{Evidence: entries, Scope: &scope, ExitCode: 0}
 	if len(verifyResult.Pruned) > 0 && !verifyResult.Checked {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("pruned %d orphaned evidence entr%s no longer in the plan: %s", len(verifyResult.Pruned), map[bool]string{true: "y", false: "ies"}[len(verifyResult.Pruned) == 1], strings.Join(verifyResult.Pruned, ", ")))
 	}

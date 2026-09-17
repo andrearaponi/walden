@@ -56,9 +56,8 @@ func (spec VerificationSpec) Display() string {
 	for _, step := range spec.Steps {
 		payload, _ := json.Marshal(step.Argv)
 		entry := fmt.Sprintf("command %s", string(payload))
-		// The declared raw string, verbatim: the task fingerprint hashes this
-		// rendering, and steps without a timeout must render byte-identically
-		// to every pre-timeout release so existing evidence never moves.
+		// Display retains the declared spelling for humans. Contract identity
+		// uses the typed proof directly, not this rendering.
 		if step.Timeout != nil {
 			entry += " timeout=" + *step.Timeout
 		}

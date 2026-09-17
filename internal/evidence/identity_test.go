@@ -21,6 +21,9 @@ type fakeGit struct {
 }
 
 func (f *fakeGit) Run(_ context.Context, name string, args ...string) (shell.Response, error) {
+	if len(args) > 0 && args[0] == "--no-optional-locks" {
+		args = args[1:]
+	}
 	if name != "git" || len(args) < 3 {
 		return shell.Response{}, errors.New("unexpected invocation")
 	}
@@ -174,8 +177,10 @@ func TestIdentityUnbornHeadUsesOverlayAlone(t *testing.T) {
 	}
 
 	git := &fakeGit{responses: map[string]shell.Response{
-		"status":  {ExitCode: 0, Stdout: "?? first.go\x00"},
-		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"status":       {ExitCode: 0, Stdout: "?? first.go\x00"},
+		"ls-tree":      {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"symbolic-ref": {Stdout: "refs/heads/main\n"},
+		"show-ref":     {ExitCode: 1},
 	}}
 
 	identity, ok := Identity(context.Background(), git, root)
@@ -211,8 +216,10 @@ func TestIdentitySurvivesTheCommitTransition(t *testing.T) {
 	blobID := hex.EncodeToString(blob[:])
 
 	untracked := &fakeGit{responses: map[string]shell.Response{
-		"status":  {ExitCode: 0, Stdout: "?? calc.sh\x00"},
-		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"status":       {ExitCode: 0, Stdout: "?? calc.sh\x00"},
+		"ls-tree":      {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"symbolic-ref": {Stdout: "refs/heads/main\n"},
+		"show-ref":     {ExitCode: 1},
 	}}
 	committed := &fakeGit{responses: map[string]shell.Response{
 		"status":  {ExitCode: 0},
@@ -248,8 +255,10 @@ func TestIdentitySurvivesTheSymlinkCommitTransition(t *testing.T) {
 	fileBlobID := hex.EncodeToString(fileBlob[:])
 
 	untracked := &fakeGit{responses: map[string]shell.Response{
-		"status":  {ExitCode: 0, Stdout: "?? Makefile\x00?? link.mk\x00"},
-		"ls-tree": {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"status":       {ExitCode: 0, Stdout: "?? Makefile\x00?? link.mk\x00"},
+		"ls-tree":      {ExitCode: 128, Stderr: "fatal: not a valid object name HEAD"},
+		"symbolic-ref": {Stdout: "refs/heads/main\n"},
+		"show-ref":     {ExitCode: 1},
 	}}
 	committed := &fakeGit{responses: map[string]shell.Response{
 		"status": {ExitCode: 0},
@@ -277,6 +286,9 @@ type countingGit struct {
 }
 
 func (c *countingGit) Run(ctx context.Context, name string, args ...string) (shell.Response, error) {
+	if len(args) > 0 && args[0] == "--no-optional-locks" {
+		args = args[1:]
+	}
 	if len(args) >= 3 && args[2] == "hash-object" {
 		c.hashSpawns++
 	}

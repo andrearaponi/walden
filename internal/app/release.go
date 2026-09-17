@@ -79,21 +79,29 @@ func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
 
 func releaseCheckResult(report release.ReleaseReport) output.Result {
 	status := &output.ReleaseStatus{
+		Scope:      &report.Scope,
 		Releasable: report.Releasable(),
 		Strict:     report.Strict,
 		Worktree: output.ReleaseWorktree{
-			Blockers:    append([]string(nil), report.WorktreeBlockers...),
-			WaldenDirty: append([]string(nil), report.WaldenDirty...),
-			GitSkipped:  report.GitSkipped,
+			Blockers:     append([]string(nil), report.WorktreeBlockers...),
+			WaldenDirty:  append([]string(nil), report.WaldenDirty...),
+			GitSkipped:   report.GitSkipped,
+			InputBinding: report.CommittedInputBinding,
 		},
 	}
 
+	for _, input := range report.Inputs {
+		status.Worktree.Inputs = append(status.Worktree.Inputs, output.ReleaseInput{Path: input.Path, State: input.State, Detail: input.Detail})
+	}
 	result := output.Result{ExitCode: 0}
 	pendingTotal := 0
 	for _, feature := range report.Features {
 		view := output.ReleaseFeature{
 			Feature: feature.Feature,
 			Pending: append([]string(nil), feature.Pending...),
+		}
+		for _, entry := range feature.Evidence {
+			view.Evidence = append(view.Evidence, output.EvidenceView(entry))
 		}
 		pendingTotal += len(feature.Pending)
 		for _, criterion := range feature.Criteria {
@@ -127,7 +135,7 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 	}
 
 	if report.Releasable() {
-		result.Summary = fmt.Sprintf("RELEASABLE — %d feature(s) certified", len(report.Features))
+		result.Summary = fmt.Sprintf("RELEASABLE — %d feature(s) certified [%s]", len(report.Features), report.Scope.Description())
 		if pendingTotal > 0 && report.AllowPending {
 			result.Summary += fmt.Sprintf(", %d task(s) waived (reason: %s)", pendingTotal, report.WaiverReason)
 		} else if pendingTotal > 0 {
@@ -143,8 +151,18 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 		return result
 	}
 
-	result.Summary = fmt.Sprintf("NOT RELEASABLE — %d blocker(s)", report.BlockerCount())
-	result.NextAction = "Resolve the blockers above (each names its remedy) and rerun walden release check"
+	result.Summary = fmt.Sprintf("NOT RELEASABLE — %d blocker(s) [%s]", report.BlockerCount(), report.Scope.Description())
+	retry := "walden release check"
+	if name := report.Scope.NamedFeature(); name != "" {
+		retry += " " + name
+	}
+	if report.Strict {
+		retry += " --strict"
+	}
+	result.NextAction = "Resolve the named blockers and retry " + retry
+	if report.AllowPending {
+		result.NextAction += "; retain the recorded pending waiver only if still explicitly authorized"
+	}
 	result.ExitCode = 1
 	return result
 }

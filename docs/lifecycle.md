@@ -10,7 +10,7 @@ Walden's answer is to make every claim **re-provable**. Approvals are sealed wit
 
 This matters most in the [agentic flow](agentic.md), where a coding agent authors the documents and writes the code: the guarantees below are enforced by the CLI at every station, so they hold identically whoever — or whatever — did the typing. The skill drafts and implements; the kernel seals, proves, and judges; the human approves. Trust comes from the gates, not from the model.
 
-Two photographs run through everything below: the fingerprint of the **specs** as approved, and the identity of the **code** as proven. Every mechanism in the lifecycle is a way of taking, chaining, or comparing those photographs.
+Three independent facts run through the lifecycle: the **approved contract**, the **code identity**, and the **execution policy/provenance**. Matching contract and code cannot reconstruct an integrity observation that was never recorded. The skill also establishes which business contract is current; the kernel does not infer that from document age or implementation presence.
 
 ## Birth
 
@@ -21,6 +21,8 @@ Two photographs run through everything below: the fingerprint of the **specs** a
 | `requirements.md` | *What* must be true, as [EARS acceptance criteria](reference/spec-format.md#ears-acceptance-criteria) with stable IDs |
 | `design.md` | *How* it will be built — architecture, alternatives considered, failure modes, coverage |
 | `tasks.md` | *In what order*, with an executable proof per leaf task |
+
+New authoring adds a one-line **Acceptance check** beneath each criterion: the observation that would distinguish success from failure, without choosing a framework or command. It remains ordinary body content, not a new kernel field. Design scaffolding expands only the six required headings; reviewers add optional detail when it serves a relevant decision or verification need.
 
 Every document declares `walden_schema_version: v1alpha1` in its frontmatter. The CLI stamps the version on every save (so existing repositories migrate through normal use), refuses documents declaring an unsupported version, and rejects unknown frontmatter fields — while preserving `x-` prefixed extension fields verbatim, so integrators can attach durable metadata without forking the format.
 
@@ -62,13 +64,13 @@ Every leaf task carries a proof — one or more steps in argv form, immune to sh
 
 ```markdown
 - Verification:
-  - command: ["go", "test", "-run", "TestAuth", "./internal/auth"]
+  - command: ["go", "test", "-v", "-count=1", "-run", "^TestAuth$", "./internal/auth"]
     expect_output: "--- PASS: TestAuth"
     timeout: 30m
     covers: ["R1.AC1", "R1.AC2"]
 ```
 
-A step passes when its exit code matches (`expect_exit`, default `0`) and its output contains the declared pattern (`expect_output` — declare it on test runners, so a `-run` pattern matching zero tests cannot pass vacuously). Every step runs under a timeout — declared, or a 10-minute default — and expiry kills the step's whole process group and fails the proof naming the exceeded budget. `covers` declares which acceptance criteria the proof demonstrates; the validator tracks proof coverage separately from task references.
+A step passes when its exit code matches (`expect_exit`, default `0`) and its output contains the declared pattern (`expect_output`). The skill requires a runner-appropriate anti-vacuity safeguard: native failure on no tests, structured results, or an output assertion. For Go, `-v` exposes the named PASS line and `-count=1` avoids cached execution, so a selector matching zero tests cannot satisfy this example. Every step runs under a timeout — declared, or a 10-minute default — and expiry kills the step's whole process group and fails the proof naming the exceeded budget. `covers` declares which acceptance criteria the proof demonstrates; the validator tracks proof coverage separately from task references.
 
 The same grammar serves two lanes with deliberately different contracts:
 
@@ -76,7 +78,9 @@ The same grammar serves two lanes with deliberately different contracts:
 
 **Re-verification** (`walden verify`) is where trust is refreshed. It re-executes the proofs of completed tasks against the current tree — and it is **pure by contract**: a proof that modifies the working tree fails its task, naming the modified paths (`.walden/` excluded, as the ledger's own legitimate write path). A failing proof never aborts the run; every selected task is re-proven and failures are collected into one honest partition.
 
-Verify records bind the code identity captured **at the start of the run**. Under purity the distinction is invisible — a compliant proof leaves the tree where it found it — but when a proof does mutate, the anchoring confines the damage: the mutant fails on its own side effects, while the tasks proven after it keep the identity the run promised, and the run-level warning names both the paths and the affected tasks (`proof side effects modified the repository: go.mod; tasks re-proven on the modified tree: 5.2, 5.3`). One misbehaving proof fails alone.
+Verify records bind each task's actually observed **pre-proof identity**, retaining its post-proof identity and policy outcome. A detected mutation or unavailable required identity creates sticky **contamination**: that execution and all later executed tasks in the invocation cannot earn verified evidence, even if a later command restores the initial bytes. Remaining selected proofs continue for diagnosis, with assertion failures distinguished from policy failures. Earlier pure results remain real records, subject to normal freshness checks; skipped records are not invented executions.
+
+An unavailable initial identity rejects verify before proof execution. Normal verify persists truthful failures; `--check` suppresses ledger writes but does not sandbox commands. The CLI never rolls back source automatically. Detection samples a task's proof boundaries using the existing manifest scope; transient changes restored between captures and excluded paths are outside this guarantee.
 
 Author verify-able proofs as read-only assertions: prefer `["go", "mod", "tidy", "-diff"]` over `["go", "mod", "tidy"]`, route build outputs outside the repository, and let tests assert instead of regenerate.
 
@@ -84,7 +88,8 @@ Author verify-able proofs as read-only assertions: prefer `["go", "mod", "tidy",
 
 Completions and verifications write to `.walden/evidence/<feature>.json` — the **evidence ledger**. Each task's record holds facts only:
 
-- the proof's steps with their outcomes,
+- the complete task-contract fingerprint scheme, including ordered argv, expected exit/output, timeout declarations and asserted coverage,
+- the proof's steps with their outcomes and completion/verify execution provenance,
 - the fingerprints of the approved chain at proof time (the spec photograph),
 - the code identity at proof time (the code photograph — a deterministic digest over every tracked file's content, `.walden/` excluded so committing evidence never invalidates it),
 - the [execution profile](#the-environment) of the machine that ran it,
@@ -94,16 +99,19 @@ What the ledger deliberately does **not** hold is any state label. When you ask 
 
 | State | Meaning |
 | --- | --- |
-| `verified` | Both photographs match: the proof's claim holds on the specs and code you have right now. |
-| `stale-spec` | The approved chain moved since the proof ran — the evidence certifies a different plan. |
-| `stale-code` | The tree moved since the proof ran — the evidence certifies a different implementation. |
-| `failed` | The recorded proof outcome is a failure — re-proven and found broken, with the task named. |
-| `unrecorded` | The task is checked but has no record — completed outside the ledger; re-prove it. |
+| `verified` | Required binding, available code identity and supported producer-policy facts match the current assessment. |
+| `stale-spec` | A known contract or approval-chain mismatch exists. |
+| `stale-code` | Available recorded/current code identities differ. |
+| `failed` | A recorded assertion failure or known verification-policy violation blocks acceptance. |
+| `unattested` | A record exists but a required binding, identity or execution-assurance fact is unknown. |
+| `unrecorded` | The task is checked but has no evidence record. |
 | `pending` | Not completed yet. |
 
 *Stale* does not mean broken. It means **"no longer known"** — the world moved since the claim was proven, and the honest state is a declared doubt. A code-only bugfix needs no spec ceremony: evidence goes `stale-code`, and one `walden verify` either restores `verified` on today's tree or names exactly which task's proof broke.
 
-The ledger is regenerable, not archival: it is the current truth, and history lives in git — the file is committed and reviewed like the specs it proves. Records for tasks that leave the plan are pruned on the next verify; a corrupted or lost record simply reads as `unrecorded` and is recreated by re-proving. Never a silent lie.
+The ledger is a current-state map; historical recovery depends on actually preserved Git history. Normal feature-local verify prunes orphaned task entries, while inspection never prunes. A missing record is `unrecorded`; a corrupted or unsupported ledger is a read error, not an empty trusted map. Preserve it for diagnosis rather than deleting history as a universal remedy.
+
+New ledgers use `v1alpha2`; old records remain readable with explicit uncertainty. [Legacy binding recovery](adoption.md) can translate a justified full-plan witness without replay, but cannot manufacture old producer/purity facts. Binding, code freshness and execution provenance are reported separately even when one state takes precedence. Document schema and intact approvals remain unchanged.
 
 ## The environment
 
@@ -116,7 +124,7 @@ Every record also carries the **execution profile** of the machine that produced
 - node: ["node", "--version"]
 ```
 
-Profiles are diagnostic by design — they never change a derived state, so evidence recorded in CI keeps certifying on any machine. Their payoff is the failure you can finally read: when a proof that passed under go 1.25 fails on a machine running 1.24, the failure says so — `environment drift: go: recorded "go1.25.0" → current "go1.24.0"` — and `evidence status` shows recorded-versus-current differences per task. Fix the environment, or knowingly re-record on the current one; never edit proofs to paper over drift.
+Profiles are diagnostic by design — they never change a derived state or establish an execution-integrity guarantee. A missing profile does not by itself prove a record's age or invalidate otherwise supported provenance. Their payoff is the failure you can finally read: when a proof that passed under go 1.25 fails on a machine running 1.24, the failure says so — `environment drift: go: recorded "go1.25.0" → current "go1.24.0"` — and `evidence status` shows recorded-versus-current differences per task. Fix the environment, or knowingly re-record on the current one; never edit proofs to paper over drift.
 
 ## The verdict
 
@@ -130,9 +138,9 @@ Profiles are diagnostic by design — they never change a derived state, so evid
 | `evidence` | Every completed task's evidence derives `verified`; every planned task executed — or explicitly waived |
 | worktree | No uncommitted changes outside `.walden/` — what you certify is what you tag |
 
-Exit `0` if and only if no blocker exists; every blocker names its remedy. The gate is **judgment only**: it executes no proofs and writes nothing. `verify` produces evidence; `release check` judges it — so certification is cheap enough to run on every pipeline, and the verdict is reproducible from the commit it names (`certified_commit` in the result).
+Exit `0` if and only if no blocker exists; every blocker names its remedy. The gate is **judgment only**: it executes no proofs or environment probes and writes nothing. `verify` produces evidence; `release check` judges it. The verdict names its selected scope and guarantee. A named-feature pass is not a repository-wide certificate; unqualified requests retain every feature in the present portfolio.
 
-**Pending work blocks by default.** An approved plan's unexecuted task means unimplemented acceptance criteria in the thing being tagged. Partial releases remain expressible — as a recorded decision: `--allow-pending --reason "<text>"` waives pending work for that verdict, the completion class becomes `with-waivers` (against `complete` and `with-pending`), and the reason plus the waived task identifiers ride the verdict itself. No reason, no waiver. `--strict` adds one requirement — committed `.walden/` state, so the verdict is reproducible including its evidence — and composes with a waiver.
+**Pending work blocks by default.** An approved plan's unexecuted task means unimplemented acceptance criteria in the thing being tagged. Partial releases remain expressible — as a recorded decision: `--allow-pending --reason "<text>"` waives pending work for that verdict, the completion class becomes `with-waivers` (against `complete` and `with-pending`), and the reason plus the waived task identifiers ride the verdict itself. No reason, no waiver. Waivers do not exempt failed or unattested completed evidence. `--strict` compares the presence and exact bytes of the captured spec/evidence inputs with one existing commit, independently of ignore rules, and checks the committed portfolio inventory for an unqualified request. Missing/different/unreadable inputs and observed HEAD movement block it. An equally absent ledger is legitimate for a wholly pending waived plan, never for completed work. Ignored scratch outside the consumed set is irrelevant. Non-strict mode still tolerates local Walden metadata and explicitly reports that committed-input binding was not requested.
 
 A repository without usable git fails closed: certification requires a git-backed code identity. There is no bypass flag for a dirty worktree.
 
@@ -140,8 +148,8 @@ A repository without usable git fails closed: certification requires a git-backe
 
 Two lanes extend the lifecycle across a whole portfolio:
 
-- **[Brownfield adoption](adoption.md)** — `walden adopt` brings repositories whose specs predate the current contract into it: sealing recorded approvals with fingerprint backfill, re-proving unrecorded work, and reporting an honest verified/failed partition.
-- **[Retirement](adoption.md#retirement)** — superseded specs are deleted, not labeled: history lives in git, an index entry in `.walden/RETIRED.md` records the ceremony, and the release gate judges only the living portfolio.
+- **[Brownfield adoption](adoption.md)** — establish the current business contract first; `walden adopt` then assesses legacy binding, freshness and provenance without execution. Apply requires an explicit reviewed scope and records real proof outcomes.
+- **[Retirement](adoption.md#retirement)** — confirmed superseded specs can be removed after verifying recoverable Git history and the destination of surviving requirements. An index entry in `.walden/RETIRED.md` records reason, last-live commit and successor; nothing silently disappears from a portfolio claim.
 
 ## The invariants
 

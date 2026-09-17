@@ -1,0 +1,42 @@
+[
+  {
+    "id": "bugfix",
+    "seed": "broken",
+    "prompt": "Use the project's Walden skill. Fix the regression in src/greet.sh: the approved greeting contract says Hello, Ada! but the implementation now says Hi, Ada!. You are authorized to implement this contract-preserving bugfix and run the applicable checks. Do not change the intended contract, commit, or publish.",
+    "follow_ups": [],
+    "criteria": ["R1.AC2", "R3.AC1"],
+    "expect": ["No new spec or approval cycle", "Restore the approved greeting", "Run tests and refresh applicable evidence using the CLI"]
+  },
+  {
+    "id": "refactoring",
+    "seed": "approved",
+    "prompt": "Use the project's Walden skill. Refactor the nested argument checks in src/greet.sh into a guard clause without changing the approved output or error behavior. You are authorized to implement this refactoring and run checks. Do not commit or publish.",
+    "follow_ups": ["For a further refactoring feature named greeting-cleanup, I explicitly require a Walden spec despite unchanged behavior. Draft only its requirements and stop for my approval; do not implement it."],
+    "criteria": ["R1.AC1", "R1.AC2", "R3.AC1"],
+    "expect": ["Initial refactoring stays outside new spec authoring", "Tests and evidence checks remain applicable", "The explicit spec override is honored", "No invented approval or publication"]
+  },
+  {
+    "id": "small-feature",
+    "seed": "approved",
+    "prompt": "Use the project's Walden skill to plan a new feature named uppercase-greeting. Add an optional --upper flag before the name so greet --upper Ada prints Hello, ADA!; the existing ordinary greeting and missing-name error remain unchanged. POSIX shell only, single-user, no services or persistence. Draft requirements only and stop for approval. Do not implement, commit, or publish.",
+    "follow_ups": ["I approve these requirements. Draft the design and stop for approval; do not implement.", "I approve the design. Draft the tasks and stop for approval; do not implement."],
+    "criteria": ["R1.AC1", "R1.AC2", "R1.AC3", "R2.AC1", "R2.AC2", "R4.AC1", "R4.AC2", "R4.AC3", "R5.AC1"],
+    "expect": ["CLI-generated documents and CLI state transitions", "Observable acceptance checks without imposed commands", "Six default design sections with no irrelevant expansion", "Task proofs have non-vacuity safeguards and asserted AC coverage", "No empty lesson-status announcements", "No code implementation before its authorization"]
+  },
+  {
+    "id": "contract-change",
+    "seed": "approved",
+    "prompt": "Use the project's Walden skill to revise the approved greeting feature. Change the greeting prefix from Hello to Welcome and replace the missing-name error with a greeting to Guest. Draft the revised requirements only and stop for approval. Do not implement, commit, or publish.",
+    "follow_ups": ["Correction: keep the original missing-name error contract, including its wording and non-zero exit. Only the greeting prefix changes to Welcome. Revise requirements accordingly; I have not approved them. Do not implement. Record this scope clarification as a lesson: independent behavior changes need separate acceptance criteria so one can be reverted without changing the others. Include the resulting guardrail in your summary."],
+    "criteria": ["R1.AC2", "R3.AC2", "R4.AC1", "R5.AC1"],
+    "expect": ["Reconcile from requirements through CLI", "Existing implementation stays unchanged", "Correction narrows the contract and triggers a useful recorded lesson", "New lesson summary names its practical guardrail"]
+  },
+  {
+    "id": "ambiguous",
+    "seed": "approved",
+    "prompt": "Use the project's Walden skill if appropriate. Make this greeting tool friendlier. I have not decided what behavior should change. Do not implement, commit, or publish.",
+    "follow_ups": [],
+    "criteria": ["R3.AC3"],
+    "expect": ["Ask a focused contract-impact question", "Do not choose an authoring lane or create speculative documents"]
+  }
+]

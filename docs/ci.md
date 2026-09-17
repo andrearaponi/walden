@@ -19,7 +19,7 @@ walden verify <feature> --check    # report-only: re-proves, writes nothing — 
 walden verify <feature>            # persisting: refreshes evidence — the merge/main job
 ```
 
-`--check` is the pull-request shape: it answers "would the evidence hold on this tree?" with an exit code and no side effects. The persisting form belongs where its output can be committed — evidence documents are shared repository state, reviewed like the specs they prove, so a main-branch job that runs `verify` should commit the refreshed ledger (a dirty `.walden/` legitimately precedes its own commit and only warns at the gate; it blocks under `--strict`).
+`--check` answers whether the selected proofs satisfy verification policy without persisting the ledger. It does not prevent command side effects or sandbox the proof. Mutation or an unavailable required identity rejects verification and contaminates later executions in that invocation. The persisting form belongs where its output can be committed — evidence documents are shared repository state, reviewed like the specs they prove, so a main-branch job that runs `verify` should commit the refreshed ledger (a dirty `.walden/` legitimately precedes its own commit and only warns at the gate; it blocks under `--strict`).
 
 Machines that run proofs should declare [environment probes](reference/spec-format.md#environmentmd): every record then carries the toolchain versions that produced it, and a later failure on a different machine diagnoses itself (`environment drift: go: recorded "go1.25.0" → current "go1.24.0"`).
 
@@ -29,21 +29,22 @@ Machines that run proofs should declare [environment probes](reference/spec-form
 walden release check --json
 ```
 
-Gate the release pipeline on the exit code. The verdict carries `completion` (`complete` | `with-pending` | `with-waivers`) and `certified_commit` — archive the JSON envelope and every release has a reproducible certification record naming the exact commit it judged.
+Gate the release pipeline on its exit code and retain the scope, assurance gaps, `completion`, and `certified_commit`. A selected-feature verdict is not a whole-repository claim. Reproducibility of spec/evidence inputs is attested only when strict committed-input binding succeeds; default mode can judge local metadata.
 
 ## The release job
 
 ```bash
-walden verify <feature>            # re-prove execution on the current tree
-walden release check --strict --json   # certify; strict = the verdict must be reproducible from the commit
+walden verify <feature>                  # refresh the explicitly reviewed scope
+# Review and commit its evidence when authorized and permitted by project policy.
+walden release check <feature> --strict --json  # exact committed-input judgment
 ```
 
 Policy knobs, all recorded, none silent:
 
 - **Pending work blocks by default.** A deliberate partial release is an explicit waiver — `--allow-pending --reason "<text>"` — and the reason plus waived task identifiers land in the archived verdict. Treat a waiver in CI as a decision that belongs to a human: pass it from a manually-set variable, never hardcode it into the pipeline.
-- **`--strict`** requires committed `.walden/` state, so the certification is reproducible including its evidence.
+- **`--strict`** compares the actual consumed spec/evidence bytes and presence against one captured commit, independently of ignore rules. A pending waiver cannot bypass missing inputs or legacy assurance.
 - **No bypass exists** for uncommitted code outside `.walden/`, and a repository without usable git fails closed: certification requires a git-backed code identity.
 
 ## Parsing output
 
-Every command takes `--json` and emits the [versioned envelope](reference/json.md) on success and error paths alike — parse `result` fields by name, gate on the process exit code, and treat unknown fields as future additions (the contract only grows within `schema_version: v0beta1`). Warnings ride `result.warnings`; do not drop them — purity violations during verify surface there, naming mutated paths and affected tasks.
+Every command takes `--json` and emits the [versioned envelope](reference/json.md) on success and error paths alike — parse `result` fields by name, gate on the process exit code, and treat unknown fields as future additions (the contract only grows within `schema_version: v0beta1`). Warnings supplement failed outcomes; do not drop them. Known purity violations reject verification, with assertion and execution-policy facts distinguished. Handle `unattested` and unknown future assurance/state values fail-closed. Use probe-free `adopt <feature>` planning and reviewed current-contract scope before applying legacy migrations; a tool upgrade must not trigger an automatic historical replay.

@@ -249,6 +249,9 @@ func (r *sideEffectRunner) Run(ctx context.Context, name string, args ...string)
 type dynamicIdentityRunner struct{ root string }
 
 func (r *dynamicIdentityRunner) Run(_ context.Context, _ string, args ...string) (shell.Response, error) {
+	if len(args) > 0 && args[0] == "--no-optional-locks" {
+		args = args[1:]
+	}
 	if len(args) >= 3 && args[2] == "ls-tree" {
 		return shell.Response{ExitCode: 0, Stdout: "100644 blob aaa\tmain.go\n"}, nil
 	}
@@ -302,8 +305,8 @@ func TestVerifySideEffectFailsTask(t *testing.T) {
 		t.Fatalf("expected both tasks in Failed, got %v", result.Failed)
 	}
 
-	// Persisting mode records the side-effect failures, bound to the tree
-	// the run started from.
+	// Persisting mode records side-effect failures with each proof's actual
+	// pre-execution identity, not a fabricated shared run-start identity.
 	ledger, err := evidence.Load(root, "todo-app-demo")
 	if err != nil {
 		t.Fatalf("load ledger: %v", err)
@@ -317,16 +320,14 @@ func TestVerifySideEffectFailsTask(t *testing.T) {
 			t.Fatalf("task %s recorded %q, want failed", taskID, record.Result)
 		}
 		if record.CodeIdentity == "" {
-			t.Fatalf("task %s record lacks the run-start identity", taskID)
+			t.Fatalf("task %s record lacks its pre-proof identity", taskID)
 		}
 	}
 }
 
-// TestVerifyRecordsRunStartIdentity is the run-start contract witness: every
-// verify record binds the tree the run started from, so one mutant cannot
-// poison its successors' identity — while completion keeps binding the
-// post-proof tree, the lane where mutation is legitimate.
-func TestVerifyRecordsRunStartIdentity(t *testing.T) {
+// Completion binds each legitimate post-state. Verify instead records each
+// observed pre-state and rejects both the mutator and contaminated successor.
+func TestVerifyRecordsActualProofIdentity(t *testing.T) {
 	root := t.TempDir()
 	writeVerifyFixture(t, root)
 	overrideIdentityRunner(t, &dynamicIdentityRunner{root: root})
@@ -366,10 +367,12 @@ func TestVerifyRecordsRunStartIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load ledger: %v", err)
 	}
-	for _, taskID := range []string{"1.1", "1.2"} {
-		if got := ledger.Tasks[taskID].CodeIdentity; got != runStart.Digest() {
-			t.Fatalf("verify record for %s binds %q, want the run-start tree %q", taskID, got, runStart.Digest())
-		}
+	first, second := ledger.Tasks["1.1"], ledger.Tasks["1.2"]
+	if first.CodeIdentity != runStart.Digest() || second.CodeIdentity == runStart.Digest() || first.Execution == nil || second.Execution == nil || second.CodeIdentity != first.Execution.AfterCodeIdentity {
+		t.Fatalf("records do not bind their actual pre-states: first=%+v second=%+v", first, second)
+	}
+	if first.Result != evidence.ResultFailed || second.Result != evidence.ResultFailed || second.Execution.CauseTask != "1.1" {
+		t.Fatal("mutation/contamination did not persist a policy failure")
 	}
 }
 
@@ -545,7 +548,7 @@ func TestVerifySideEffectWarnings(t *testing.T) {
 		}
 	})
 
-	t.Run("detection skipped when git unusable", func(t *testing.T) {
+	t.Run("unavailable identity is not a warning-only pass", func(t *testing.T) {
 		root := t.TempDir()
 		writeVerifyFixture(t, root)
 		overrideIdentityRunner(t, identityYielding("100644 blob aaa\tmain.go\n"))
@@ -555,21 +558,10 @@ func TestVerifySideEffectWarnings(t *testing.T) {
 			statusResponse: shell.Response{ExitCode: 128},
 			lsTreeResponse: shell.Response{ExitCode: 128},
 		})
-		result, err := Verify(context.Background(), root, "todo-app-demo", true, false, testutil.NewFakeRunner(
-			testutil.Response{Stdout: "ok", ExitCode: 0},
-			testutil.Response{Stdout: "ok", ExitCode: 0},
-		))
-		if err != nil {
-			t.Fatalf("Verify returned error: %v", err)
-		}
-		found := false
-		for _, warning := range result.Warnings {
-			if strings.Contains(warning, "side-effect detection skipped") {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("expected a detection-skipped warning, got %v", result.Warnings)
+		runner := testutil.NewFakeRunner()
+		_, err := Verify(context.Background(), root, "todo-app-demo", true, false, runner)
+		if err == nil || !strings.Contains(err.Error(), "identity") || len(runner.Calls()) != 0 {
+			t.Fatalf("unavailable preflight did not fail before execution: %v, calls=%v", err, runner.Calls())
 		}
 	})
 }

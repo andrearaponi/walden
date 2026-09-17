@@ -39,6 +39,7 @@ type FeaturePlan struct {
 	SealableDocs []string
 	ReproveCount int
 	BlockReason  string
+	Evidence     []evidence.TaskEvidence
 }
 
 // Totals aggregates the portfolio.
@@ -53,6 +54,7 @@ type Totals struct {
 
 // PlanReport is the read-only adoption plan.
 type PlanReport struct {
+	Scope    evidence.Scope
 	Features []FeaturePlan
 	Totals   Totals
 }
@@ -69,9 +71,9 @@ func Plan(ctx context.Context, root, featureName string) (PlanReport, error) {
 	// judged against a single tree.
 	identity, identityOK := evidence.Identity(ctx, gitRunner, root)
 
-	report := PlanReport{}
+	report := PlanReport{Scope: evidence.NewScope(featureName != "", names...)}
 	for _, name := range names {
-		plan := classify(root, name, identity, identityOK)
+		plan := classify(ctx, root, name, identity, identityOK)
 		report.Features = append(report.Features, plan)
 		switch plan.Class {
 		case ClassBackfill:
@@ -109,7 +111,7 @@ func adoptionTargets(root, featureName string) ([]string, error) {
 
 // classify applies the lane's honesty rule: an absent fingerprint is
 // sealable; a present fingerprint that contradicts reality is blocked.
-func classify(root, name string, identity string, identityOK bool) FeaturePlan {
+func classify(ctx context.Context, root, name string, identity string, identityOK bool) FeaturePlan {
 	plan := FeaturePlan{Name: name, Class: ClassComplete}
 
 	feature, err := spec.LoadFeature(root, name)
@@ -119,6 +121,11 @@ func classify(root, name string, identity string, identityOK bool) FeaturePlan {
 		return plan
 	}
 
+	plan.Evidence, err = assessEvidence(ctx, root, feature, identity, identityOK)
+	if err != nil {
+		plan.Class, plan.BlockReason = ClassBlocked, err.Error()
+		return plan
+	}
 	documents := []struct {
 		label    string
 		document spec.Document
@@ -151,12 +158,11 @@ func classify(root, name string, identity string, identityOK bool) FeaturePlan {
 		return plan
 	}
 
-	if plan.ReproveCount = countReprovable(root, feature, identity, identityOK); plan.ReproveCount < 0 {
-		plan.Class = ClassBlocked
-		plan.BlockReason = fmt.Sprintf("evidence ledger unreadable — remove %s and rerun adoption", evidence.DocumentPath(root, name))
-		return plan
+	for _, entry := range plan.Evidence {
+		if entry.State != evidence.StateVerified && entry.State != evidence.StatePending {
+			plan.ReproveCount++
+		}
 	}
-
 	switch {
 	case len(plan.SealableDocs) > 0:
 		plan.Class = ClassBackfill
@@ -182,40 +188,21 @@ func chainContradiction(feature spec.Feature) string {
 	return ""
 }
 
-// countReprovable counts completed leaf tasks whose evidence is anything but
-// verified. Returns -1 when the ledger itself cannot be read.
-func countReprovable(root string, feature spec.Feature, identity string, identityOK bool) int {
+// assessEvidence never executes a profile probe or proof. Invalid approved
+// plans and unreadable ledgers are assessment blockers, not zero-work success.
+func assessEvidence(ctx context.Context, root string, feature spec.Feature, identity string, identityOK bool) ([]evidence.TaskEvidence, error) {
 	if !feature.Tasks.Exists || feature.Tasks.Status != "approved" {
-		return 0
+		return nil, nil
 	}
 	tree, err := spec.ParseTaskTree(feature.Tasks)
 	if err != nil {
-		return 0
+		return nil, fmt.Errorf("tasks assessment unavailable: %w", err)
 	}
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return -1
+		return nil, err
 	}
-
-	leafs := []evidence.LeafTask{}
-	for _, task := range tree.LeafTasks() {
-		leafs = append(leafs, evidence.LeafTask{
-			ID:          task.ID,
-			Completed:   task.Completed,
-			Fingerprint: spec.TaskDefinitionFingerprint(task),
-		})
-	}
-	current := evidence.ChainFingerprints{
-		Requirements: feature.Requirements.Fields["approved_fingerprint"],
-		Design:       feature.Design.Fields["approved_fingerprint"],
-	}
-
-	count := 0
-	for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
-		if derived.State == evidence.StateVerified || derived.State == evidence.StatePending {
-			continue
-		}
-		count++
-	}
-	return count
+	current, leafs := evidence.FeatureInputs(feature, tree)
+	evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, "")
+	return evidence.Derive(ledger, current, identity, identityOK, leafs), nil
 }

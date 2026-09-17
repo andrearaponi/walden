@@ -12,7 +12,9 @@ import (
 )
 
 func TestAdoptApplyPartition(t *testing.T) {
+	requireGit(t)
 	root := t.TempDir()
+	gitIn(t, root, "init", "-q", "-b", "main")
 	preFingerprintDocs(t, root, "old-era")
 	sealedDocs(t, root, "needs-proofs", true)
 	sealedDocs(t, root, "drifted", true)
@@ -67,7 +69,9 @@ func TestAdoptApplyPartition(t *testing.T) {
 }
 
 func TestAdoptApplyResume(t *testing.T) {
+	requireGit(t)
 	root := t.TempDir()
+	gitIn(t, root, "init", "-q", "-b", "main")
 	preFingerprintDocs(t, root, "old-era")
 
 	// First run: the proof fails — the seal lands, the failure is recorded.

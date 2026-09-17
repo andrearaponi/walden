@@ -12,21 +12,19 @@ import (
 	"github.com/andrearaponi/walden/internal/spec"
 )
 
-// VerifyOutcome describes one task touched by a verify run.
+// VerifyOutcome separates an accepted execution from final-tree freshness.
+// A pure prefix can pass while becoming stale-code after a later mutation.
 type VerifyOutcome struct {
-	TaskID  string
-	State   string
-	Passed  bool
-	Failure string
-	// RecordedIdentity is the run-start digest the task's record binds;
-	// CurrentIdentity is the digest of the tree its proof left — equal when
-	// the proof was pure, visibly divergent on a contaminated run.
+	TaskID           string
+	State            string
+	Passed           bool
+	Failure          string
 	RecordedIdentity string
 	CurrentIdentity  string
 	Profile          evidence.Profile
+	Assessment       evidence.TaskEvidence
 }
 
-// VerifyResult is the outcome of re-proving a feature's completed tasks.
 type VerifyResult struct {
 	Feature  string
 	Outcomes []VerifyOutcome
@@ -34,219 +32,218 @@ type VerifyResult struct {
 	Checked  bool
 	Skipped  []string
 	Pruned   []string
-	// Warnings carry run-level purity observations: the tree drifted across
-	// the run, or side-effect detection had to be skipped.
 	Warnings []string
 }
 
-// Verify re-executes the proofs of completed tasks against the current
-// working tree: non-verified ones by default, every one with all. Fresh
-// evidence replaces each task's entry unless check is set, which reports
-// without persisting anything. A failing proof never aborts the run — every
-// selected task is re-proven and failures are collected. Re-verification is
-// pure by contract: a proof that modifies the working tree fails its task,
-// with `.walden/` excluded as the ledger's own legitimate write path.
+// Verify re-proves one selected feature. Selection is fixed at the initial
+// assessment; contamination is sticky and cannot be repaired by restoring
+// source bytes within the invocation. Check mode has identical judgments but
+// no Walden writes. Commands themselves are not sandboxed or rolled back.
 func Verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner) (VerifyResult, error) {
 	if runner == nil {
 		return VerifyResult{}, fmt.Errorf("proof runner is required")
 	}
-
-	readiness, err := LoadExecutionReadiness(root, featureName)
+	feature, err := spec.LoadFeature(root, featureName)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	readiness, err := ResolveExecutionReadiness(feature)
 	if err != nil {
 		return VerifyResult{}, err
 	}
 	if readiness.GateBlocked && len(readiness.Blockers) > 0 {
 		return VerifyResult{}, fmt.Errorf("%s", readiness.Blockers[0])
 	}
-
-	feature, err := spec.LoadFeature(root, featureName)
-	if err != nil {
-		return VerifyResult{}, err
-	}
 	tree, err := spec.ParseTaskTree(feature.Tasks)
 	if err != nil {
 		return VerifyResult{}, err
 	}
-
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
 		return VerifyResult{}, err
 	}
 	ledger.Feature = feature.Name
-
-	// One profile for the whole run, like the identity: a malformed probe
-	// declaration fails the command before any proof executes.
 	profile, err := runProfile(ctx, root)
 	if err != nil {
 		return VerifyResult{}, err
 	}
-
-	// Purity chain: one manifest before the loop (its digest is both the
-	// selection identity and the identity every record of this run binds)
-	// and one after each task's proof. Completion may
-	// legitimately mutate the tree; re-verification claims the current tree
-	// satisfies the proofs, so a proof that moves the manifest fails its
-	// task instead of silently dirtying the repository being certified.
-	previous, manifestOK := evidence.CaptureManifest(ctx, identityRunner, root)
-	initial := previous
-	detectionDegraded := !manifestOK
+	current, leafs := evidence.FeatureInputs(feature, tree)
+	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
+	initial, initialOK := evidence.CaptureManifest(ctx, identityRunner, root)
 	identity := ""
-	if manifestOK {
-		identity = previous.Digest()
+	if initialOK {
+		identity = initial.Digest()
 	}
-	current := evidence.ChainFingerprints{
-		Requirements: feature.Requirements.Fields["approved_fingerprint"],
-		Design:       feature.Design.Fields["approved_fingerprint"],
-	}
-
+	selected := map[string]bool{}
 	result := VerifyResult{Feature: feature.Name, Checked: check}
-	refreshed := map[string]evidence.Record{}
-	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	// Tasks proven after the first side effect ran on a tree the run did not
-	// promise; the drift warning names them so the victim list is visible.
-	poisoned := []string{}
-	contaminated := false
-
-	planIDs := map[string]bool{}
-	for _, task := range tree.LeafTasks() {
-		planIDs[task.ID] = true
+	for _, entry := range evidence.Derive(ledger, current, identity, initialOK, leafs) {
+		if entry.State == evidence.StatePending {
+			continue
+		}
+		if !all && entry.State == evidence.StateVerified {
+			result.Skipped = append(result.Skipped, entry.TaskID)
+		} else {
+			selected[entry.TaskID] = true
+		}
 	}
-	for taskID := range ledger.Tasks {
-		if !planIDs[taskID] {
-			result.Pruned = append(result.Pruned, taskID)
+	if len(selected) > 0 && !initialOK {
+		return VerifyResult{}, fmt.Errorf("verification requires a usable initial code identity; no proofs executed — restore usable Git and retry walden verify %s", feature.Name)
+	}
+	planIDs := map[string]bool{}
+	for _, leaf := range leafs {
+		planIDs[leaf.ID] = true
+	}
+	for id := range ledger.Tasks {
+		if !planIDs[id] {
+			result.Pruned = append(result.Pruned, id)
 		}
 	}
 	sort.Strings(result.Pruned)
 
+	previous, previousOK := initial, initialOK
+	causeTask := ""
+	var causePaths, poisoned []string
+	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	for _, task := range tree.LeafTasks() {
-		if !task.Completed {
+		if !selected[task.ID] {
 			continue
 		}
-
-		executable := toExecutableTask(task)
-		fingerprint := executableTaskFingerprint(executable)
-
-		if !all {
-			derived := evidence.Derive(ledger, current, identity, manifestOK, []evidence.LeafTask{
-				{ID: task.ID, Completed: true, Fingerprint: fingerprint},
-			})
-			if derived[0].State == evidence.StateVerified {
-				result.Skipped = append(result.Skipped, task.ID)
-				continue
+		pre, preOK := initial, initialOK
+		if len(result.Outcomes) > 0 {
+			pre, preOK = evidence.CaptureManifest(ctx, identityRunner, root)
+		}
+		priorContamination := causeTask != ""
+		var policyProblems []string
+		if priorContamination {
+			poisoned = append(poisoned, task.ID)
+			policyProblems = append(policyProblems, fmt.Sprintf("verification contaminated by task %s; a new clean invocation is required", causeTask))
+		}
+		var boundaryPaths []string
+		if preOK && previousOK {
+			boundaryPaths = evidence.DiffPaths(previous, pre)
+		}
+		if len(boundaryPaths) > 0 {
+			policyProblems = append(policyProblems, "code changed before this proof: "+formatChangedPaths(boundaryPaths))
+			if causeTask == "" {
+				causeTask, causePaths = task.ID, boundaryPaths
 			}
 		}
-
-		stepResults, _, proofErr := executeProof(ctx, runner, executable)
-
-		// The record binds the tree the run started from: purity forbids a
-		// proof from moving it, so one mutant cannot poison the identity of
-		// the tasks proven after it — it fails alone on its own side effects.
-		var sideEffectPaths []string
-		recordIdentity := ""
-		currentIdentity := ""
-		if manifestOK {
-			if post, postOK := evidence.CaptureManifest(ctx, identityRunner, root); postOK {
-				sideEffectPaths = evidence.DiffPaths(previous, post)
-				previous = post
-				recordIdentity = identity
-				currentIdentity = post.Digest()
-				if contaminated {
-					poisoned = append(poisoned, task.ID)
-				}
-				if len(sideEffectPaths) > 0 {
-					contaminated = true
-				}
-			} else {
-				detectionDegraded = true
+		if !preOK {
+			policyProblems = append(policyProblems, "required pre-proof code identity unavailable")
+			if causeTask == "" {
+				causeTask = task.ID
 			}
 		}
-
-		record := evidence.Record{
-			TaskFingerprint:         fingerprint,
-			RequirementsFingerprint: current.Requirements,
-			DesignFingerprint:       current.Design,
-			TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
-			CodeIdentity:            recordIdentity,
-			Profile:                 profile,
-			Steps:                   stepResults,
-			Result:                  evidence.ResultPassed,
-			VerifiedAt:              verifiedAt,
+		stepResults, _, proofErr := executeProof(ctx, runner, toExecutableTask(task))
+		post, postOK := evidence.CaptureManifest(ctx, identityRunner, root)
+		var changed []string
+		if preOK && postOK {
+			changed = evidence.DiffPaths(pre, post)
 		}
-
-		outcome := VerifyOutcome{
-			TaskID:           task.ID,
-			State:            evidence.StateVerified,
-			Passed:           true,
-			RecordedIdentity: recordIdentity,
-			CurrentIdentity:  currentIdentity,
-			Profile:          profile,
+		if !postOK {
+			policyProblems = append(policyProblems, "required post-proof code identity unavailable")
+			if causeTask == "" {
+				causeTask = task.ID
+			}
+		}
+		if len(changed) > 0 {
+			policyProblems = append(policyProblems, fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatChangedPaths(changed)))
+			if causeTask == "" {
+				causeTask, causePaths = task.ID, changed
+			}
+		}
+		facts := &evidence.ExecutionFacts{Origin: "verify", Policy: evidence.VerifyPolicy, Integrity: "pure", AssertionResult: evidence.ResultPassed}
+		if preOK {
+			facts.BeforeCodeIdentity = pre.Digest()
+		}
+		if postOK {
+			facts.AfterCodeIdentity = post.Digest()
+		}
+		if proofErr != nil {
+			facts.AssertionResult = evidence.ResultFailed
 		}
 		switch {
-		case proofErr != nil:
-			record.Result = evidence.ResultFailed
-			outcome.State = evidence.StateFailed
-			outcome.Passed = false
-			outcome.Failure = proofErr.Error()
-			result.Failed = append(result.Failed, task.ID)
-		case len(sideEffectPaths) > 0:
-			record.Result = evidence.ResultFailed
-			outcome.State = evidence.StateFailed
-			outcome.Passed = false
-			outcome.Failure = fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatChangedPaths(sideEffectPaths))
-			result.Failed = append(result.Failed, task.ID)
+		case !preOK || !postOK:
+			facts.Integrity = "identity-unavailable"
+		case priorContamination || len(boundaryPaths) > 0:
+			facts.Integrity = "contaminated"
+		case len(changed) > 0:
+			facts.Integrity = "mutated"
 		}
-
-		// A failure on a drifted environment gets the diagnosis appended:
-		// the difference between "the code broke" and "the machine changed".
+		if len(policyProblems) > 0 {
+			facts.CauseTask = causeTask
+		}
+		facts.ChangedPaths = changed
+		if len(boundaryPaths) > 0 {
+			facts.ChangedPaths = append(append([]string(nil), boundaryPaths...), changed...)
+		}
+		record := evidence.Record{
+			TaskFingerprint: spec.TaskDefinitionFingerprint(task), TaskFingerprintScheme: spec.TaskFingerprintScheme,
+			RequirementsFingerprint: current.Requirements, DesignFingerprint: current.Design,
+			TasksFingerprint: feature.Tasks.ApprovedFingerprint, CodeIdentity: facts.BeforeCodeIdentity,
+			Profile: profile, Steps: stepResults, Result: evidence.ResultPassed, VerifiedAt: verifiedAt, Execution: facts,
+		}
+		outcome := VerifyOutcome{TaskID: task.ID, Passed: true, Profile: profile}
+		if proofErr != nil {
+			outcome.Failure = proofErr.Error()
+		}
+		if len(policyProblems) > 0 {
+			if outcome.Failure != "" {
+				outcome.Failure += "; "
+			}
+			outcome.Failure += "verification policy: " + strings.Join(policyProblems, "; ")
+		}
 		if outcome.Failure != "" {
-			if replaced, exists := ledger.Tasks[task.ID]; exists {
-				if drift := evidence.DiffProfile(replaced.Profile, profile); len(drift) > 0 {
+			record.Result, outcome.Passed = evidence.ResultFailed, false
+			result.Failed = append(result.Failed, task.ID)
+			if old, exists := ledger.Tasks[task.ID]; exists {
+				if drift := evidence.DiffProfile(old.Profile, profile); len(drift) > 0 {
 					outcome.Failure += "; environment drift: " + formatProfileDrift(drift)
 				}
 			}
 		}
-
-		if !check {
-			refreshed[task.ID] = record
-		}
+		// Check mode uses the same in-memory ledger; only Save is suppressed.
+		ledger.Tasks[task.ID] = record
 		result.Outcomes = append(result.Outcomes, outcome)
+		previous, previousOK = post, postOK
 	}
-
-	if detectionDegraded {
-		result.Warnings = append(result.Warnings, "side-effect detection skipped: code identity unavailable (git not usable here)")
+	finalIdentity := ""
+	if previousOK {
+		finalIdentity = previous.Digest()
 	}
-	if manifestOK {
-		if drift := evidence.DiffPaths(initial, previous); len(drift) > 0 {
-			warning := fmt.Sprintf("proof side effects modified the repository: %s", formatChangedPaths(drift))
-			if len(poisoned) > 0 {
-				warning += fmt.Sprintf("; tasks re-proven on the modified tree: %s", strings.Join(poisoned, ", "))
-			}
-			result.Warnings = append(result.Warnings, warning)
+	assessments := map[string]evidence.TaskEvidence{}
+	for _, entry := range evidence.Derive(ledger, current, finalIdentity, previousOK, leafs) {
+		assessments[entry.TaskID] = entry
+	}
+	for i := range result.Outcomes {
+		entry := assessments[result.Outcomes[i].TaskID]
+		result.Outcomes[i].State = entry.State
+		result.Outcomes[i].RecordedIdentity = entry.RecordedIdentity
+		result.Outcomes[i].CurrentIdentity = entry.CurrentIdentity
+		result.Outcomes[i].Assessment = entry
+	}
+	if causeTask != "" {
+		warning := "verification integrity unavailable after task " + causeTask
+		if len(causePaths) > 0 {
+			warning = "proof side effects modified the repository: " + formatChangedPaths(causePaths)
 		}
-	}
-
-	if !check && (len(refreshed) > 0 || len(result.Pruned) > 0) {
-		for taskID, record := range refreshed {
-			ledger.Tasks[taskID] = record
+		warning += "; run contamination remains until a new valid invocation"
+		if len(poisoned) > 0 {
+			warning += "; tasks re-proven on the modified tree: " + strings.Join(poisoned, ", ")
 		}
-		// The state map is a claim about the current plan: entries for task
-		// ids that left the plan are history, and history lives in git.
-		for _, taskID := range result.Pruned {
-			delete(ledger.Tasks, taskID)
+		result.Warnings = append(result.Warnings, warning)
+	}
+	if !check && (len(result.Outcomes) > 0 || len(result.Pruned) > 0) {
+		for _, id := range result.Pruned {
+			delete(ledger.Tasks, id)
 		}
 		if err := evidence.Save(root, ledger); err != nil {
 			return VerifyResult{}, fmt.Errorf("persist refreshed evidence: %w", err)
 		}
 	}
-	if check {
-		// Nothing is persisted in check mode; report what a real run would prune.
-		_ = check
-	}
 	return result, nil
 }
 
-// formatProfileDrift renders recorded-versus-current pairs — the diagnosis
-// the profile exists to print.
 func formatProfileDrift(drifts []evidence.ProfileDrift) string {
 	parts := make([]string, 0, len(drifts))
 	for _, drift := range drifts {
@@ -255,8 +252,6 @@ func formatProfileDrift(drifts []evidence.ProfileDrift) string {
 	return strings.Join(parts, ", ")
 }
 
-// formatChangedPaths keeps side-effect failures readable on wide mutations:
-// the first ten paths verbatim, the rest as a count.
 func formatChangedPaths(paths []string) string {
 	const maxListed = 10
 	if len(paths) <= maxListed {
@@ -265,23 +260,14 @@ func formatChangedPaths(paths []string) string {
 	return fmt.Sprintf("%s, +%d more", strings.Join(paths[:maxListed], ", "), len(paths)-maxListed)
 }
 
-// toExecutableTask bridges a parsed task into the execution view.
 func toExecutableTask(task *spec.Task) ExecutableTask {
-	return ExecutableTask{
-		ID:           task.ID,
-		Title:        task.Title,
-		ParentID:     task.ParentID,
-		Completed:    task.Completed,
-		Level:        task.Level,
-		Requirements: append([]string(nil), task.Requirements...),
-		DesignRefs:   append([]string(nil), task.DesignRefs...),
-		Verification: task.Verification,
-		Proof:        task.Proof,
-	}
+	return ExecutableTask{ID: task.ID, Title: task.Title, ParentID: task.ParentID,
+		Completed: task.Completed, Level: task.Level, Requirements: append([]string(nil), task.Requirements...),
+		DesignRefs: append([]string(nil), task.DesignRefs...), Verification: task.Verification, Proof: task.Proof}
 }
 
-// EvidenceReport derives every leaf task's execution-evidence state for a
-// feature. It is a pure read: no gate, no writes, usable on any chain state.
+// EvidenceReport is a diagnostic view, not the probe-free migration surface:
+// it retains profile probes. Adoption planning and release do not call it.
 func EvidenceReport(ctx context.Context, root, featureName string) (string, []evidence.TaskEvidence, error) {
 	feature, err := spec.LoadFeature(root, featureName)
 	if err != nil {
@@ -291,16 +277,6 @@ func EvidenceReport(ctx context.Context, root, featureName string) (string, []ev
 	if err != nil {
 		return "", nil, err
 	}
-
-	leafs := []evidence.LeafTask{}
-	for _, task := range tree.LeafTasks() {
-		leafs = append(leafs, evidence.LeafTask{
-			ID:          task.ID,
-			Completed:   task.Completed,
-			Fingerprint: executableTaskFingerprint(toExecutableTask(task)),
-		})
-	}
-
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
 		return "", nil, err
@@ -310,27 +286,11 @@ func EvidenceReport(ctx context.Context, root, featureName string) (string, []ev
 		return "", nil, err
 	}
 	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
-	current := evidence.ChainFingerprints{
-		Requirements: feature.Requirements.Fields["approved_fingerprint"],
-		Design:       feature.Design.Fields["approved_fingerprint"],
-	}
-
+	current, leafs := evidence.FeatureInputs(feature, tree)
+	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
 	entries := evidence.Derive(ledger, current, identity, identityOK, leafs)
-	// Profile context rides beside the derived states: recorded values,
-	// drift against this machine, and the legacy marker for records written
-	// before profiles existed.
-	for index := range entries {
-		record, exists := ledger.Tasks[entries[index].TaskID]
-		if !exists {
-			continue
-		}
-		entries[index].RecordedResult = record.Result
-		entries[index].RecordedProfile = record.Profile
-		if record.Profile == nil {
-			entries[index].ProfileLegacy = true
-			continue
-		}
-		entries[index].ProfileDrift = evidence.DiffProfile(record.Profile, currentProfile)
+	for i := range entries {
+		entries[i].ProfileDrift = evidence.DiffProfile(entries[i].RecordedProfile, currentProfile)
 	}
 	return feature.Name, entries, nil
 }
