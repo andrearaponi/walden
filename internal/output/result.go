@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/andrearaponi/walden/internal/evidence"
 )
 
 // Result is the shared structured output model for CLI commands.
@@ -37,6 +39,7 @@ type Result struct {
 	Features              []FeatureValidation `json:"features,omitempty"`
 	Skills                []SkillStatus       `json:"skills,omitempty"`
 	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
+	Scope                 *evidence.Scope     `json:"scope,omitempty"`
 	Update                *UpdateStatus       `json:"update,omitempty"`
 	Release               *ReleaseStatus      `json:"release,omitempty"`
 	Adoption              *AdoptionStatus     `json:"adoption,omitempty"`
@@ -54,6 +57,7 @@ type FeatureValidation struct {
 
 // ReleaseStatus is the JSON output view of a release certification run.
 type ReleaseStatus struct {
+	Scope      *evidence.Scope  `json:"scope,omitempty"`
 	Releasable bool             `json:"releasable"`
 	Strict     bool             `json:"strict"`
 	Features   []ReleaseFeature `json:"features"`
@@ -65,6 +69,7 @@ type ReleaseFeature struct {
 	Feature  string             `json:"feature"`
 	Criteria []ReleaseCriterion `json:"criteria"`
 	Pending  []string           `json:"pending,omitempty"`
+	Evidence []EvidenceStatus   `json:"evidence,omitempty"`
 }
 
 // ReleaseCriterion is a single certification criterion's verdict.
@@ -76,9 +81,17 @@ type ReleaseCriterion struct {
 
 // ReleaseWorktree is the repository-level worktree criterion's outcome.
 type ReleaseWorktree struct {
-	Blockers    []string `json:"blockers,omitempty"`
-	WaldenDirty []string `json:"walden_dirty,omitempty"`
-	GitSkipped  bool     `json:"git_skipped"`
+	Blockers     []string       `json:"blockers,omitempty"`
+	WaldenDirty  []string       `json:"walden_dirty,omitempty"`
+	GitSkipped   bool           `json:"git_skipped"`
+	InputBinding string         `json:"input_binding,omitempty"`
+	Inputs       []ReleaseInput `json:"inputs,omitempty"`
+}
+
+type ReleaseInput struct {
+	Path   string `json:"path"`
+	State  string `json:"state"`
+	Detail string `json:"detail,omitempty"`
 }
 
 // WaiverStatus is the verdict-carried record of a pending-task waiver: the
@@ -90,34 +103,40 @@ type WaiverStatus struct {
 
 // AdoptionStatus is the JSON output view of a brownfield adoption plan or run.
 type AdoptionStatus struct {
+	Scope    *evidence.Scope   `json:"scope,omitempty"`
 	Apply    bool              `json:"apply"`
 	Features []AdoptionFeature `json:"features"`
 }
 
 // AdoptionFeature is one feature's adoption classification and outcome.
 type AdoptionFeature struct {
-	Feature      string   `json:"feature"`
-	Class        string   `json:"class"`
-	SealableDocs []string `json:"sealable_docs,omitempty"`
-	SealedDocs   []string `json:"sealed_docs,omitempty"`
-	ReproveCount int      `json:"reprove_count,omitempty"`
-	Verified     []string `json:"verified,omitempty"`
-	Failed       []string `json:"failed,omitempty"`
-	Skipped      int      `json:"skipped,omitempty"`
-	Reason       string   `json:"reason,omitempty"`
+	Feature      string           `json:"feature"`
+	Class        string           `json:"class"`
+	SealableDocs []string         `json:"sealable_docs,omitempty"`
+	SealedDocs   []string         `json:"sealed_docs,omitempty"`
+	ReproveCount int              `json:"reprove_count,omitempty"`
+	Evidence     []EvidenceStatus `json:"evidence,omitempty"`
+	Verified     []string         `json:"verified,omitempty"`
+	Failed       []string         `json:"failed,omitempty"`
+	Skipped      int              `json:"skipped,omitempty"`
+	Reason       string           `json:"reason,omitempty"`
 }
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
 type EvidenceStatus struct {
-	TaskID           string              `json:"task_id"`
-	State            string              `json:"state"`
-	Passed           *bool               `json:"passed,omitempty"`
-	Failure          string              `json:"failure,omitempty"`
-	RecordedIdentity string              `json:"recorded_identity,omitempty"`
-	CurrentIdentity  string              `json:"current_identity,omitempty"`
-	Profile          map[string]string   `json:"profile,omitempty"`
-	ProfileDrift     []ProfileDriftEntry `json:"profile_drift,omitempty"`
-	ProfileLegacy    bool                `json:"profile_legacy,omitempty"`
+	TaskID           string                        `json:"task_id"`
+	State            string                        `json:"state"`
+	Passed           *bool                         `json:"passed,omitempty"`
+	Failure          string                        `json:"failure,omitempty"`
+	RecordedIdentity string                        `json:"recorded_identity,omitempty"`
+	CurrentIdentity  string                        `json:"current_identity,omitempty"`
+	Profile          map[string]string             `json:"profile,omitempty"`
+	ProfileDrift     []ProfileDriftEntry           `json:"profile_drift,omitempty"`
+	ProfileLegacy    bool                          `json:"profile_legacy,omitempty"`
+	Binding          *evidence.BindingAssessment   `json:"binding,omitempty"`
+	CodeFreshness    string                        `json:"code_freshness,omitempty"`
+	Execution        *evidence.ExecutionAssessment `json:"execution,omitempty"`
+	Gaps             []evidence.Gap                `json:"gaps,omitempty"`
 }
 
 // ProfileDriftEntry is one differing execution-profile entry: the recorded
@@ -201,6 +220,9 @@ type TaskStatus struct {
 // PrintText renders a compact human-readable result summary.
 func PrintText(w io.Writer, result Result) {
 	_, _ = fmt.Fprintf(w, "Summary: %s\n", result.Summary)
+	if result.Scope != nil {
+		_, _ = fmt.Fprintf(w, "Scope: %s; guarantee: %s\n", result.Scope.Description(), result.Scope.Guarantee)
+	}
 
 	if len(result.CreatedFiles) > 0 {
 		_, _ = fmt.Fprintln(w, "Created files:")
@@ -322,19 +344,7 @@ func PrintText(w io.Writer, result Result) {
 
 	if len(result.Evidence) > 0 {
 		_, _ = fmt.Fprintln(w, "Evidence:")
-		for _, entry := range result.Evidence {
-			_, _ = fmt.Fprintf(w, "- %s: %s", entry.TaskID, entry.State)
-			if entry.Failure != "" {
-				_, _ = fmt.Fprintf(w, " (%s)", entry.Failure)
-			}
-			if entry.ProfileLegacy {
-				_, _ = fmt.Fprintf(w, " (legacy record: no profile)")
-			}
-			_, _ = fmt.Fprintln(w)
-			for _, drift := range entry.ProfileDrift {
-				_, _ = fmt.Fprintf(w, "  profile drift: %s: recorded %q → current %q\n", drift.Key, drift.Recorded, drift.Current)
-			}
-		}
+		printEvidence(w, result.Evidence, "")
 	}
 
 	if result.Update != nil {
@@ -344,6 +354,9 @@ func PrintText(w io.Writer, result Result) {
 
 	if result.Adoption != nil {
 		_, _ = fmt.Fprintln(w, "Adoption:")
+		if result.Adoption.Scope != nil {
+			_, _ = fmt.Fprintf(w, "Scope: %s; guarantee: %s\n", result.Adoption.Scope.Description(), result.Adoption.Scope.Guarantee)
+		}
 		for _, feature := range result.Adoption.Features {
 			_, _ = fmt.Fprintf(w, "- %s: %s", feature.Feature, feature.Class)
 			if len(feature.SealableDocs) > 0 {
@@ -361,11 +374,18 @@ func PrintText(w io.Writer, result Result) {
 				_, _ = fmt.Fprintf(w, " (%s)", feature.Reason)
 			}
 			_, _ = fmt.Fprintln(w)
+			printEvidence(w, feature.Evidence, "  ")
 		}
 	}
 
 	if result.Release != nil {
 		_, _ = fmt.Fprintln(w, "Release:")
+		if result.Release.Scope != nil {
+			_, _ = fmt.Fprintf(w, "Scope: %s; guarantee: %s\n", result.Release.Scope.Description(), result.Release.Scope.Guarantee)
+		}
+		if result.Release.Worktree.InputBinding != "" {
+			_, _ = fmt.Fprintf(w, "- committed input binding: %s\n", result.Release.Worktree.InputBinding)
+		}
 		for _, feature := range result.Release.Features {
 			_, _ = fmt.Fprintf(w, "- %s:", feature.Feature)
 			for _, criterion := range feature.Criteria {
@@ -379,6 +399,7 @@ func PrintText(w io.Writer, result Result) {
 				_, _ = fmt.Fprintf(w, " pending: %s", strings.Join(feature.Pending, ", "))
 			}
 			_, _ = fmt.Fprintln(w)
+			printEvidence(w, feature.Evidence, "  ")
 		}
 		switch {
 		case result.Release.Worktree.GitSkipped:

@@ -23,6 +23,9 @@ type scriptedIdentityRunner struct {
 }
 
 func (r *scriptedIdentityRunner) Run(_ context.Context, _ string, args ...string) (shell.Response, error) {
+	if len(args) > 0 && args[0] == "--no-optional-locks" {
+		args = args[1:]
+	}
 	if r.fail {
 		return shell.Response{}, errors.New("git unavailable")
 	}

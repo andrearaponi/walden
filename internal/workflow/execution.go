@@ -102,17 +102,12 @@ func evidenceWarnings(ctx context.Context, root string, feature spec.Feature) []
 		return nil
 	}
 
-	leafs := []evidence.LeafTask{}
+	current, leafs := evidence.FeatureInputs(feature, tree)
 	anyCompleted := false
-	for _, task := range tree.LeafTasks() {
+	for _, task := range leafs {
 		if task.Completed {
 			anyCompleted = true
 		}
-		leafs = append(leafs, evidence.LeafTask{
-			ID:          task.ID,
-			Completed:   task.Completed,
-			Fingerprint: executableTaskFingerprint(toExecutableTask(task)),
-		})
 	}
 	if !anyCompleted {
 		return nil
@@ -120,25 +115,21 @@ func evidenceWarnings(ctx context.Context, root string, feature spec.Feature) []
 
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return []string{fmt.Sprintf("evidence: ledger unreadable (%v) — remove %s and run `walden verify %s --all` to regenerate it", err, evidence.DocumentPath(root, feature.Name), feature.Name)}
+		return []string{fmt.Sprintf("evidence: ledger unreadable (%v) — retain %s and inspect it with a compatible reader", err, evidence.DocumentPath(root, feature.Name))}
 	}
 	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
-	current := evidence.ChainFingerprints{
-		Requirements: feature.Requirements.Fields["approved_fingerprint"],
-		Design:       feature.Design.Fields["approved_fingerprint"],
-	}
-
+	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
 	notVerified := []string{}
 	for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
 		if derived.State == evidence.StateVerified || derived.State == evidence.StatePending {
 			continue
 		}
-		notVerified = append(notVerified, fmt.Sprintf("%s (%s)", derived.TaskID, derived.State))
+		notVerified = append(notVerified, fmt.Sprintf("%s (%s): %s", derived.TaskID, derived.State, derived.GapSummary()))
 	}
 	if len(notVerified) == 0 {
 		return nil
 	}
-	return []string{fmt.Sprintf("evidence: %d completed task(s) not verified — %s; run `walden verify %s`", len(notVerified), strings.Join(notVerified, ", "), feature.Name)}
+	return []string{fmt.Sprintf("evidence: %d completed task(s) not verified — %s; inspect scope/gaps with `walden adopt %s`, then request applicable proofs with `walden verify %s`", len(notVerified), strings.Join(notVerified, ", "), feature.Name, feature.Name)}
 }
 
 // ResolveExecutionReadiness determines whether execution can start and which task is next.
@@ -350,8 +341,17 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		return TaskCompletionResult{}, err
 	}
 	ledger.Feature = feature.Name
+	facts := &evidence.ExecutionFacts{
+		Origin: "complete", Policy: evidence.CompletionPolicy, AssertionResult: evidence.ResultPassed,
+		Integrity: "post-state", AfterCodeIdentity: identity,
+	}
+	if !identityOK {
+		facts.Integrity = "identity-unavailable"
+	}
 	ledger.Tasks[startContext.Task.ID] = evidence.Record{
 		TaskFingerprint:         executableTaskFingerprint(startContext.Task),
+		TaskFingerprintScheme:   spec.TaskFingerprintScheme,
+		Execution:               facts,
 		RequirementsFingerprint: feature.Requirements.Fields["approved_fingerprint"],
 		DesignFingerprint:       feature.Design.Fields["approved_fingerprint"],
 		TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
@@ -529,7 +529,7 @@ func executableTaskFingerprint(task ExecutableTask) string {
 		Title:        task.Title,
 		Requirements: task.Requirements,
 		DesignRefs:   task.DesignRefs,
-		Verification: task.Verification,
+		Proof:        task.Proof,
 	})
 }
 

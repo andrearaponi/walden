@@ -9,8 +9,9 @@ import (
 	"github.com/andrearaponi/walden/internal/testutil"
 )
 
-// A ledger written before profiles existed must keep deriving and verifying
-// with unchanged outcomes: the profile layer is additive, never gating.
+// Absence of a diagnostic profile does not weaken otherwise current
+// execution provenance. Truly pre-provenance records are tested separately
+// as unattested; profile absence alone does not date or classify a record.
 func TestLegacyLedgerUnchangedByProfileLayer(t *testing.T) {
 	root := t.TempDir()
 	writeVerifyFixture(t, root)
@@ -20,7 +21,7 @@ func TestLegacyLedgerUnchangedByProfileLayer(t *testing.T) {
 	}))
 	completeBoth(t, root)
 
-	// Rewrite the ledger as a pre-binding CLI would have left it.
+	// Remove only diagnostic profiles, retaining the current producer facts.
 	ledger, err := evidence.Load(root, "todo-app-demo")
 	if err != nil {
 		t.Fatalf("load ledger: %v", err)
@@ -33,7 +34,7 @@ func TestLegacyLedgerUnchangedByProfileLayer(t *testing.T) {
 		t.Fatalf("save legacy ledger: %v", err)
 	}
 
-	// Derive: both verified, exactly as before the profile layer existed.
+	// Derive: both remain verified because provenance, not profile, gates.
 	_, entries, err := EvidenceReport(context.Background(), root, "todo-app-demo")
 	if err != nil {
 		t.Fatalf("EvidenceReport: %v", err)

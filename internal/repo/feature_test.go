@@ -3,7 +3,10 @@ package repo
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/andrearaponi/walden/internal/spec"
 )
 
 func TestInitFeatureNormalizesNameAndCreatesSpecDocuments(t *testing.T) {
@@ -84,6 +87,53 @@ func TestInitFeatureSkipsExistingScaffoldWithoutOverwriting(t *testing.T) {
 	}
 	if !report.AlreadyExists {
 		t.Fatal("expected second run to report existing feature")
+	}
+}
+
+func TestAuthoringScaffoldContract(t *testing.T) {
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, ".git"))
+	if _, err := Init(root, "v0.10.1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InitFeature(root, "authoring-example"); err != nil {
+		t.Fatal(err)
+	}
+	feature, err := spec.LoadFeature(root, "authoring-example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		"Architecture": true, "Options Considered": true,
+		"Simplicity And Elegance Review": true, "Failure Modes And Tradeoffs": true,
+		"Verification Plan": true, "Requirement Coverage": true,
+	}
+	for _, line := range strings.Split(feature.Design.Body, "\n") {
+		if title, found := strings.CutPrefix(line, "## "); found {
+			if !want[title] {
+				t.Errorf("unexpected or duplicate expanded design section %q", title)
+			}
+			delete(want, title)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing design sections %v", want)
+	}
+	for _, doc := range []spec.Document{feature.Requirements, feature.Design, feature.Tasks} {
+		if doc.Fields["walden_schema_version"] != spec.DocumentSchemaVersion || doc.Status != "draft" {
+			t.Errorf("scaffold frontmatter changed: %v", doc.Fields)
+		}
+	}
+	if !strings.Contains(feature.Requirements.Body, "   - Acceptance check:") {
+		t.Error("criterion lacks its acceptance-check continuation")
+	}
+	tree, err := spec.ParseTaskTree(feature.Tasks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := tree.LeafTasks()[0].Proof.Steps[0]
+	if strings.Join(step.Argv, " ") != "go test -v -count=1 -run ^TestExample$ ./pkg/example" || step.ExpectOutput == nil || *step.ExpectOutput != "--- PASS: TestExample" || strings.Join(step.Covers, ",") != "R1.AC1" {
+		t.Errorf("scaffold proof is not explicit/non-vacuous: %+v", step)
 	}
 }
 

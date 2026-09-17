@@ -7,6 +7,8 @@ func TestDeriveStatesAndPrecedence(t *testing.T) {
 	baseRecord := func() Record {
 		return Record{
 			TaskFingerprint:         "sha256:task",
+			TaskFingerprintScheme:   "walden/task-definition/v2",
+			Execution:               &ExecutionFacts{Origin: "verify", Policy: VerifyPolicy, AssertionResult: ResultPassed, Integrity: "pure", BeforeCodeIdentity: "sha256:code", AfterCodeIdentity: "sha256:code"},
 			RequirementsFingerprint: "sha256:req",
 			DesignFingerprint:       "sha256:des",
 			TasksFingerprint:        "sha256:tasks",
@@ -83,15 +85,15 @@ func TestDeriveStatesAndPrecedence(t *testing.T) {
 			want: StateStaleCode,
 		},
 		{
-			name:   "absent identities compare equal",
+			name:   "absent identities cannot attest equality",
 			mutate: func(r *Record) { r.CodeIdentity = "" },
 			task:   task, recorded: true, currentIdentity: "", identityOK: false,
-			want: StateVerified,
+			want: StateUnattested,
 		},
 		{
-			name: "recorded identity with absent current is stale-code",
+			name: "recorded identity with absent current is unavailable, not a known change",
 			task: task, recorded: true, currentIdentity: "", identityOK: false,
-			want: StateStaleCode,
+			want: StateUnattested,
 		},
 	}
 
@@ -121,6 +123,8 @@ func TestDeriveNeverConsultsTimestamps(t *testing.T) {
 	current := ChainFingerprints{Requirements: "sha256:req", Design: "sha256:des"}
 	record := Record{
 		TaskFingerprint:         "sha256:task",
+		TaskFingerprintScheme:   "walden/task-definition/v2",
+		Execution:               &ExecutionFacts{Origin: "verify", Policy: VerifyPolicy, AssertionResult: ResultPassed, Integrity: "pure", BeforeCodeIdentity: "sha256:code", AfterCodeIdentity: "sha256:code"},
 		RequirementsFingerprint: "sha256:req",
 		DesignFingerprint:       "sha256:des",
 		CodeIdentity:            "sha256:code",

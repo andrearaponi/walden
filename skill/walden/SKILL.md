@@ -1,613 +1,268 @@
 ---
 name: walden
-description: "Walden drafts and maintains feature specs in `.walden/specs/` with a gated workflow: EARS requirements, design documents, implementation tasks, and execution of approved tasks. Use when the user asks for Walden, a feature spec, requirements, a design doc, an implementation plan, or work from an existing `.walden/specs/` folder."
+description: "Walden drafts and maintains feature specs in `.walden/specs/` with EARS requirements, reviewed design, tasks, and executable proofs. Use when the user asks for Walden, a feature spec, requirements, design, an implementation plan, or work governed by an existing Walden spec. First distinguish contract-preserving maintenance from new or changed behavior."
 metadata:
   short-description: Walden spec workflow
 ---
 
 # Walden
 
-Use this skill to turn an idea into a reviewed feature spec, or to execute reviewed work from an existing spec.
-Reply in the user's preferred language when possible.
+Author and review deliberately; delegate workflow mechanics to the CLI. Reply in the user's preferred language. The skill supplies judgment, not approval on the user's behalf.
 
-## When To Use
+## Entry Decision
 
-- A user wants a new feature specification
-- A user wants requirements written in EARS
-- A user wants a design document from approved requirements
-- A user wants an implementation plan from approved design
-- A user wants to execute approved tasks from `.walden/specs/{feature-name}/`
+Before creating a feature or choosing a phase, inspect the request, applicable project rules, and existing contracts. Read `.walden/constitution.md` and relevant `.walden/lessons.md` when present. Do not create a spec merely because the user mentioned Walden.
 
-## Prerequisites
-
-The `walden` CLI must be installed and available in `PATH`. The CLI is the single source of truth for all deterministic workflow mechanics. This skill handles authoring, reasoning, and review interaction; it does not re-implement workflow rules.
-
-If `walden` is not available, inform the user and point them to the install instructions before continuing.
-
-## Product Boundary
-
-Walden is an open source spec-driven delivery kernel. It is not a complete enterprise platform. The CLI and this skill together cover the local workflow: requirements, design, tasks, execution, reconciliation, and lessons. Capabilities like GitHub App integration, multi-repo sync, org dashboards, and governance packs are future enterprise scope.
-
-## Deterministic Helpers
-
-- Prefer the `walden` CLI for deterministic workflow mechanics.
-- Use `walden repo init` to bootstrap a repository when Walden has not been initialized yet.
-- Use `walden feature init <feature-name>` to scaffold the canonical spec files.
-- Use `walden status <feature-name> [--json]` to inspect phase, blockers, and next action.
-- Use `walden validate [<feature-name>] [--all] [--json]` before phase transitions and before execution; omit the feature name to validate every feature in the repository.
-- Use `walden review open <feature-name> --phase requirements|design|tasks` and `walden review approve <feature-name> --phase requirements|design|tasks` for deterministic review-state transitions.
-- Use `walden task status <feature-name> [--json]`, `walden task start <feature-name> [task-id] [--json]`, and `walden task complete <feature-name> <task-id> [--json]` for deterministic execution flow.
-- Use `walden task complete-all <feature-name> [--json]` to complete all runnable leaf tasks in order, stopping on first failure.
-- Use `walden verify <feature-name> [--all] [--check] [--json]` to re-execute completed tasks' proofs against the current code and refresh execution evidence; `--check` reports without persisting anything. Re-verification is pure: a proof that modifies the working tree fails its task naming the changed paths — author proofs as read-only assertions and route build outputs outside the repository (task completion keeps accepting generator mutations; its recorded identity binds the resulting tree). Verify records bind the tree the run started from, so one mutating proof fails alone instead of staling the tasks proven after it; the run warning names both the modified paths and the tasks re-proven on the modified tree.
-- Use `walden evidence status <feature-name> [--json]` to inspect each task's derived evidence state: verified, stale-spec, stale-code, failed, unrecorded, or pending.
-- Use `walden release check [<feature-name>] [--strict] [--allow-pending --reason "<text>"] [--json]` to certify the repository (or one feature) as releasable in one deterministic verdict; it executes no proofs and writes nothing. Pending leaf tasks block the verdict by default; the waiver flags are the only relaxation and require the user's explicit approval (see Release Certification).
-- Use `walden adopt [<feature-name>] [--apply] [--json]` to onboard a repository whose specs predate the current contract: the default is a read-only plan classifying every feature; `--apply` seals recorded approvals and re-proves unrecorded work (see Brownfield Adoption).
-- Use `walden reconcile <feature-name> [--json]` when approved upstream documents changed or the approval chain is stale.
-- Use `walden lesson log --feature <feature-name> --phase requirements|design|tasks|execute|release --trigger "<event>" --lesson "<pattern>" --guardrail "<rule>" [--json]` after meaningful corrections, failed validation, or execution surprises.
-- Use `walden version [--json]` to check the installed CLI version and schema version.
-
-All `--json` commands return a versioned envelope:
-
-```json
-{
-  "schema_version": "v0beta1",
-  "command": "<command-name>",
-  "ok": true,
-  "result": {}
-}
-```
-
-## Core Rules
-
-- New features must progress `Requirements -> Design -> Tasks`.
-- Planning stops after approved `tasks.md`.
-- Execution is a separate invocation path and starts only when the user explicitly asks to execute a task.
-- Existing specs may enter at Design only if `requirements.md` is approved.
-- Existing specs may enter at Tasks only if `design.md` is approved.
-- Execution requires approved and non-stale `requirements.md`, `design.md`, and `tasks.md`.
-- For non-trivial work, start with a short plan that includes the next phase steps and how you will verify them.
-- If ambiguity, failed validation, or conflicting constraints appear, stop and re-plan from the earliest affected phase instead of pushing forward.
-- Review `.walden/lessons.md` before non-trivial work when the current request resembles earlier mistakes or rejected drafts.
-- For deterministic state inspection or mutation, prefer the `walden` CLI over manual frontmatter edits or helper scripts.
-- Before closing any revision, correction, or recovery step, make an explicit `Lesson Decision: none|logged`.
-- If the work included a user correction, failed validation, rejected draft, re-plan, or unexpected execution issue, default to `Lesson Decision: logged` unless there is a clear reason not to.
-- Never treat silence as approval.
-- If an upstream document changes, mark dependent downstream documents stale and reset their `status` to `draft` before continuing.
-
-## Files And Naming
-
-- Store documents in `.walden/specs/{feature-name}/`.
-- Normalize `{feature-name}` to kebab-case.
-- Use exactly these files:
-  - `requirements.md`
-  - `design.md`
-  - `tasks.md`
-
-## Approval And Staleness Model
-
-Every document must begin with YAML frontmatter.
-
-### `requirements.md`
-
-```yaml
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
-approved_fingerprint:
----
-```
-
-### `design.md`
-
-```yaml
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
-approved_fingerprint:
-source_requirements_approved_at:
-source_requirements_fingerprint:
----
-```
-
-### `tasks.md`
-
-```yaml
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
-approved_fingerprint:
-source_design_approved_at:
-source_design_fingerprint:
----
-```
-
-Apply these rules consistently:
-
-- Set `status: draft` when first creating a document.
-- Set `status: in-review` immediately before presenting a revision to the user.
-- Set `status: approved` and populate `approved_at` only after explicit approval — prefer `walden review approve`, which also records the approval fingerprints.
-- Update `last_modified` on every edit.
-- Never hand-edit fingerprint fields (`approved_fingerprint`, `source_*_fingerprint`): they are computed and verified by the CLI. A fingerprint that does not match its document's content makes the document stale.
-- Freshness is decided by fingerprint comparison: an approved document is stale when its body no longer matches its `approved_fingerprint`, and a downstream document is stale when its `source_*_fingerprint` differs from the upstream's current `approved_fingerprint`. Timestamps remain as human-readable context.
-- If an approved document is edited later, it is stale until the chain is repaired: run `walden reconcile` (the document resets to draft) and take it through review again.
-- Approved documents that lack fingerprints (created by pre-fingerprint CLI versions) are stale by definition; `walden reconcile` plus one re-approval cycle migrates them.
-
-## Phase Router
-
-Before doing any work:
-
-1. Determine the feature name and inspect `.walden/specs/{feature-name}/`.
-2. Read `.walden/constitution.md` when it exists for project-wide context (tech stack, conventions, key files). Skip without error when absent. If the file exists but contains only placeholder text (sections with bracket patterns like `[What this project does...]`), stop and ask the user to fill it in before proceeding — an empty constitution means every spec will be written without stable project context.
-3. Review `.walden/lessons.md` when it exists and the feature type or failure mode is similar.
-4. Read existing frontmatter and approval timestamps.
-5. Run `walden status <feature-name>` and `walden validate <feature-name>` when the CLI is available and the feature folder already exists.
-6. Choose the earliest phase that is missing, unapproved, or stale.
-7. For non-trivial work, state a short plan for the current phase plus the verification gate.
-8. Honor the user's requested entry point only if all prerequisites are approved and fresh.
-9. For a new feature, always start at Requirements.
-
-## Decision Checkpoint Protocol
-
-Apply this protocol during Phase 1, 2, and 3 drafting. Do not apply during Phase 4.
-
-**Bifurcation Test:** a decision merits a `[decision: <question>]` checkpoint if and only if choosing differently would require discarding or substantially rewriting document content produced after the choice. When in doubt, default to autonomous resolution.
-
-**Explore before asking:** when a decision passes the Bifurcation Test, check whether the codebase, the constitution, or approved upstream documents already answer the question before emitting a checkpoint. If they do, resolve autonomously and record the assumption with its source: `<!-- assumed: <choice> (source: <file or document>) -->`.
-
-**On TRUE — checkpoint detected:** emit `[decision: <question>]` in the document, explain the fork in plain language, and state your recommended option with a one-line rationale — if no option is defensibly better, present the fork without a recommendation. Stop generating further content. Wait for the user's response. On receiving a response, state how the answer will be applied to the document before resuming content generation in the same conversation turn. If the user's response surfaces a previously unidentified bifurcation-significant decision, emit a new `[decision: <question>]` marker for the newly identified fork before generating content that depends on it.
-
-**On FALSE — autonomous resolution:** record the chosen assumption as `<!-- assumed: <choice> -->` inline in the document and continue drafting without interruption.
-
-**Autonomous-at-checkpoint:** if the user asks the skill to decide autonomously at a checkpoint, record the resolution as `<!-- assumed: <choice> -->` in the document and continue drafting without emitting further checkpoints for decisions within the same scope.
-
-**Constraints:** emit no more than five `[decision:]` checkpoints across a single phase drafting session. If a `[decision:]` checkpoint is left unresolved at the end of a conversation turn, the document remains in `draft` status and the skill shall not present it for phase-transition review.
-
-## Phase 1: Requirements
-
-Generate a first draft before asking clarifying questions. Then iterate with the user.
-
-### Requirements Standard
-
-- Apply the Decision Checkpoint Protocol during drafting.
-- Give every requirement a stable ID: `R1`, `R2`, `R3`.
-- Give every acceptance criterion a stable ID: `R1.AC1`, `R1.AC2`, `R2.AC1`.
-- Use EARS syntax for every acceptance criterion. The CLI validates keyword-level structure: single SHALL, form classification (WHEN, WHILE/DURING, WHERE, IF/THEN before SHALL), IF/THEN pairing, non-empty template slots, and warns on likely inverted forms. It does not validate semantic quality of slot content. The skill guides content quality; the CLI enforces structural conformance.
-- Use user stories as context, not as the acceptance contract.
-- Give non-functional requirements stable IDs: `NFR1`, `NFR2`.
-- Give constraints and dependencies stable IDs: `C1`, `C2`.
-- Include explicit out-of-scope items when scope risk is high.
-
-### EARS Forms
-
-- Ubiquitous: `The system SHALL [response]`
-- Event-driven: `WHEN [trigger], the system SHALL [response]`
-- State-driven: `WHILE [precondition], the system SHALL [response]`
-- Optional feature: `WHERE [feature], the system SHALL [response]`
-- Unwanted behavior: `IF [trigger], THEN the system SHALL [response]`
-- Complex: `WHILE [precondition], WHEN [trigger], the system SHALL [response]`
-
-### EARS Quality Rules
-
-Apply these rules during drafting, not only during review.
-
-**Form selection.** Choose the form that matches the behavioral nature of the criterion:
-- If the behavior is always true regardless of user action (invariants, automatic behaviors, system properties), use **ubiquitous**. Example: "The system SHALL ensure no two players receive identical cards." Do not force a WHEN trigger on something that has no external trigger.
-- If the behavior responds to a specific user action or system event, use **event-driven**. The trigger must name what happens, not just that something happens.
-- If the behavior is active only while a condition holds, use **state-driven** (WHILE or DURING).
-- If the behavior handles a failure, invalid input, or error condition, use **unwanted** (IF/THEN).
-- If the behavior requires both a precondition and a trigger, use **complex** (WHILE + WHEN).
-
-**One behavior per criterion.** Each AC must describe exactly one observable system response. If the response slot contains "and" connecting two distinct behaviors, split into separate ACs. Example — split this: "the system SHALL generate cards server-side and send them to each player via WebSocket" into two ACs: one for generation, one for delivery. **Self-check after each AC**: before writing the next criterion, re-read the response slot just drafted. If it contains "and" connecting two independently observable behaviors, split immediately. Do not defer to review — splitting later requires ID renumbering that cascades through the entire spec.
-
-**Concrete triggers.** Every event-driven trigger must name the specific interaction: clicks, taps, submits, opens, presses, types, drags, scrolls, navigates — not generic verbs like triggers, initiates, requests, performs, executes. If you cannot name the interaction, the requirement may be underspecified.
-
-**Failure mode coverage.** For each constraint, ask: "what happens if this fails or is unavailable?" Draft at least one IF/THEN criterion per constraint that has a realistic failure mode. A spec with constraints but zero unwanted forms is almost certainly missing error handling.
-
-**NFR promotion.** If an NFR contains IF/THEN language describing a specific system behavior, it is not a non-functional requirement — it is a functional requirement that belongs in the Requirements section with its own ACs. Move the behavioral specification to a new requirement, and reduce the NFR to the quality attribute it represents. Example: "IF a player loses connection, THEN the system SHALL reconnect" belongs in a Reconnection Handling requirement, not in an NFR. The NFR should say: "The system SHALL tolerate intermittent network connectivity without data loss."
-
-**NFR-to-AC bridge.** After writing all requirements and before writing NFRs, draft the NFR list. Then, for each NFR: identify the concrete user-facing behavior it implies and draft at least one AC in the appropriate requirement. If the NFR mentions accessibility, draft ACs for keyboard navigation and screen reader announcements. If the NFR mentions offline support or reliability, draft ACs for what the user sees in degraded conditions. If you cannot identify a concrete behavior, the NFR may be too vague — ask the user what observable outcome they expect. An NFR without a corresponding testable AC is a wish, not a requirement.
-
-### `requirements.md` Template
-
-```markdown
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
----
-
-# Requirements Document
-
-## Introduction
-
-[Short problem statement and scope]
-
-## Requirements
-
-### R1 [Short title]
-
-**User Story:** As a [role], I want [capability], so that [benefit]
-
-#### Acceptance Criteria
-
-1. `R1.AC1` WHEN [trigger], the system SHALL [response]
-2. `R1.AC2` IF [failure trigger], THEN the system SHALL [response]
-
-### R2 [Short title]
-
-**User Story:** As a [role], I want [capability], so that [benefit]
-
-#### Acceptance Criteria
-
-1. `R2.AC1` WHILE [precondition], WHEN [trigger], the system SHALL [response]
-
-## Non-Functional Requirements
-
-- `NFR1` [Performance, security, accessibility, reliability, or scalability requirement]
-
-## Constraints And Dependencies
-
-- `C1` [Technical, team, infrastructure, or external dependency constraint]
-
-## Out Of Scope
-
-- [Explicitly excluded work for this iteration]
-```
-
-### Review Loop
-
-- Draft or update `requirements.md`.
-- Re-plan from Requirements if the problem statement, scope boundary, or EARS structure becomes ambiguous during review.
-- Run `walden validate <feature-name> --json` before presenting for review. Read `warnings`, `ears_validation`, and `ears_distribution` from the JSON output.
-- Verify the EARS Quality Rules were applied during drafting. Specifically check:
-  - **Form selection**: Read `ears_distribution` for form counts. The CLI reports counts but does not validate whether forms are appropriate -- that is your responsibility. Ask: are invariants expressed as ubiquitous? Are event responses tied to specific triggers? A spec with zero ubiquitous forms may be forcing everything into event-driven.
-  - **One behavior per AC**: Scan each AC response slot for "and" connecting two distinct behaviors. Split if found.
-  - **Concrete triggers**: Scan event-driven ACs for generic verbs without a concrete interaction. Suggest replacements.
-  - **Failure mode coverage**: If CLI warns "no unwanted-behavior criteria found", or if `ears_distribution.unwanted` is zero with multiple constraints, ask the user to consider failure modes.
-  - **NFR-to-AC bridge**: For each NFR, confirm at least one AC specifies the concrete testable behavior. Flag NFRs that remain untestable.
-  - **Persistence balance**: If constraints mention storage, check ACs cover both read and write sides.
-  - **Domain-specific gaps**: Use the constitution and constraint list to surface missing coverage the rules above do not catch.
-- Prefer `walden review open <feature-name> --phase requirements` for the deterministic state change to `in-review`.
-- Ask for approval.
-- After explicit approval, prefer `walden review approve <feature-name> --phase requirements` for the deterministic state change to `approved`.
-- If the user corrects the scope or the validator exposes a recurring defect pattern, log a lesson before revising again with `walden lesson log ...` when available.
-- Before closing the review step, report `Lesson Decision: none|logged`.
-- Do not proceed to Design without explicit approval.
-
-## Phase 2: Design
-
-Design starts only from approved and non-stale requirements.
-
-### Design Standard
-
-- Apply the Decision Checkpoint Protocol during drafting.
-- Read the approved requirements first.
-- Research only when a design decision depends on current external facts, library behavior, or official documentation.
-- Keep the design traceable to requirement IDs.
-- Compare the preferred design against at least one viable alternative.
-- Include `## Options Considered`, `## Simplicity And Elegance Review`, `## Failure Modes And Tradeoffs`, and `## Verification Plan`.
-- Challenge the first draft once before showing it: ask whether a simpler shape, lower coupling, or fewer moving parts would satisfy the same requirements.
-- Use diagrams only when they clarify decisions.
-- Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_requirements_approved_at`, `source_requirements_fingerprint`).
-- In the Requirement Coverage table, wrap every ID in backticks (e.g., `| `R1` |`, `| `NFR1` |`). The deterministic validator matches this exact format and will reject rows without backticks.
-
-### `design.md` Template
-
-```markdown
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
-approved_fingerprint:
-source_requirements_approved_at:
-source_requirements_fingerprint:
----
-
-# Feature Design
-
-## Overview
-
-[High-level approach and key design choices]
-
-## Architecture
-
-[Components, boundaries, and data flow]
-
-## Options Considered
-
-### Option A
-
-- Summary: [Preferred approach]
-- Why chosen: [Why it is the best fit]
-
-### Option B
-
-- Summary: [Viable alternative]
-- Why rejected: [Why it is less suitable]
-
-## Simplicity And Elegance Review
-
-- Simplest viable shape: [How the design minimizes moving parts]
-- Coupling check: [How boundaries stay clean]
-- Future-proofing: [What is intentionally deferred]
-
-## Components And Interfaces
-
-### [Component name]
-
-- Purpose: [What it does]
-- Inputs/Outputs: [Interface contract]
-- Dependencies: [What it relies on]
-- Requirements: `R1`, `R2`
-
-## Data Models
-
-[Entities, schemas, state, or storage decisions]
-
-## Error Handling
-
-[Validation, retries, failure modes, logging]
-
-## Security Considerations
-
-[Only when relevant]
-
-## Failure Modes And Tradeoffs
-
-- Failure mode: [What can go wrong]
-- Mitigation: [How the system contains it]
-- Tradeoff: [What was accepted and why]
-
-## Testing Strategy
-
-[Unit, integration, and end-to-end scope]
-
-## Verification Plan
-
-- Requirement proof: [How each critical requirement will be demonstrated]
-- Test evidence: [Which tests or checks prove the design]
-- Operational evidence: [Logs, metrics, alerts, or dashboards if relevant]
-
-## Requirement Coverage
-
-<!-- Every ID MUST be wrapped in backticks — the validator rejects rows without them -->
-| Requirement | Covered By |
+| Contract impact | Route |
 | --- | --- |
-| `R1` | [Component/flow] |
-| `R2` | [Component/flow] |
-| `NFR1` | [Control/test/monitoring] |
+| Preserve or restore intended behavior | Keep the work outside a new spec-authoring cycle, unless explicit user scope or project rules require a spec. Run existing tests and refresh applicable Walden evidence. |
+| Introduce or change intended behavior | Enter authoring: requirements for a new feature, or the earliest affected phase of an existing spec. |
+| Unclear | Ask a focused question about intended behavior before selecting a lane or creating speculative documents. |
+
+A bugfix can restore an approved contract without changing it. A refactor can preserve it. Neither route bypasses tests, evidence checks, or execution authorization. An explicit request to implement a maintenance fix authorizes that work; approval of a planning document alone does not.
+
+Before closing maintenance, identify the applicable current contract, run existing tests, and refresh the selected affected evidence with `walden verify <feature>` at the declared checkpoint. Use `--all` only for a justified forced check. Inspect the CLI outcome; raw test output alone does not refresh evidence. If no spec covers the change, state that limitation without creating a spec merely to obtain a checkbox.
+
+For an existing portfolio, establish applicability **within the user's requested scope** before proposing adoption or replay:
+
+| Proposed applicability | Review action |
+| --- | --- |
+| Current | Retain the required behavior in the selected verification scope. |
+| Superseded | Cite the replacing/removing decision and successor; propose retirement, never perform it automatically. |
+| Mixed | Identify surviving requirements and their agreed destination before discarding obsolete design/tasks. |
+| Unresolved | Ask the specific business/scope question; do not invent conformity. |
+
+Ground proposals in decision sources. Age, missing fingerprints and completed checkboxes do not establish obsolescence. Requirements can survive an outdated implementation plan. A current requirement does not make its historical bootstrap/deployment task a current regression check: inspect the actual proof before proposing replay. If it records one-time delivery work, propose the needed current baseline/regression contract for review, not automatic backfill plus execution merely because the CLI reports a re-prove count. Code describes observed behavior, not authority to rewrite intent; a newer draft does not automatically supersede an approved contract. If sources conflict, ask before retiring or changing the contract. A case-study request yields general findings for the product being improved, not unsolicited operations in the example repository.
+
+For existing specs, use CLI status and validation rather than guessing freshness. For a new spec, use CLI-generated scaffolds as the canonical document templates. Do not reconstruct full templates from memory.
+
+## CLI Prerequisite And Installation
+
+Requires Walden CLI **v0.10.2 or a newer compatible release**; the installer supports macOS/Linux on amd64/arm64. Before the first CLI operation, check `command -v walden` and that executable's `version --json`. If PATH has no usable compatible CLI, check `$HOME/.local/bin/walden` too. Reuse a compatible binary by its verified path or a session-only PATH correction; do not downgrade it or edit persistent shell configuration. An unclear version is not assumed compatible, and a local candidate does not prove a public release exists.
+
+If installation or replacement is needed, explain the version, official source and `~/.local/bin/walden` destination; obtain **explicit approval before any download or installation**. Only after approval, use this pinned binary-only bootstrap:
+
+```sh
+(
+  set -e
+  installer_dir=$(mktemp -d)
+  trap 'rm -rf "$installer_dir"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/v0.10.2/install.sh -o "$installer_dir/install.sh"
+  sh "$installer_dir/install.sh" --version v0.10.2 --no-skill
+  "$HOME/.local/bin/walden" version --json
+)
 ```
 
-### Review Loop
+Confirm the actual executable's version is compatible before continuing, and use that path if an older CLI still shadows it. Installer exit zero is not enough. Refused consent, unsupported platforms, unavailable release assets or failed postchecks stop the dependent operation; do not substitute `latest`, `sudo`, `--no-verify` or manual workflow metadata. The pinned URL requires the matching public release; it is not a claim that an unpublished candidate is downloadable.
 
-- Draft or update `design.md`.
-- Re-plan from Requirements if the design exposes new scope, contradictory requirements, or missing acceptance contracts.
-- Run `walden validate <feature-name>` before showing the design for approval when the CLI is available.
-- Prefer `walden review open <feature-name> --phase design` for the deterministic state change to `in-review`.
-- Ask for approval.
-- After explicit approval, prefer `walden review approve <feature-name> --phase design` for the deterministic state change to `approved`.
-- If the user rejects the design or asks for a simpler approach, log the lesson before the next revision with `walden lesson log ...` when available.
-- Before closing the review step, report `Lesson Decision: none|logged`.
-- Do not proceed to Tasks without explicit approval.
-- If requirements change, prefer `walden reconcile <feature-name>` rather than resetting downstream approval state by hand.
+For a **Skills CLI**-managed guide, use `npx skills update walden` for the skill and the binary-only installer with an explicitly selected compatible release for the CLI. **Do not use `walden update` for that channel:** it also re-syncs skills. Native Walden installations keep their existing update flow.
 
-## Phase 3: Tasks
+Ownership is a recorded fact, not an inference. When the user reports native and Skills CLI installations, or copies are overlapping, run `walden skill status --json` before recommending any update path. Classify every `"installed": true` entry mechanically: an entry with a `version` field was written by `walden skill install` (Walden re-syncs it); an entry without `version` was not written by this CLI (Skills CLI, manual copy or pre-marker install) and `walden update` would overwrite it. `in-sync`, identical content, user/project scope and a missing `npx` are not ownership evidence; the user's stated channel wins over any inference. Report the classification per path, ask which manager owns each copy, and do not run `walden update` or `skill install` until the user confirms; never automatically remove copies, replace symlinks or reinstall the skill through another manager.
 
-Task generation starts only from approved and non-stale design.
+## Ownership And Authorization
 
-### Task Standard
+- Resolve the CLI prerequisite above before any Walden operation. Bootstrap consent does not approve specifications, authorize task execution or permit publication; never invent a replacement state machine.
+- Never hand-edit workflow frontmatter, timestamps, fingerprints, checkboxes, or evidence contents. Edit document bodies; use the CLI for state mutations. Preserve schema and extension fields already present in scaffolds.
+- Never treat silence as approval. Present the relevant document and wait for explicit approval before `review approve`.
+- Planning stops at approved tasks. Implementation of the plan requires an explicit execution request; it is not an automatic consequence of approving tasks.
+- Waivers require the user's explicit approval of the pending scope and reason in the current conversation. Never supply `--allow-pending` for convenience.
+- Retirement requires explicit user confirmation. Do not delete superseded specs or evidence as housekeeping.
+- For a non-trivial request, state a short plan and its verification steps. If constraints conflict, a proof fails, or the spec is insufficient, stop and re-plan from the earliest affected phase.
+- Before authoring, ask for stable project context if an existing constitution contains only placeholders. Do not manufacture the project's stack or rules.
+- A fingerprint binds approved content, not semantic correctness. Good requirements, meaningful proofs, and human review remain necessary.
 
-- Apply the Decision Checkpoint Protocol during drafting.
-- Produce only implementation tasks that write, modify, or test code.
-- Use a maximum two-level hierarchy.
-- Keep tasks incremental and testable.
-- Reference acceptance criteria IDs (e.g., `R1.AC1`, `R1.AC2`) on every leaf task, not just parent requirement IDs.
-- Reference design sections on every leaf task.
-- Add a `Verification:` block on every leaf task using the structured `command` format (Kubernetes pattern). The CLI executes commands via `exec.Command` without a shell, so use JSON arrays for exact argument control.
-- Optionally add a `covers:` field on proof steps to declare which acceptance criteria the proof demonstrates.
-- Prefer an `expect_output` assertion on test-running proof steps so a pattern that matches zero tests cannot pass vacuously.
-- Declare `timeout:` on proof steps that legitimately run long; every step is otherwise bounded by the executor's 10-minute default, and exceeding the budget is a proof failure. The CLI tracks proof reference coverage separately from task reference coverage and reports both in `walden validate --json`.
-- Approve with `walden review approve`, which records the upstream approval timestamp and fingerprint (`source_design_approved_at`, `source_design_fingerprint`).
+## Command Lookup
 
-### Verification Format
+Use commands for mechanics; use `walden --help` and command help for syntax details. Read JSON results and warnings, not just a green-looking summary.
 
-Use the structured `command:` format (follows the Kubernetes `command` pattern):
+| Command | When to use it |
+| --- | --- |
+| `walden repo init` | Bootstrap an uninitialized repository after choosing the authoring lane. |
+| `walden feature init <feature>` | Create the three canonical documents; names normalize to kebab-case. |
+| `walden status <feature>` | Inspect phase, freshness, blockers, and next action. |
+| `walden validate [<feature>] [--all]` | Validate the current phase; `--all` checks the full spec. Omit the name for the portfolio. |
+| `walden review open <feature> --phase <phase>` | Present a ready document for review, using `requirements`, `design`, or `tasks`. |
+| `walden review approve <feature> --phase <phase>` | Seal that phase only after explicit user approval. |
+| `walden reconcile <feature>` | Repair a changed approved chain before re-reviewing it. |
+| `walden task status <feature>` | Inspect executable work and evidence warnings. |
+| `walden task start <feature> [task-id]` | Obtain execution context before implementing an authorized task. |
+| `walden task complete <feature> <task-id>` | Run the declared proof and record completion only on success. |
+| `walden task complete-all <feature>` | Complete an explicitly authorized runnable batch; stop on the first failure. |
+| `walden evidence status <feature>` | Inspect derived evidence and environment differences; executes diagnostic profile probes. |
+| `walden verify <feature>` | Re-prove completed tasks whose evidence is no longer verified. |
+| `walden verify <feature> --all` | Force every completed task's proof to run, including currently verified tasks. |
+| `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |
+| `walden release check [<feature>] [--strict]` | Judge existing evidence and release blockers; never executes proofs or publishes. |
+| `walden adopt [<feature>] [--apply]` | Inspect legacy bindings/freshness/provenance without proofs or probes; apply executes selected proofs and needs authorization. |
+| `walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..."` | Record a reusable correction and its prevention rule. Phases include `execute` and `release`. |
+| `walden version` | Inspect binary/schema versions. |
+| `walden skill show` / `walden skill status` | Inspect the embedded guide and installed-content drift. |
+
+Commands support `--json`, including failures. The envelope contains `schema_version`, `command`, `ok`, and `result`; inspect warnings and command-specific fields. Do not re-implement it or infer success from stdout alone.
+
+## Authoring Phases
+
+After the entry decision, locate `.walden/specs/<feature>/`. Use the earliest missing, unapproved, or stale phase. New features always start at Requirements. Existing work may enter Design only with fresh approved requirements, and Tasks only with a fresh approved design.
+
+Use the same review loop in each phase:
+
+1. Read upstream content and relevant lessons; draft or revise the current body.
+2. Validate the current phase and resolve structural defects and meaningful warnings.
+3. Open its review through the CLI, present the document, and ask for approval.
+4. After explicit approval, seal it through the CLI and proceed only within the user's requested scope.
+
+Do not mechanically approve multiple phases from one vague acknowledgment. If implementation reveals a contract gap, pause, revise the earliest affected document, reconcile, and re-walk the affected review gates.
+
+### Decision Checkpoint Protocol
+
+Apply during requirements, design, and task drafting, not execution.
+
+- **Bifurcation Test:** checkpoint only when a different choice would discard or substantially rewrite downstream content. When inconclusive, default to autonomous resolution.
+- **Explore before asking:** check the codebase, constitution, and approved upstream documents. If they resolve the choice, record `<!-- assumed: <choice> (source: <file or document>) -->` and continue.
+- **Checkpoint:** insert `[decision: <question>]`, explain the fork, recommend an option with a one-line rationale, and stop generating dependent content. If no option is defensibly better, do not fabricate a preference.
+- **Resume:** explain how the user's answer will be applied before continuing. A newly exposed significant fork gets its own checkpoint before dependent content is written.
+- **Autonomy:** if the user delegates a checkpoint decision, record `<!-- assumed: <choice> -->` and proceed without further checkpoints for decisions within that delegated scope.
+- **Budget:** no more than five checkpoints per phase drafting session. Keep unresolved checkpoints in draft; do not open phase review while one remains unresolved.
+- **Ordinary assumptions:** record `<!-- assumed: <choice> -->` inline without interrupting the user.
+
+### Requirements
+
+Once intent is sufficiently clear to select authoring, draft first, then iterate. User stories explain context; the acceptance criteria are the contract.
+
+- Give requirements stable IDs (`R1`), criteria stable IDs (`R1.AC1`), quality attributes `NFR1`, and constraints `C1`. Do not renumber IDs already referenced elsewhere.
+- Write each AC in EARS with one observable response. The CLI validates keyword structure, not the quality or completeness of the behavior.
+- Include explicit out-of-scope items when scope risk is high. Do not split a feature automatically because its AC count crosses a threshold; reconsider cohesion and scope instead.
+- Attach one short `Acceptance check:` continuation below each AC. Describe the observation separating success from failure, not a chosen framework or implementation command. If that observation cannot be stated, clarify or rewrite the criterion before requesting approval.
+
+After every revision, including restoring original AC wording, inspect all presented criteria and preserve or reattach their acceptance checks. Keep the requested EARS sentence unchanged where appropriate; its separate check continuation is explanatory content, not a new behavior requirement.
+
+| EARS form | Shape |
+| --- | --- |
+| Ubiquitous | `The system SHALL <response>` |
+| Event-driven | `WHEN <event>, the system SHALL <response>` |
+| State-driven | `WHILE <state>, the system SHALL <response>` |
+| Optional feature | `WHERE <feature>, the system SHALL <response>` |
+| Unwanted behavior | `IF <undesired condition>, THEN the system SHALL <response>` |
+| Complex | `WHILE <state>, WHEN <event>, the system SHALL <response>` |
+
+Quality checks during drafting:
+
+- **Form:** invariants need no invented user trigger. Prefer “The system SHALL assign distinct identifiers” to “WHEN the user starts, ...” for an always-on uniqueness rule.
+- **Atomicity:** split “generate the record and deliver the notification” into independently observable criteria. Check each response before drafting the next; the word “and” alone is not proof that two behaviors exist.
+- **Specific events:** prefer “WHEN an OrderCreated message arrives” or “WHEN a lease expires” to “WHEN processing happens.” API and background events are as valid as clicks or submissions.
+- **Failure coverage:** for each realistic constraint failure, identify the required response. Storage requirements need read, write, and relevant failure behavior, not only a happy-path save.
+- **NFR promotion:** “IF the connection fails, THEN ... reconnect” is behavior and belongs in an AC; retain the resilience attribute as the NFR.
+- **NFR bridge:** connect each NFR to testable ACs. “Accessible” needs concrete keyboard/screen-reader outcomes; a resource limit can need an internal measurement rather than an invented UI interaction. Ask about vague quality claims.
+
+Minimal criterion example, not a document template:
 
 ```markdown
-    - Verification:
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
+1. `R1.AC1` WHEN a lease expires, the system SHALL release its lock.
+   - Acceptance check: another holder can acquire a lock after its lease expires.
 ```
 
-For negative assertions (command must fail), use `expect_exit`:
+Read `ears_validation`, `ears_distribution`, and warnings from `walden validate --json`. Review form appropriateness, response atomicity, specific events, realistic failures, NFR bridges, persistence balance, and domain-specific gaps. Counts are diagnostic, not a quota; zero unwanted forms may indicate missing failure handling. Use the normal review loop before Design.
+
+### Design
+
+Read approved requirements. Research external facts only where a decision depends on them. Use the CLI-generated design scaffold rather than inserting a standard long architecture document.
+
+Exactly six headings are required by the current kernel:
+
+- Architecture
+- Options Considered
+- Simplicity And Elegance Review
+- Failure Modes And Tradeoffs
+- Verification Plan
+- Requirement Coverage
+
+Other sections — components/interfaces, data models, error handling, security, testing strategy, diagrams — are optional expansions for relevant decisions, contracts, or verification needs. Do not add empty sections to demonstrate thoroughness.
+
+Compare with a real alternative. When no meaningful alternative or discussion applies, give a one-line reason rather than inventing complexity. Requirement Coverage and Verification Plan still need substantive mappings and checks; non-applicability is not a way to omit them.
+
+Challenge the first draft once: could a simpler shape or less coupling satisfy the same contract? Record real failure modes and accepted tradeoffs. Wrap every requirement/NFR ID in the coverage table in backticks: the validator expects rows such as ``| `R1` | ... |``.
+
+If design exposes new scope or missing acceptance behavior, return to Requirements. Otherwise validate and use the review loop before Tasks.
+
+### Tasks
+
+Read approved requirements and design. Keep work incremental and testable, with at most two hierarchy levels. Each executable leaf names its AC IDs, design references, and verification steps. Use the canonical scaffold and minimal syntax below, not a copied full plan.
 
 ```markdown
-    - Verification:
-      - command: ["grep", "-rq", "old_pattern", "."]
-        expect_exit: 1
+- [ ] 1. Implement and test the behavior
+  - Requirements: `R1.AC1`
+  - Design: Architecture
+  - Verification:
+    - command: ["go", "test", "-v", "-count=1", "-run", "^TestExample$", "./pkg/example"]
+      expect_output: "--- PASS: TestExample"
+      covers: ["R1.AC1"]
 ```
 
-For output assertions — and to prevent vacuous passes where a test pattern matches zero tests — add `expect_output`:
+Top-level leaf metadata uses two spaces; child tasks use two-space task indentation and four-space metadata. Proof steps sit two spaces deeper than `Verification:`, and attributes two spaces deeper than their command.
 
-```markdown
-    - Verification:
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
-        expect_output: "--- PASS: TestExample"
-```
+Assign proofs to sensible groups of criteria rather than running the same broad suite for every checkbox. An already-green suite is not proof of newly introduced behavior: each implementation leaf must include its corresponding new assertions before it can complete. Do not postpone those tests to a later leaf while claiming new ACs through an unchanged old PASS marker. Use a direct assertion or a new test-specific selector/marker that cannot pass before the intended check exists. A proof step asserting ACs must name them in `covers:`. If sequencing exposes a missing interface or untestable step, return to Design. Validate and request task-plan approval; then stop unless explicit execution was also requested.
 
-For shell operators (pipes, &&, globbing), use the Kubernetes shell pattern:
+## Proof Authoring
 
-```markdown
-    - Verification:
-      - command: ["sh", "-c", "test -d .walden && go test ./..."]
-```
+Before presenting a task plan:
 
-Multi-step verification runs steps in order, stopping on first failure:
+1. **Actual assertion:** every step has an explicit pass condition; exit zero alone is useful only if the command actually asserts the intended property.
+2. **Non-vacuity:** prevent a passing run with zero intended tests. Use native fail-on-no-tests behavior, structured test results, or an appropriate output assertion. Go's `-run` may match nothing successfully: use an anchored selector, `-v`, `-count=1`, and the named PASS output as shown above.
+3. **Read-only re-verification:** assertions must not alter the worktree. Prefer `go mod tidy -diff` over `go mod tidy`; route build/generator outputs outside the repository. A missing file or failing assertion must not be “repaired” by its proof.
+4. **Bounded execution:** each step has a 10-minute default timeout. Declare a positive `timeout:` for a justified different budget, such as `timeout: 30m`. Expiry fails the step.
+5. **Declared coverage:** `covers:` names known asserted AC IDs, not a promise that the command is semantically sufficient. Inspect task-reference and proof-reference coverage separately.
+6. **Reproducible conditions:** use known inputs and relevant environment probes. Do not disguise environment failures by weakening the approved proof.
 
-```markdown
-    - Verification:
-      - command: ["go", "build", "./..."]
-      - command: ["go", "test", "./..."]
-```
+Commands are JSON argv arrays, executed without implicit shell interpretation. Pipes, redirects, and operators require an explicit shell, for example `command: ["sh", "-c", "test -d src && test -f src/main.go"]`. Use `expect_exit: 1` for a genuinely negative assertion. `expect_output` is a substring of combined output, not a regular expression. Multi-step proofs stop on the first failure.
 
-For proof reference coverage, add `covers:` to declare which acceptance criteria a proof step demonstrates:
+The old single-line `Verification: go test ./...` format cannot express quoting, shell operators, or attributes; use structured steps for new work. Do not retrofit approved proofs outside an authorized revision and re-review cycle.
 
-```markdown
-    - Verification:
-      - command: ["go", "test", "-run", "TestAuth", "./internal/auth"]
-        covers: ["R1.AC1", "R1.AC2"]
-```
+## Execute And Recover
 
-The CLI validates that `covers:` IDs reference known acceptance criteria and reports proof reference coverage separately from task reference coverage in the JSON output.
+For an explicitly authorized task or batch:
 
-Per-step `timeout:` (a positive Go duration string) bounds a slow proof; steps without one run under the executor's 10-minute default, and exceeding the budget is a proof failure:
+1. Read the three approved documents. Use `task status` and `task start` for readiness and context; never implement an unapproved or stale plan.
+2. Declare the authorized batch scope and its verification checkpoint, then implement with focused tests. Do not run the full suite unless requested or included in the approved verification plan. If no task/batch was identified, resolve the next task and ask before implementing.
+3. Complete through `task complete`, not a manual checkbox. The CLI executes proofs and records evidence before moving completion state. Complete children before containers.
+4. Commit evidence with the work only when committing is authorized and project policy permits it. This skill does not grant permission to commit, open PRs, tag, or publish.
+5. Inspect evidence warnings, but ordinary repo-wide stale-code after an edit is not a reason to replay every completed prefix. Bring targeted checks forward for a changed dependency, failed proof or contract gap; otherwise aggregate re-verification at the declared batch, feature or delivery checkpoint. Every leaf still earns its own completion proof. At an intermediate pause keep the batch and residual staleness explicit; at closure finish code, README and other deliverables before the final scoped verification, then inspect the release verdict and report any deferred gaps.
 
-```markdown
-    - Verification:
-      - command: ["go", "test", "-run", "TestSlowIntegration", "./internal/integration"]
-        timeout: 30m
-```
+TDD describes development order, not a passing proof. When TDD is required, observe a runnable behavioral assertion fail before implementing the behavior; minimal compilable scaffolding is fine. Compile/import failures and named PASS output do not establish that sequence. If code already exists, report tests added afterward or a test-driven repair accurately. Do not break and restore existing code to manufacture retrospective TDD; label mutation testing separately.
 
-Prefer the read-only variant of ecosystem commands when one exists — the assertion stays, the mutation goes:
+A document-body edit breaks its approval seal. `reconcile` resets affected approval state; review the changed chain again. Re-approving identical content does not stale downstream content. Missing legacy fingerprints need adoption or reconciliation, not hand-written seals.
 
-```markdown
-    - Verification:
-      - command: ["go", "mod", "tidy", "-diff"]   # asserts tidiness, writes nothing
-```
+Completion can legitimately run a generator and records the resulting tree. Re-verification is different: its proofs are read-only. `verify --check` prevents ledger writes, not command side effects. A detected mutation or missing required identity contaminates that run: later executions cannot earn verified evidence even if the bytes are restored. Investigate the named cause; after any authorized proof repair/re-review, use a new clean verification of the affected scope. Never automatically roll back user source.
 
-`["go", "mod", "tidy"]` would rewrite `go.mod` mid-run and fail its task as a side effect; the `-diff` form proves the same fact and keeps re-verification pure.
+Evidence states are derived: `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, and `pending`. Inspect **binding, code freshness and execution-integrity provenance separately**, including gaps hidden by state precedence. `unattested` means required assurance is missing, not a newly observed code failure. A recorded `passed` is not enough for current verification. Intended contract changes need the affected review cycle and new proofs; code-only maintenance need not create a new spec. Committing unchanged bytes does not by itself stale code evidence; use the CLI's reported differences rather than guessing the cause.
 
-Legacy single-line format (`Verification: go test ./...`) still works but does not support quotes, pipes, or shell operators.
+### Environment context
 
-### `tasks.md` Template
+Optional `.walden/environment.md` probes use argv, for example `- go: ["go", "version"]` and `- node: ["node", "--version"]`. Names are lowercase kebab-case; `platform` and `walden` are reserved profile keys. Probes share a 30-second budget. Malformed declarations fail evidence-producing commands; failed or timed-out probes yield diagnostic marker values.
 
-```markdown
----
-status: draft
-approved_at:
-last_modified: 2026-03-19T10:00:00Z
-approved_fingerprint:
-source_design_approved_at:
-source_design_fingerprint:
----
+Profiles are diagnostic, not a state gate or proof of producer policy. Compare environment drift before blaming code; never weaken an assertion to hide a version mismatch. When the request forbids environment probes, use the read-only `adopt <feature>` assessment rather than `evidence status`.
 
-# Implementation Plan
+### Adoption and retirement
 
-- [ ] 1. [Top-level implementation objective]
-  - [ ] 1.1 [Concrete coding step]
-    - Requirements: `R1.AC1`, `R1.AC2`, `NFR1`
-    - Design: [Relevant section]
-    - Verification:
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
-        covers: ["R1.AC1", "R1.AC2"]
+`adopt` assesses existing Walden specs, not an arbitrary codebase into a specification. After establishing the current contract, present its non-executing plan: `backfill`, `re-prove`, `complete`, or `blocked` are technical classes, not business applicability. A recovered binding does not attest old execution purity. `complete` means nothing to adopt, not that all product work is implemented. No upgrade or inspection automatically replays the portfolio.
 
-- [ ] 2. [Next incremental objective]
-  - [ ] 2.1 [Concrete coding step]
-    - Requirements: `R2.AC1`
-    - Design: [Relevant section]
-    - Verification:
-      - command: ["grep", "-rq", "old_pattern", "."]
-        expect_exit: 1
-        covers: ["R2.AC1"]
-```
+Backfill trusts recorded approval and seals the current body; disclose that intervening pre-fingerprint edits cannot be detected. Present contradictions require human reconciliation. Apply runs real proofs: request it only for the reviewed scope, retaining the feature selector. New `v1alpha2` ledgers can contain untouched legacy records; use a compatible CLI and never delete or downgrade evidence to satisfy an old reader.
 
-### Review Loop
+Retirement requires explicit confirmation. **Before deletion**, verify that Git preserves each spec/evidence file at a recoverable last-live commit, identify the reason and successor, and agree where any surviving requirements belong. Missing history or an unresolved mixed contract means stop, not fabricate recovery or create an unauthorized commit. Do not offer history-free deletion as an equivalent Walden retirement or a waiver of its recovery prerequisite. Then remove only the authorized files and record name, date, reason, last-live commit and successor in `.walden/RETIRED.md`. The optional `walden-history` companion can assist; it is not required, and retirement does not independently authorize committing or publishing.
 
-- Draft or update `tasks.md`.
-- Re-plan from Design if the implementation sequence exposes missing architecture, missing interfaces, or untestable steps.
-- Run `walden validate <feature-name>` before showing the task plan for approval when the CLI is available.
-- Prefer `walden review open <feature-name> --phase tasks` for the deterministic state change to `in-review`.
-- Ask for approval.
-- After explicit approval, prefer `walden review approve <feature-name> --phase tasks` for the deterministic state change to `approved`.
-- If the user corrects sequencing or coverage, log a lesson before revising again with `walden lesson log ...` when available.
-- Before closing the review step, report `Lesson Decision: none|logged`.
-- Stop after approval. Do not start implementation unless the user explicitly asks.
+### Release judgment
 
-## Phase 4: Execute
+When asked about releasability or a delivery hand-off, use `release check`; do not invent a verdict from separate status summaries. The command judges existing state and never publishes. Produce evidence with `verify` separately.
 
-Execution is for approved specs only.
+Pending work blocks by default. A user-approved partial delivery may use `--allow-pending --reason "..."`; it never waives missing legacy assurance or strict input binding. `--strict` compares the actual judged spec/evidence bytes and presence with one captured commit, even for ignored files. Non-strict output does not claim that local metadata is committed. Uncommitted code has no bypass, and usable git is required.
 
-### Execution Standard
+Report scope, guarantee, blockers, completion class, commit and waiver accurately. A selected-feature pass is **not a repository-wide certificate**. Unclassified/unassessed features cannot disappear from a whole-portfolio claim; exclusion requires explicit scope selection or authorized retirement. Do not equate reference coverage or a stored pass with formal correctness.
 
-- Read `requirements.md`, `design.md`, and `tasks.md` before writing code.
-- Use `walden task status <feature-name>` to verify that execution is allowed and to resolve the next runnable task when the CLI is available.
-- For non-trivial implementation work or a requested batch, start with a short execution plan and the verification steps you will use.
-- If the user names a task, execute only that task unless they explicitly request a batch.
-- If the user does not name a task, use `walden task status <feature-name>` to identify the next unchecked task and wait for confirmation before implementing.
-- Use `walden task start <feature-name> [task-id]` to obtain normalized execution context before writing code.
-- Complete sub-tasks before their parent task.
-- Write the minimum production code needed for the requested task.
-- Write thorough tests for the task.
-- Run targeted tests for the changed area. Do not run the full suite unless the user asks.
-- Treat the task's `Verification:` line as mandatory proof. Prefer `walden task complete <feature-name> <task-id>` so proof execution and checkbox mutation remain deterministic.
-- Task completion records execution evidence in `.walden/evidence/<feature-name>.json`; commit it with the work — it is shared repository state, reviewed like the specs it proves.
-- If `walden task status` warns that completed tasks are no longer verified (stale-spec, stale-code, failed, unrecorded), run `walden verify <feature-name>` before building on top of them; never dismiss an evidence warning.
-- If a test fails or the proof is weaker than expected, stop and re-plan instead of hand-waving the result.
-- Before closing the execution step, report `Lesson Decision: none|logged`.
-- Stop after the requested task or batch and wait for review.
+## Lessons And Summaries
 
-### Spec Drift
+Review relevant lessons before similar work. User corrections, rejected drafts, failed validation, re-planning, or unexpected execution failures prompt an internal decision about a reusable lesson. Log meaningful patterns with `walden lesson log`: trigger, lesson, and a guardrail that would prevent repetition. Do not turn ordinary expected TDD red tests into a list of invented mistakes.
 
-- If implementation reveals a gap in the approved spec, pause execution.
-- Update the earliest affected document.
-- Re-run the approval gate from that phase forward.
-- Prefer `walden reconcile <feature-name>` when upstream approval metadata or freshness is no longer valid.
-- After reconciliation and re-approval, run `walden verify <feature-name>`: completed tasks whose evidence went stale-spec must be re-proven against the updated contract, not assumed.
-- Log a lesson if the gap came from a missed pattern, missing guardrail, or design blind spot.
-- Do not silently rewrite approved requirements or design during implementation.
+Describe the observed trigger accurately. If the user first requested A+B and later keeps only A, record “scope narrowed from A+B to A,” not “the agent invented B.” Do not claim two behaviors shared one AC if they were already separate. Lessons preserve facts and useful guardrails, not invented mistakes. Quote or closely paraphrase the actual non-sensitive scope clarification for the trigger: “requested” is not “approved.” A user may request a preventive lesson without any mistake having occurred; label it as preventive rather than reconstructing a failure story.
 
-## Release Certification
+A newly logged lesson gets a short user-facing entry with its practical guardrail. With no new lesson, omit lesson-status output entirely; the internal decision still happens.
 
-- When the user asks whether the work is releasable — or before any tag, release branch, or delivery hand-off — run `walden release check` and report its verdict; do not assemble the answer from separate status checks.
-- The gate certifies and never releases: approved fresh chains, full-spec validation, decision markers in approved documents, execution evidence, and a clean worktree outside `.walden/` fold into one exit code. Tags, changelogs, and publishing stay with you and the user, after certification passes.
-- Read a failed certification as a work list: every blocker names its remedy. Apply the remedies and rerun the gate; never edit state by hand to silence a blocker.
-- Pending leaf tasks block certification by default: the plan is a promise the release must keep or visibly defer. The only relaxation is `--allow-pending --reason "<text>"`, which waives them for that verdict and records the reason and the waived task ids in the output. **Never pass `--allow-pending` unless the user explicitly approves the waiver and its reason in the current conversation** — a waiver is the user's recorded decision, not a convenience; report the waived tasks back after the run.
-- The verdict names the certified commit and a completion class — `complete` when every planned leaf task is executed, `with-pending` when pending work blocks, `with-waivers` when it was explicitly waived; JSON carries `certified_commit`, `completion`, and the `waiver` record for pipeline policy.
-- `--strict` requires committed `.walden/` state — commit specs and evidence before a final certification; it composes with a waiver (committed state stays required, pending stays waived).
-- The dirty-worktree blocker has no bypass by design: the remedy is committing the work. Do not look for a flag. Certification also fails closed without usable git — a verdict must name the code identity it certified — and on unterminated HTML comments in approved documents.
-- Compose production and judgment: `walden verify <feature-name>` re-proves execution, then `walden release check` judges the result. In CI, gate the pipeline on the exit code and use `--json` for structure.
-
-## Brownfield Adoption
-
-- When a repository carries specs that predate the current contract — approved documents without approval fingerprints (stale chains, `walden verify` gate-blocked) or completed tasks without evidence (`unrecorded` blockers) — use `walden adopt`, not manual reconciliation: reconcile-and-re-approve ceremony across a portfolio is exactly what the lane eliminates.
-- Always run the read-only plan first and present it to the user before `--apply`. The plan classifies every feature: `backfill` (approved documents to seal), `re-prove` (fresh chain, evidence to record), `complete` (nothing to adopt), `blocked` (a present fingerprint contradicts the content — human reconcile territory; adopt never writes there).
-- Sealing trusts recorded approvals: it stamps the fingerprint of the document's current body under the approval already recorded. State this assumption when presenting the plan — an edit made between the old approval and the seal is invisible to pre-fingerprint history, and the seal grandfathers it in.
-- `--apply` seals, then re-proves through the verify machinery. The verified/failed partition is the honest work list: failures record real evidence with execution profiles, so environment drift is diagnosable per task. Rerunning `--apply` resumes — verified tasks are skipped, failed ones retry.
-- The adoption diff (sealed documents, new evidence ledgers) is ordinary repository state: review and commit it like any other change. Exit code 1 means the partition contains failures to triage, not that adoption must be repeated from scratch.
-- When the failed partition reflects a superseded product generation rather than broken code, those specs are candidates for retirement, not repair: delete their directories (history lives in git) and record each in `.walden/RETIRED.md` — one line naming the retirement commit and the successor. The `walden-history` companion skill officiates the ceremony and narrates the history it preserves.
-
-## Environment Probes
-
-- `.walden/environment.md` declares named probes — commands whose trimmed output joins every evidence record's execution profile, alongside the always-present `platform` and `walden` (CLI version) keys:
-
-```markdown
-# Environment Probes
-
-- go: ["go", "version"]
-- node: ["node", "--version"]
-```
-
-- Declare probes for the toolchains the project's proofs depend on when initializing or adopting a repository; prefer commands that print stable version strings — nondeterministic output (timestamps, paths) reads as permanent drift.
-- Probe names are lowercase kebab; `platform` and `walden` are reserved. A malformed declaration fails evidence-producing commands loudly; a failing or hung probe degrades to a marker value (`probe failed: …`, `probe timed out`) and never blocks the run.
-- Read drift before blaming code: `walden evidence status` prints recorded-versus-current profile differences, and a failed re-verification appends `environment drift: go: recorded "go1.25.0" → current "go1.24.0"` to the failure. Fix the environment (or knowingly re-record on the current one); never edit proofs to paper over drift.
-- Profiles are diagnostic only: they never change a derived evidence state, and records written before profiles existed read as `legacy record: no profile`.
-
-## Self-Improvement Loop
-
-- Review `.walden/lessons.md` before non-trivial work when earlier patterns are relevant.
-- After any user correction, failed validation, rejected design, or execution surprise, append a lesson with `walden lesson log ...` when available.
-- Treat these as automatic lesson triggers: user correction, failed validation, rejected draft, explicit simplification request, re-plan, failed test caused by a wrong assumption, or spec gap discovered during execution.
-- Record three things in every lesson: the trigger, the mistake pattern, and a guardrail that would have prevented it.
-- Apply the new guardrail in the next revision before presenting it.
-- If no trigger occurred, still make and report the explicit decision: `Lesson Decision: none`.
-
-## Output Standards
-
-- Be concise, decisive, and developer-to-developer.
-- Explain the reasoning behind recommendations when it matters.
-- Prefer small examples over long exposition.
-- Keep production code minimal and tests thorough.
-- Cite sources in the design phase when external research informed a decision.
-- In every phase summary, include `Lesson Decision: none` or `Lesson Decision: logged`.
+Summaries should state what changed, what was actually checked, unresolved blockers, and the next required user decision. Distinguish planned, executed, failed, and not-run checks. Be concise and do not confuse approval of the current phase with permission for later phases or publication.

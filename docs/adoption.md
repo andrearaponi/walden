@@ -1,67 +1,81 @@
 # Brownfield Adoption
 
-Repositories that adopted Walden early — or that accumulated specs under older CLI versions — hold approvals recorded before the current contract existed: approved documents without fingerprints, completed tasks without evidence records. `walden adopt` brings them into the contract without re-running the human approval ceremony, and without ever fabricating evidence.
+A long-lived Walden portfolio contains different kinds of history: current requirements, superseded product rules, obsolete implementation plans, approvals without fingerprints, and records without execution provenance. An upgrade must preserve those distinctions rather than automatically replaying every historical task.
 
-## Plan first
+## Establish the current contract
+
+Before requesting execution, review the relevant decision sources **within the requested scope**:
+
+| Proposed applicability | Meaning and next decision |
+| --- | --- |
+| Current | Behavior still required by the intended product contract. |
+| Superseded | Intentionally replaced or removed; identify the decision and successor before proposing retirement. |
+| Mixed | Some requirements survive an obsolete design or delivery plan; agree their destination before retiring the old material. |
+| Unresolved | Sources conflict or intent is unknown; ask the specific business/scope question. |
+
+These are review labels used by the skill, not kernel lifecycle states. Age, absent fingerprints, checked tasks, removed test files, or agreement with today's code do not decide which business rules remain desirable. A newer draft does not automatically replace an approved contract. A case study for improving another product is not authorization to migrate the example repository.
+
+## Inspect without execution
 
 ```bash
-walden adopt            # whole portfolio
-walden adopt user-auth  # one feature
+walden adopt user-auth --json  # one feature, no proofs or environment probes
+walden adopt --json            # explicit whole-portfolio assessment
 ```
 
-The default is a **read-only plan** that classifies every feature:
+The read-only plan reports technical classes and per-task evidence assessments:
 
-| Class | Meaning | What apply would do |
+| Class | Meaning | What an authorized apply would do |
 | --- | --- | --- |
-| `backfill` | Approved documents missing their fingerprints | Seal them, then re-prove unrecorded work |
-| `re-prove` | Chain already sealed and fresh; completed tasks lack evidence | Re-prove them |
-| `complete` | Nothing to adopt | Nothing |
-| `blocked` | A *present* fingerprint contradicts the content | Nothing — ever |
+| `backfill` | Recorded approvals lack fingerprints | Seal eligible current bodies, then re-prove applicable completed work in this scope. |
+| `re-prove` | Completed work lacks the requested current assurance | Run its needed proofs through verify. |
+| `complete` | Nothing to adopt | Nothing; this is not a claim that every planned task is implemented. |
+| `blocked` | A present contradiction, incompatible plan, or unreadable ledger prevents adoption | Preserve it and report the specific blocker. |
 
-```text
-ADOPTION PLAN — 133 backfill, 0 re-prove, 2 complete, 0 blocked (399 doc(s) to seal, 931 task(s) to re-prove)
-```
+The evidence view separates:
 
-The honesty rule that shapes the classifier: an **absent** fingerprint is sealable — the approval is on record, only the seal is missing, and stamping the current body's fingerprint under it is a stated, reviewable trust assumption. A **present but wrong** fingerprint is evidence of drift after approval — human reconcile territory, and the lane never writes there.
+1. **Proof binding:** a current complete contract, a reconstructed-equivalent historical contract, a change, contradiction, or missing witness.
+2. **Code freshness:** whether the recorded and current available code identities agree.
+3. **Execution-integrity provenance:** known producer/policy facts versus missing or rejected assurance.
 
-Present the plan, review it, then:
+A matching full-plan fingerprint can recover assertions omitted from an older task hash, using the current body or locally available Git snapshots. The adapter executes no proof, checks out no source, fetches no history, and rewrites no ledger. Matching argv alone is insufficient. Missing snapshots or unsupported historical syntax remain explicit gaps.
 
-## Apply
+**A recovered binding is not a purity attestation.** Legacy provenance can remain unknown even when the contract and code match. Such a record is `unattested` unless another condition takes state precedence; its independent gaps remain visible. A stored `passed` is historical evidence, not an automatic current guarantee.
+
+`evidence status` also displays these dimensions but retains diagnostic environment probes. Use `adopt` when the request requires a probe-free assessment.
+
+## Apply only the reviewed scope
 
 ```bash
-walden adopt --apply
+walden adopt user-auth --apply
+# Or, when the chain is already intact:
+walden verify user-auth
 ```
 
-Apply seals the backfill class (stamping fingerprints and repairing empty chain links), then re-proves unrecorded completed work through the same machinery as `walden verify` — real proof execution, purity contract included, execution profiles on every record. The result is an honest partition:
+Apply is explicitly proof-executing. With no feature selector it applies to the whole present portfolio; do not drop a selector from a reviewed plan or suggested retry. The plan's counts describe work needed for the requested assurance, not proof that every historical task is still a current business obligation.
 
-```text
-ADOPTION — sealed 399 doc(s), verified 472, failed 441, skipped 0, blocked 0
-```
+Approval backfill is a separate trust assumption: an absent seal can be added to a recorded approval's current body, but intervening pre-fingerprint edits cannot be detected. A present contradictory seal needs human reconciliation, never automatic resealing. Backfill cannot establish what a historical proof executed.
 
-Exit `1` when anything failed, with the full per-feature partition rendered. Interrupted or partially failed runs **resume by classification** — re-running apply picks up exactly what is still unsealed or unproven; a second apply over a finished adoption is a no-op. The adoption diff is ordinary git state: review it and commit it like any other change.
+Apply records actual outcomes through the hardened verify lane. A mutation or unavailable required identity rejects the affected verification and contaminates later executions in that invocation. Restoring source bytes does not revive those failed records; a new valid execution is needed. Assertion outcomes and policy failures remain distinct.
 
-Plan-scale is cheap (a 135-feature portfolio classifies in under a second); apply costs what the proofs cost.
+Failures, blocked selections and apply errors produce exit `1`, with the per-feature partition retained. Resume by classification after addressing the cause. Do not fix historical failures by weakening a current contract, silently declaring a spec obsolete, or rerunning live deployment/bootstrap work without authorization.
 
-## Triaging the partition
+A full strong certificate over a legacy portfolio may still require new executions. Avoiding automatic replay does not manufacture missing facts or exempt unknown features from an unqualified portfolio claim. History lookup has a current-body fast path and per-invocation reuse; its cost depends on available history, while apply costs what the selected proofs cost.
 
-A large failed partition is a work list, not a verdict on the adoption. In practice it decomposes into a few distinct populations:
+## Format compatibility
 
-- **Superseded eras.** Specs describing a product generation that no longer exists — an old frontend whose test files are gone, runtime code long since replaced. These proofs can never pass again, and fixing them would mean resurrecting dead code. They want [retirement](#retirement), not repair.
-- **Mutating proofs.** Build or generate steps that write into the repository (`go build -o bin/…`, regenerated schemas). They fail the purity contract by design. Rewrite them as read-only assertions — `["go", "mod", "tidy", "-diff"]` instead of `["go", "mod", "tidy"]`, build outputs routed outside the tree.
-- **Real failures.** The remainder — usually small — is the genuine work list: proofs that name actual regressions on living code.
+New records use ledger schema `v1alpha2`, with an explicit task-fingerprint scheme and completion/verify provenance. The reader still accepts `v1alpha1` and older missing-version ledgers. A new container may hold untouched legacy records; merely loading it or changing its container version does not promote them to trusted evidence.
+
+Older binaries reject `v1alpha2`. Use a compatible reader; **do not delete or downgrade the ledger to satisfy an older binary**. Preserve an unreadable file for diagnosis or restore a justified known-good artifact. Unchanged document approvals and document schema `v1alpha1` do not need to change solely for this evidence upgrade.
 
 ## Retirement
 
-Superseded specs are **deleted, not labeled**. History lives in git — `git show` recovers any retired spec at any commit — so keeping dead directories in `.walden/specs/` only forces every future gate run and every future reader to wade through a product generation that no longer exists.
+Retirement remains an explicit human decision using Git and `.walden/RETIRED.md`, not a new kernel state machine:
 
-The convention:
+1. Confirm the exact superseded scope, reason and successor. A mixed contract needs an agreed home for surviving requirements first.
+2. Verify that every spec/evidence file to be removed is recoverable at a **last-live commit**. Untracked or ignored local-only history is not preserved merely because the repository uses Git.
+3. Only after authorization and recovery checks, remove the selected feature's spec directory and evidence file, recording name, date, reason, last-live commit and successor in `.walden/RETIRED.md`.
+4. Commit the ceremony together only when committing is separately authorized and project policy permits it. Never delete history or create an unauthorized commit just to make a gate green.
 
-1. Delete the feature's spec directory (and its evidence file).
-2. Record the retirement in `.walden/RETIRED.md` — one line per feature: name, date, reason, and the last commit where the spec was alive.
-3. One commit for the whole ceremony, so the retirement is a single, findable event in history.
+Missing history or unresolved business intent means stop and ask, not fabricate recovery. The optional [`walden-history`](../skill/walden-history/SKILL.md) companion can assist; it is not required.
 
-After retirement, `release check` judges only the living portfolio, and the narrative keeps its chapters: the repository ships a companion skill, [`walden-history`](../skill/walden-history/SKILL.md), that reconstructs sourced feature chronicles, product eras, and rework archaeology from committed `.walden/` history — and officiates the retirement ceremony itself.
-
-## After adoption
-
-The repository is on the current contract: fingerprinted chains, evidence with profiles, and a gate that means what it says. From here the [daily workflow](workflow.md) applies unchanged — and the first `walden release check` tells you exactly how far from certifiable the portfolio stands, one named blocker at a time.
+After authorized retirement the default gate judges the remaining on-disk portfolio. An explicitly selected-feature verdict is not a repository-wide certificate. See the [daily workflow](workflow.md) for checkpoint-based verification and the [JSON reference](reference/json.md) for precise scope and assurance fields.

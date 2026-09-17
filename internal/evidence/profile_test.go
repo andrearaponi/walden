@@ -41,6 +41,8 @@ func TestDeriveIgnoresProfile(t *testing.T) {
 	current := ChainFingerprints{Requirements: "sha256:aaa", Design: "sha256:bbb"}
 	record := Record{
 		TaskFingerprint:         fingerprint,
+		TaskFingerprintScheme:   "walden/task-definition/v2",
+		Execution:               &ExecutionFacts{Origin: "verify", Policy: VerifyPolicy, AssertionResult: ResultPassed, Integrity: "pure", BeforeCodeIdentity: identity, AfterCodeIdentity: identity},
 		RequirementsFingerprint: current.Requirements,
 		DesignFingerprint:       current.Design,
 		CodeIdentity:            identity,

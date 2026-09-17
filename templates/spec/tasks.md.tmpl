@@ -15,4 +15,6 @@ source_design_fingerprint:
     - Requirements: `R1.AC1`, `NFR1`
     - Design: [Relevant section]
     - Verification:
-      - command: ["go", "test", "-run", "TestExample", "./pkg/example"]
+      - command: ["go", "test", "-v", "-count=1", "-run", "^TestExample$", "./pkg/example"]
+        expect_output: "--- PASS: TestExample"
+        covers: ["R1.AC1"]

@@ -31,7 +31,7 @@ Walden is a spec-driven delivery kernel: a deterministic CLI that takes a featur
 ## Reading paths
 
 - *Evaluating Walden?* [Quickstart](quickstart.md), then [The Agentic Flow](agentic.md), then [The Spec Lifecycle](lifecycle.md).
-- *Working with a coding agent?* [The Agentic Flow](agentic.md) — one skill install, and the ceremony costs the agent, not you.
+- *Working with a coding agent?* [The Agentic Flow](agentic.md) — delegate repetitive authoring and CLI operations while retaining human review and approval.
 - *Adopting it on an existing repository?* [The Spec Lifecycle](lifecycle.md), then [Brownfield Adoption](adoption.md).
 - *Using it every day?* [The Daily Workflow](workflow.md) with [CLI Commands](reference/cli.md) at hand.
 - *Building tooling on top?* [JSON Contract](reference/json.md), then [Spec File Format](reference/spec-format.md).

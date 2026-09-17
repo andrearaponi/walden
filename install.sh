@@ -18,6 +18,8 @@ WALDEN="${INSTALL_DIR}/${BINARY_NAME}"
 
 VERSION=""
 SKILL_TARGET=""
+SKILL_REQUESTED=0
+NO_SKILL=0
 NO_VERIFY=0
 UNINSTALL=0
 
@@ -51,6 +53,7 @@ usage() {
   printf "Flags:\n"
   printf "  --version <tag>   Install a specific release (default: latest)\n"
   printf "  --skill <agent>   Install the AI skill non-interactively: claude|codex|copilot|opencode|all\n"
+  printf "  --no-skill        Install only the binary; do not prompt for or modify skills\n"
   printf "  --no-verify       Skip checksum verification (needed for releases <= v0.4.0)\n"
   printf "  --uninstall       Remove the skill (all agents) and the binary\n"
   printf "  --help            Show this help\n"
@@ -68,7 +71,11 @@ parse_flags() {
       --skill)
         if [ $# -lt 2 ]; then err "--skill requires an agent: claude, codex, copilot, opencode, all"; exit 1; fi
         SKILL_TARGET="$2"
+        SKILL_REQUESTED=1
         shift 2 ;;
+      --no-skill)
+        NO_SKILL=1
+        shift ;;
       --no-verify)
         NO_VERIFY=1
         shift ;;
@@ -84,6 +91,17 @@ parse_flags() {
         exit 1 ;;
     esac
   done
+}
+
+validate_flags() {
+  if [ "$NO_SKILL" = "1" ] && [ "$SKILL_REQUESTED" = "1" ]; then
+    err "--no-skill cannot be combined with --skill"
+    exit 1
+  fi
+  if [ "$NO_SKILL" = "1" ] && [ "$UNINSTALL" = "1" ]; then
+    err "--no-skill cannot be combined with --uninstall"
+    exit 1
+  fi
 }
 
 validate_skill_target() {
@@ -305,6 +323,10 @@ prompt_skill_install() {
 }
 
 install_skill() {
+  if [ "$NO_SKILL" = "1" ]; then
+    info "Binary-only installation: skill installation skipped (--no-skill)"
+    return 0
+  fi
   if [ -n "$SKILL_TARGET" ]; then
     if [ "$SKILL_TARGET" = "all" ]; then
       "$WALDEN" skill install --all
@@ -338,6 +360,7 @@ uninstall() {
 
 main() {
   parse_flags "$@"
+  validate_flags
   validate_skill_target
 
   if [ "$UNINSTALL" = "1" ]; then

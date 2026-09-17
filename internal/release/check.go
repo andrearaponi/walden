@@ -36,6 +36,7 @@ type FeatureCertification struct {
 	Feature  string
 	Criteria []CriterionResult
 	Pending  []string
+	Evidence []evidence.TaskEvidence
 }
 
 // Options are the certification policy knobs. The zero value is the default
@@ -53,6 +54,7 @@ type Options struct {
 
 // ReleaseReport is the aggregate verdict: releasable iff zero blockers.
 type ReleaseReport struct {
+	Scope            evidence.Scope
 	Features         []FeatureCertification
 	WorktreeBlockers []string
 	WaldenDirty      []string
@@ -63,7 +65,9 @@ type ReleaseReport struct {
 	// CertifiedCommit is the HEAD revision the certification ran against —
 	// the commit an auditor checks out. Empty when git is unusable (already
 	// a repository-level blocker) or HEAD is unborn.
-	CertifiedCommit string
+	CertifiedCommit       string
+	CommittedInputBinding string
+	Inputs                []InputBinding
 }
 
 // BlockerCount sums every blocker across features and the worktree.
@@ -130,38 +134,67 @@ func (r ReleaseReport) WaivedTasks() []string {
 // evidence — and executes no proofs and persists nothing: verify produces
 // evidence, release check judges it.
 func ReleaseCheck(ctx context.Context, root, featureName string, opts Options) (ReleaseReport, error) {
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return ReleaseReport{}, fmt.Errorf("resolve repository root: %w", err)
+	}
+	root, err = filepath.Abs(root)
+	if err != nil {
+		return ReleaseReport{}, err
+	}
 	features, err := releaseTargets(root, featureName)
 	if err != nil {
 		return ReleaseReport{}, err
 	}
-
-	// One identity for the whole run: every feature's evidence is judged
-	// against the same tree.
-	identity, identityOK := evidence.Identity(ctx, gitRunner, root)
-
-	report := ReleaseReport{Strict: opts.Strict, AllowPending: opts.AllowPending, WaiverReason: opts.WaiverReason}
-	// The revision being certified: identity proves what tree, the commit
-	// names where in history. Failure leaves it empty — unusable git is
-	// already a blocker below, and an unborn HEAD cannot pass the worktree
-	// criterion.
-	if head, err := gitRunner.Run(ctx, "git", "-C", root, "rev-parse", "HEAD"); err == nil && head.ExitCode == 0 {
-		report.CertifiedCommit = strings.TrimSpace(head.Stdout)
+	commit, commitErr := evidence.Commit(ctx, gitRunner, root, "HEAD")
+	report := ReleaseReport{Scope: evidence.NewScope(featureName != "", features...), Strict: opts.Strict, AllowPending: opts.AllowPending, WaiverReason: opts.WaiverReason,
+		CertifiedCommit: commit, CommittedInputBinding: "not-requested"}
+	var manifest evidence.Manifest
+	var identityOK bool
+	if commit != "" {
+		manifest, identityOK = evidence.CaptureManifestAtCommit(ctx, gitRunner, root, commit)
+	} else {
+		manifest, identityOK = evidence.CaptureManifest(ctx, gitRunner, root)
 	}
+	identity := ""
+	if identityOK {
+		identity = manifest.Digest()
+	}
+	var inputs []inputSnapshot
 	for _, name := range features {
-		report.Features = append(report.Features, certifyFeature(root, name, opts, identity, identityOK))
+		snapshot := captureFeature(root, name, opts.Strict)
+		inputs = append(inputs, snapshot.Inputs...)
+		report.Features = append(report.Features, certifyFeature(ctx, root, snapshot, opts, identity, identityOK, commit))
 	}
-
 	report.WorktreeBlockers, report.WaldenDirty, report.GitSkipped = worktreeCriterion(ctx, root)
 	if opts.Strict {
-		// Strict certification is plans-complete and final: the .walden/
-		// state the verdict judged must exist in the commit being certified.
+		report.CommittedInputBinding = "matched"
+		if commitErr != nil {
+			report.WorktreeBlockers = append(report.WorktreeBlockers, fmt.Sprintf("HEAD commit unavailable: %v — create a commit before certifying (--strict)", commitErr))
+			report.CommittedInputBinding = "blocked"
+		}
+		for _, input := range inputs {
+			report.Inputs = append(report.Inputs, bindInput(ctx, root, commit, input))
+		}
+		if featureName == "" {
+			report.Inputs = append(report.Inputs, bindPortfolio(ctx, root, commit, features))
+		}
+		for _, binding := range report.Inputs {
+			if binding.State != "matched" && binding.State != "matched-absent" {
+				report.CommittedInputBinding = "blocked"
+				report.WorktreeBlockers = append(report.WorktreeBlockers, inputBlocker(binding))
+			}
+		}
 		for _, path := range report.WaldenDirty {
 			report.WorktreeBlockers = append(report.WorktreeBlockers, fmt.Sprintf("uncommitted under .walden/: %s — commit it before certifying (--strict)", path))
 		}
 	}
+	if commit != "" {
+		if final, err := evidence.Commit(ctx, gitRunner, root, "HEAD"); err != nil || final != commit {
+			report.WorktreeBlockers = append(report.WorktreeBlockers, "HEAD changed or became unreadable during judgment — retry against a stable commit")
+		}
+	}
 	if report.GitSkipped || !identityOK {
-		// A verdict without a code identity cannot name the tree it
-		// certified: fail closed instead of judging blind.
 		report.WorktreeBlockers = append(report.WorktreeBlockers, "no usable git repository — certification requires a git-backed code identity; initialize git, commit, and rerun")
 	}
 	sort.Strings(report.WorktreeBlockers)
@@ -197,10 +230,10 @@ func releaseTargets(root, featureName string) ([]string, error) {
 
 // certifyFeature evaluates every criterion; nothing short-circuits — a
 // certification is a complete work list, not a first failure.
-func certifyFeature(root, name string, opts Options, identity string, identityOK bool) FeatureCertification {
+func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, opts Options, identity string, identityOK bool, commit string) FeatureCertification {
+	feature, loadErr := snapshot.Feature, snapshot.LoadErr
+	name := feature.Name
 	certification := FeatureCertification{Feature: name}
-
-	feature, loadErr := spec.LoadFeature(root, name)
 
 	// Criterion 1: the approval chain, approved and fresh.
 	chain := CriterionResult{Name: "chain"}
@@ -216,7 +249,9 @@ func certifyFeature(root, name string, opts Options, identity string, identityOK
 
 	// Criterion 2: full-spec validation.
 	valid := CriterionResult{Name: "validation"}
-	if result, err := validation.ValidateFeatureWithScope(root, name, validation.ScopeFullSpec); err != nil {
+	if loadErr != nil {
+		valid.Blockers = append(valid.Blockers, loadErr.Error())
+	} else if result, err := validation.ValidateLoadedFeature(feature, validation.ScopeFullSpec); err != nil {
 		valid.Blockers = append(valid.Blockers, fmt.Sprintf("%v — fix and rerun walden validate %s --all", err, name))
 	} else if !result.Valid {
 		valid.Blockers = append(valid.Blockers, fmt.Sprintf("%s — fix and rerun walden validate %s --all", result.Message, name))
@@ -257,23 +292,14 @@ func certifyFeature(root, name string, opts Options, identity string, identityOK
 	evidenceCriterion := CriterionResult{Name: "evidence"}
 	if loadErr == nil {
 		if tree, err := spec.ParseTaskTree(feature.Tasks); err == nil {
-			ledger, err := evidence.Load(root, name)
-			if err != nil {
-				evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("%v — remove the file and run walden verify %s --all", err, name))
+			ledger := snapshot.Ledger
+			if snapshot.LedgerErr != nil {
+				evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("%v — retain the ledger and inspect it with a compatible reader", snapshot.LedgerErr))
 			} else {
-				leafs := []evidence.LeafTask{}
-				for _, task := range tree.LeafTasks() {
-					leafs = append(leafs, evidence.LeafTask{
-						ID:          task.ID,
-						Completed:   task.Completed,
-						Fingerprint: spec.TaskDefinitionFingerprint(task),
-					})
-				}
-				current := evidence.ChainFingerprints{
-					Requirements: feature.Requirements.Fields["approved_fingerprint"],
-					Design:       feature.Design.Fields["approved_fingerprint"],
-				}
+				current, leafs := evidence.FeatureInputs(feature, tree)
+				evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, commit)
 				for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
+					certification.Evidence = append(certification.Evidence, derived)
 					switch derived.State {
 					case evidence.StateVerified:
 					case evidence.StatePending:
@@ -285,7 +311,7 @@ func certifyFeature(root, name string, opts Options, identity string, identityOK
 							evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s is pending — execute it, or waive with --allow-pending --reason", derived.TaskID))
 						}
 					default:
-						evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s is %s — run walden verify %s", derived.TaskID, derived.State, name))
+						evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("task %s is %s: %s — inspect walden adopt %s; request applicable proofs with walden verify %s", derived.TaskID, derived.State, derived.GapSummary(), name, name))
 					}
 				}
 			}
@@ -327,7 +353,7 @@ func stripHTMLComments(body string) (string, bool) {
 // precedes its own commit — and is promoted to blockers by the caller under
 // strict. Unusable git is reported; the caller fails the run closed.
 func worktreeCriterion(ctx context.Context, root string) (blockers, waldenDirty []string, skipped bool) {
-	status, err := gitRunner.Run(ctx, "git", "-C", root, "status", "--porcelain", "-z")
+	status, err := evidence.Git(ctx, gitRunner, root, "status", "--porcelain", "-z")
 	if err != nil || status.ExitCode != 0 {
 		return nil, nil, true
 	}

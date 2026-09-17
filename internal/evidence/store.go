@@ -28,12 +28,27 @@ func Load(root, feature string) (Document, error) {
 		return Document{}, fmt.Errorf("read evidence document: %w", err)
 	}
 
+	document, err := Decode(data, feature)
+	if err != nil {
+		return Document{}, fmt.Errorf("evidence document %s: %w", DocumentPath(root, feature), err)
+	}
+	return document, nil
+}
+
+// Decode judges captured bytes without reading a second version of the file.
+// Legacy entries keep their original fields; a new container grants no trust.
+func Decode(data []byte, feature string) (Document, error) {
 	var document Document
 	if err := json.Unmarshal(data, &document); err != nil {
-		return Document{}, fmt.Errorf("parse evidence document %s: %w", DocumentPath(root, feature), err)
+		return Document{}, fmt.Errorf("parse: %w; retain the ledger for diagnosis", err)
 	}
-	if document.SchemaVersion != "" && document.SchemaVersion != SchemaVersion {
-		return Document{}, fmt.Errorf("evidence document %s carries schema %s; this binary speaks %s (upgrade walden, or remove the file and rerun `walden verify --all`)", DocumentPath(root, feature), document.SchemaVersion, SchemaVersion)
+	switch document.SchemaVersion {
+	case "", "v1alpha1", SchemaVersion:
+	default:
+		return Document{}, fmt.Errorf("schema %s is unsupported; this binary writes %s — retain the ledger and use a compatible walden reader", document.SchemaVersion, SchemaVersion)
+	}
+	if document.Feature != "" && document.Feature != feature {
+		return Document{}, fmt.Errorf("ledger belongs to feature %q, not %q — retain it and inspect its provenance", document.Feature, feature)
 	}
 	if document.Tasks == nil {
 		document.Tasks = map[string]Record{}

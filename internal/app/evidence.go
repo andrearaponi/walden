@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/output"
 	"github.com/andrearaponi/walden/internal/workflow"
 )
@@ -49,35 +48,16 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	counts := map[string]int{}
+	legacy := false
 	rendered := make([]output.EvidenceStatus, 0, len(entries))
 	for _, entry := range entries {
 		counts[entry.State]++
-		view := output.EvidenceStatus{
-			TaskID:           entry.TaskID,
-			State:            entry.State,
-			RecordedIdentity: entry.RecordedIdentity,
-			CurrentIdentity:  entry.CurrentIdentity,
-			Profile:          entry.RecordedProfile,
-			ProfileLegacy:    entry.ProfileLegacy,
-		}
-		// The stored result rides beside the derived state under the same
-		// field verify uses; unrecorded tasks have no result to report.
-		if entry.RecordedResult != "" {
-			passed := entry.RecordedResult == evidence.ResultPassed
-			view.Passed = &passed
-		}
-		for _, drift := range entry.ProfileDrift {
-			view.ProfileDrift = append(view.ProfileDrift, output.ProfileDriftEntry{
-				Key:      drift.Key,
-				Recorded: drift.Recorded,
-				Current:  drift.Current,
-			})
-		}
-		rendered = append(rendered, view)
+		legacy = legacy || entry.Execution.State == "legacy-unattested"
+		rendered = append(rendered, output.EvidenceView(entry))
 	}
 
 	summaryParts := []string{}
-	for _, state := range []string{"verified", "failed", "stale-spec", "stale-code", "unrecorded", "pending"} {
+	for _, state := range []string{"verified", "failed", "stale-spec", "stale-code", "unattested", "unrecorded", "pending"} {
 		if counts[state] > 0 {
 			summaryParts = append(summaryParts, fmt.Sprintf("%d %s", counts[state], state))
 		}
@@ -90,8 +70,11 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	// Evidence status is a report, not a gate: derived states never change
 	// the exit code.
 	result := output.Result{Summary: summary, Evidence: rendered, ExitCode: 0}
-	if counts["stale-spec"]+counts["stale-code"]+counts["failed"]+counts["unrecorded"] > 0 {
+	if counts["stale-spec"]+counts["stale-code"]+counts["failed"]+counts["unattested"]+counts["unrecorded"] > 0 {
 		result.NextAction = fmt.Sprintf("Run walden verify %s to re-prove the current code", featureName)
+	}
+	if legacy {
+		result.NextAction = fmt.Sprintf("Review selected scope and legacy assurance gaps with walden adopt %s before requesting proof execution", featureName)
 	}
 	return emitResult("evidence-status", result, jsonMode, stdout, stderr)
 }

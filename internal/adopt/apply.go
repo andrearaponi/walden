@@ -3,6 +3,7 @@ package adopt
 import (
 	"context"
 
+	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/shell"
 	"github.com/andrearaponi/walden/internal/workflow"
 )
@@ -25,10 +26,12 @@ type ApplyTotals struct {
 	Failed     int
 	Skipped    int
 	Blocked    int
+	Errors     int
 }
 
 // ApplyReport is the outcome of an adoption run.
 type ApplyReport struct {
+	Scope    evidence.Scope
 	Features []FeatureAdoption
 	Totals   ApplyTotals
 }
@@ -49,7 +52,7 @@ func Apply(ctx context.Context, root, featureName string, runner shell.Runner, p
 		return ApplyReport{}, err
 	}
 
-	report := ApplyReport{}
+	report := ApplyReport{Scope: plan.Scope}
 	total := len(plan.Features)
 	for index, featurePlan := range plan.Features {
 		if progress != nil {
@@ -69,6 +72,7 @@ func Apply(ctx context.Context, root, featureName string, runner shell.Runner, p
 				adoption.SealedDocs = sealed
 				report.Totals.SealedDocs += len(sealed)
 				if sealErr != nil {
+					report.Totals.Errors++
 					adoption.Error = sealErr.Error()
 					report.Features = append(report.Features, adoption)
 					continue
@@ -77,6 +81,7 @@ func Apply(ctx context.Context, root, featureName string, runner shell.Runner, p
 
 			result, verifyErr := workflow.Verify(ctx, root, featurePlan.Name, false, false, runner)
 			if verifyErr != nil {
+				report.Totals.Errors++
 				adoption.Error = verifyErr.Error()
 			} else {
 				for _, outcome := range result.Outcomes {

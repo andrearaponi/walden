@@ -30,22 +30,47 @@ type Manifest map[string]string
 // committing an unchanged file never moves the manifest. The second return
 // is false when git is unavailable — callers record the absence and continue.
 func CaptureManifest(ctx context.Context, runner shell.Runner, root string) (Manifest, bool) {
-	status, err := runner.Run(ctx, "git", "-C", root, "status", "--porcelain", "--untracked-files=all", "-z", "--", ".", ":(exclude)"+waldenDir)
+	return captureManifest(ctx, runner, root, "HEAD", true)
+}
+
+// CaptureManifestAtCommit uses the existing identity representation anchored
+// to a captured revision. An unreadable captured commit is never unborn.
+func CaptureManifestAtCommit(ctx context.Context, runner shell.Runner, root, commit string) (Manifest, bool) {
+	if commit == "" {
+		return nil, false
+	}
+	return captureManifest(ctx, runner, root, commit, false)
+}
+
+func captureManifest(ctx context.Context, runner shell.Runner, root, revision string, allowUnborn bool) (Manifest, bool) {
+	status, err := Git(ctx, runner, root, "status", "--porcelain", "--untracked-files=all", "-z", "--", ".", ":(exclude)"+waldenDir)
 	if err != nil || status.ExitCode != 0 {
 		return nil, false
 	}
 
-	// Unborn HEAD (no commits yet) degrades to the overlay alone; the
-	// repository itself is proven present by the successful status call.
 	blobs := Manifest{}
-	if lsTree, err := runner.Run(ctx, "git", "-C", root, "ls-tree", "-r", "HEAD"); err == nil && lsTree.ExitCode == 0 {
+	if lsTree, err := Git(ctx, runner, root, "ls-tree", "-r", revision); err == nil && lsTree.ExitCode == 0 {
 		seedListing(blobs, lsTree.Stdout)
+	} else if !allowUnborn || !unbornRepository(ctx, runner, root) {
+		// Failure to read an existing tree is not evidence of an empty tree.
+		return nil, false
 	}
 
 	if !applyOverlay(ctx, runner, root, status.Stdout, blobs) {
 		return nil, false
 	}
 	return blobs, true
+}
+
+// unbornRepository positively establishes a symbolic HEAD whose branch ref
+// is absent. Corrupt refs, detached HEAD and plumbing errors do not qualify.
+func unbornRepository(ctx context.Context, runner shell.Runner, root string) bool {
+	head, err := Git(ctx, runner, root, "symbolic-ref", "-q", "HEAD")
+	if err != nil || head.ExitCode != 0 || !strings.HasPrefix(strings.TrimSpace(head.Stdout), "refs/heads/") {
+		return false
+	}
+	ref, err := Git(ctx, runner, root, "show-ref", "--verify", "--quiet", strings.TrimSpace(head.Stdout))
+	return err == nil && ref.ExitCode == 1
 }
 
 // Digest folds the manifest into the identity string. Identical content
@@ -191,8 +216,8 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 			end = len(pending)
 		}
 
-		args := append([]string{"-C", root, "hash-object", "--"}, hashArgs[start:end]...)
-		hashed, err := runner.Run(ctx, "git", args...)
+		args := append([]string{"hash-object", "--"}, hashArgs[start:end]...)
+		hashed, err := Git(ctx, runner, root, args...)
 		if err != nil || hashed.ExitCode != 0 {
 			return false
 		}

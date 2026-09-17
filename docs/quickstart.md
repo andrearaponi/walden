@@ -9,6 +9,14 @@ curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh
 walden version
 ```
 
+Alternatively, install the guide first with Skills CLI:
+
+```bash
+npx skills add andrearaponi/walden --skill walden
+```
+
+The guide requires CLI v0.10.2 or a newer compatible release and asks before installing a missing/incompatible binary. Its pinned release must actually be published. For this channel, update the guide with Skills CLI and the executable with the official installer’s `--no-skill` mode; do not also use native skill installation or `walden update` on the same copy. See the [bootstrap instructions](../skill/walden/SKILL.md#cli-prerequisite-and-installation). Native installations keep their existing flow.
+
 ## Initialize
 
 ```bash
@@ -44,7 +52,9 @@ A command that greets a named user, as the smallest end-to-end slice of the CLI.
 #### Acceptance Criteria
 
 1. `R1.AC1` WHEN the user runs `greet <name>`, the system SHALL print `Hello, <name>!`.
+   - Acceptance check: the output includes the supplied name in the exact greeting.
 2. `R1.AC2` IF `<name>` is empty, THEN the system SHALL exit non-zero naming the missing argument.
+   - Acceptance check: an empty name produces the named error instead of a successful greeting.
 
 ## Non-Functional Requirements
 
@@ -71,7 +81,7 @@ Approval does more than flip a status: it records a SHA-256 **fingerprint of the
 
 ## Phase 2 — Design
 
-Edit `design.md` (architecture, at least one alternative considered, failure modes, testing strategy, a requirement coverage table — the validator checks the structure), then:
+Fill the six sections in the generated `design.md`: Architecture, Options Considered, Simplicity And Elegance Review, Failure Modes And Tradeoffs, Verification Plan, and Requirement Coverage. Additional sections are optional; do not invent an alternative or irrelevant detail just to fill a template. Coverage and verification must still be substantive. The validator checks structure, not the quality of these decisions. Then:
 
 ```bash
 walden validate greeting-service
@@ -93,7 +103,7 @@ Edit `tasks.md`: a two-level plan where every leaf task names the acceptance cri
     - Requirements: `R1.AC1`, `R1.AC2`, `NFR1`
     - Design: Command Surface
     - Verification:
-      - command: ["go", "test", "-run", "TestGreet", "./..."]
+      - command: ["go", "test", "-v", "-count=1", "-run", "^TestGreet$", "./..."]
         expect_output: "--- PASS: TestGreet"
         covers: ["R1.AC1", "R1.AC2"]
 ```
@@ -120,11 +130,11 @@ A passing completion checks the box **and** writes a record to `.walden/evidence
 Weeks pass, code changes. Ask what still holds:
 
 ```bash
-walden evidence status greeting-service   # derived state per task, ~milliseconds, never writes
+walden evidence status greeting-service   # derived states and diagnostic profile probes
 walden verify greeting-service            # re-runs proofs for anything no longer verified
 ```
 
-States are **derived at read time** by comparing recorded fingerprints against the present — `verified`, `stale-spec`, `stale-code`, `failed`, `unrecorded`, `pending`. Nothing ever stores "stale" on disk; the comparison is recomputed every time you ask.
+States are **derived at read time** — `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, `pending`. The view separates contract binding, code freshness and execution provenance. Use `walden adopt greeting-service` for a legacy assessment without proofs or probes; a recovered hash cannot invent missing historical purity. Choose the current contract scope before replay, and aggregate checks at declared batch/delivery checkpoints rather than after every edit.
 
 ## Certify
 
@@ -132,7 +142,7 @@ States are **derived at read time** by comparing recorded fingerprints against t
 walden release check
 ```
 
-One deterministic verdict: approved fresh chains, full-spec validation, no unresolved `[decision:]` markers, execution evidence verified, pending work executed or explicitly waived, clean worktree. Exit `0` if and only if no blocker exists — and every blocker names its remedy. The gate executes no proofs and writes nothing: `verify` produces evidence, `release check` judges it.
+One deterministic verdict over the reported scope: approved fresh chains, validation, resolved decision markers, current execution assurance, pending work completed or explicitly waived, and the worktree policy. The gate executes no proofs or profile probes and writes nothing. Add `--strict` to bind the exact judged spec/evidence inputs to the named commit, even when ignored. A named-feature pass is not a repository-wide certificate; non-strict mode does not attest that local metadata is committed.
 
 ```text
 Summary: RELEASABLE — 1 feature(s) certified, completion complete, commit 3f2a91c40d77

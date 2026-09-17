@@ -119,6 +119,12 @@ func loadDocument(path string) (Document, error) {
 		return Document{}, err
 	}
 
+	return ParseDocument(path, text)
+}
+
+// ParseDocument parses captured bytes using the same live schema and field
+// checks as the filesystem loader. No second read or approval mutation occurs.
+func ParseDocument(path string, text []byte) (Document, error) {
 	values, body, err := parseFrontmatter(string(text))
 	if err != nil {
 		return Document{}, err

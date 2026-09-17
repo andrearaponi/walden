@@ -12,6 +12,18 @@ Walden is an open-source, spec-driven delivery kernel: a deterministic CLI that 
 
 Most teams run Walden through a coding agent. The embedded AI skill handles the non-deterministic half — asking clarifying questions, drafting requirements, designing architecture, planning tasks — and drives the CLI at every step. The CLI enforces the deterministic half: phase order, freshness fingerprints, verification proofs, execution evidence, and the release gate. You keep the judgment calls — nothing gets approved on your behalf.
 
+## When to use Walden
+
+Decide whether the intended contract changes before creating a specification:
+
+| Contract impact | Route |
+| --- | --- |
+| Preserve or restore intended behavior | Use existing tests and refresh applicable evidence, without a new spec cycle unless the user or project rules require one. |
+| Introduce or change intended behavior | Start a new feature at requirements, or revise the earliest affected phase of an existing spec. |
+| Unclear | Clarify the intended behavior before choosing a lane or generating documents. |
+
+Outside spec authoring does not mean outside testing, verification, or execution authorization. A planning approval alone never starts implementation.
+
 ## How It Works
 
 Every feature progresses through four phases. Each phase has an approval gate that must pass before the next begins.
@@ -24,7 +36,7 @@ Requirements ──▶ Design ──▶ Tasks ──▶ Execute
   approve        approve    approve    complete
 ```
 
-Requirements are written as [EARS](docs/reference/spec-format.md) acceptance criteria with stable IDs; the design must cover every criterion; every leaf task carries an executable verification proof. Completing a task records durable evidence bound to the approved spec chain and to the code it proved. If anything changes after approval — a document, the code — staleness surfaces instead of hiding behind a checked box, and `walden release check` certifies the whole repository with one deterministic verdict.
+Requirements are written as [EARS](docs/reference/spec-format.md) acceptance criteria with stable IDs; the design must cover every criterion; every leaf task carries an executable verification proof. Completing a task records durable evidence bound to the approved spec chain and to the code it proved. If anything changes after approval — a document, the code — staleness surfaces instead of hiding behind a checked box, and `walden release check` judges the declared feature or portfolio scope. Strict mode binds the actual spec/evidence inputs to the named commit. Legacy records retain explicit uncertainty; upgrading does not automatically replay historical plans.
 
 ## Install
 
@@ -37,10 +49,21 @@ Downloads the latest release binary for your platform (darwin/linux, amd64/arm64
 | Flag | Effect |
 | --- | --- |
 | `--skill <agent\|all>` | Install the skill non-interactively (`claude`, `codex`, `copilot`, `opencode`, `all`) |
+| `--no-skill` | Install only the binary, without skill prompts or changes; incompatible with `--skill` and `--uninstall` |
 | `--version <tag>` | Install a specific release instead of the latest |
 | `--uninstall` | Remove the skill (all agents) and the binary |
 
 From source: `go install github.com/andrearaponi/walden/cmd/walden@latest`, then `walden skill install claude` — the skill ships inside the binary, always at the matching version. Later, `walden update` upgrades the binary (checksum-verified, atomic) and re-syncs every installed skill.
+
+### Skill-first installation (Skills CLI)
+
+```bash
+npx skills add andrearaponi/walden --skill walden
+```
+
+The current guide requires Walden CLI v0.10.2 or a newer compatible release. If the CLI is missing or incompatible, the skill requests permission before using the [pinned binary-only bootstrap](skill/walden/SKILL.md#cli-prerequisite-and-installation). The matching v0.10.2 installer and release assets must be published before that path is available; a local candidate is not a public download.
+
+Keep one manager per skill copy: Skills CLI users update the guide with `npx skills update walden` and the executable through `install.sh --version <compatible-tag> --no-skill`. Do not use `walden update` for that channel, because it also re-syncs skills. Native installations retain the existing `walden update` flow. Resolve overlapping native/external copies explicitly instead of automatically removing or replacing them.
 
 ## Quickstart
 
@@ -80,7 +103,7 @@ A complete working example lives in [examples/todo-app-demo](examples/todo-app-d
 
 Pure Go standard library — zero external dependencies. Run the tests with `go test ./...`.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. For non-trivial changes, create a feature spec with `walden feature init` and follow the gated workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. For non-trivial changes to Walden itself, create a feature spec with `walden feature init` and follow the gated workflow. This is a project-specific contribution policy; other repositories can route contract-preserving maintenance without a new spec cycle.
 
 ## On the Name
 

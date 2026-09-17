@@ -4,6 +4,10 @@ The complete command loop, from repository bootstrap to certification. This page
 
 In [the agentic flow](agentic.md), the authoring steps below (drafting requirements, design, tasks; implementing code) are what the skill does for you, driving these exact commands and stopping at each gate for your approval. The loop is the same either way — this page describes what runs underneath.
 
+## Choose the entry point
+
+Before bootstrapping a feature, decide whether intended behavior changes. Contract-preserving bugfixes and refactoring can use existing tests and evidence re-verification without new spec authoring, unless user or project policy requires it. New or changed contracts enter the earliest affected phase. If the impact is unclear, clarify it before creating documents. Approval of a plan alone does not authorize execution.
+
 ## 1. Bootstrap
 
 ```bash
@@ -22,7 +26,7 @@ Optionally declare [environment probes](reference/spec-format.md#environmentmd) 
 
 ## 2. Requirements
 
-Edit `requirements.md`: introduction, user stories, [EARS acceptance criteria](reference/spec-format.md#ears-acceptance-criteria) with stable IDs (`R1.AC1`), non-functional requirements (`NFR1`), constraints (`C1`), out-of-scope. Then:
+Edit the body of `requirements.md`, retaining CLI-owned frontmatter: introduction, user stories, [EARS acceptance criteria](reference/spec-format.md#ears-acceptance-criteria) with stable IDs (`R1.AC1`), non-functional requirements (`NFR1`), constraints (`C1`), out-of-scope. Put a short `Acceptance check:` continuation under each AC describing the observable result, not an implementation command. Then:
 
 ```bash
 walden validate user-auth
@@ -34,7 +38,7 @@ Approve runs full phase validation before sealing — nothing structurally inval
 
 ## 3. Design
 
-Edit `design.md`: architecture, at least one alternative considered, simplicity review, failure modes and tradeoffs, testing strategy, requirement coverage table. Same gate:
+Start from the six scaffolded design headings: Architecture, Options Considered, Simplicity And Elegance Review, Failure Modes And Tradeoffs, Verification Plan, and Requirement Coverage. Components, data models, security, and other sections are optional expansions when relevant. A discussion may explain non-applicability in one line rather than invent an alternative; coverage and verification still need real mappings and checks. Same gate:
 
 ```bash
 walden validate user-auth
@@ -54,12 +58,12 @@ Edit `tasks.md`: a two-level hierarchy where every leaf task names its acceptanc
     - Requirements: `R1.AC1`, `R1.AC2`, `NFR2`
     - Design: Authentication Service
     - Verification:
-      - command: ["go", "test", "-run", "TestHash", "./internal/auth"]
+      - command: ["go", "test", "-v", "-count=1", "-run", "^TestHash$", "./internal/auth"]
         expect_output: "--- PASS: TestHash"
         covers: ["R1.AC1", "R1.AC2"]
 ```
 
-Declare `expect_output` on test runners so a pattern matching zero tests cannot pass vacuously; declare `timeout:` on steps that legitimately run long (the default budget is 10 minutes per step). Prefer read-only proof commands — `["go", "mod", "tidy", "-diff"]`, not `["go", "mod", "tidy"]` — because [re-verification is pure](lifecycle.md#execution-two-lanes-one-proof-grammar).
+Declare a runner-appropriate anti-vacuity check: native failure on zero selected tests, structured results, or an output assertion as above. Named Go PASS lines require `-v`; `-count=1` prevents test-cache reuse. Map each step's asserted ACs through `covers:`. Declare `timeout:` on steps that legitimately run long (the default budget is 10 minutes per step). Prefer read-only proof commands — `["go", "mod", "tidy", "-diff"]`, not `["go", "mod", "tidy"]` — because [re-verification is pure](lifecycle.md#execution-two-lanes-one-proof-grammar).
 
 ```bash
 walden validate user-auth
@@ -76,7 +80,7 @@ walden task complete user-auth 1.1  # runs the proof; only a pass checks the box
 walden task complete-all user-auth  # all runnable tasks in order, stops at first failure
 ```
 
-A passing completion writes the task's evidence record — proof steps, chain fingerprints, code identity, execution profile — to `.walden/evidence/user-auth.json`. A failing proof leaves the box unchecked; fix and retry.
+A passing completion writes the complete contract fingerprint, observed proof results, post-state code identity and completion provenance to `.walden/evidence/user-auth.json`. A failing proof leaves the box unchecked. Declare the authorized batch and its verification checkpoint: every leaf earns its own proof, but ordinary repo-wide staleness does not require replaying the completed prefix after each edit. A changed dependency or failing assertion can justify an earlier targeted check.
 
 ## 6. Reconcile
 
@@ -93,13 +97,16 @@ This resets the modified document and its downstream to draft and clears their f
 When code or specs move, evidence tells you what still holds:
 
 ```bash
-walden evidence status user-auth   # derived state per task; read-only, always exit 0
-walden verify user-auth            # re-prove what is no longer verified
-walden verify user-auth --all      # re-prove everything
-walden verify user-auth --check    # report only, write nothing (CI mode)
+walden adopt user-auth --json      # legacy assessment; no proof or profile probe
+walden evidence status user-auth   # evidence view; includes diagnostic profile probes
+walden verify user-auth            # needed completed proofs in this feature only
+walden verify user-auth --all      # explicitly force every completed proof in this feature
+walden verify user-auth --check    # execute selected proofs without persisting evidence
 ```
 
-A code-only bugfix needs no spec ceremony: evidence goes `stale-code`, and one `verify` proves the acceptance criteria still hold — or names the task whose proof broke. Failures on a drifted machine carry the diagnosis: `environment drift: go: recorded "go1.25.0" → current "go1.24.0"`.
+Establish the current contract and applicable feature scope before replaying old work; requirements can survive obsolete delivery tasks, and uncertain business intent needs a decision. At batch/feature/delivery closure, refresh the selected applicable evidence and report residual gaps. Code-only maintenance need not create a new spec, but raw tests alone do not refresh Walden evidence.
+
+A reconstructed legacy binding is not execution attestation: `unattested` and independent provenance gaps remain explicit. Verify rejects mutations and contaminates later executions in that run; restoring bytes does not revive failed records. `--check` does not sandbox proof side effects. Environment drift remains diagnostic, not a substitute for proof binding or integrity.
 
 ## 8. Certify
 
@@ -118,7 +125,7 @@ walden release check --allow-pending --reason "auth hardening deferred to 1.3"
 # RELEASABLE — 3 feature(s) certified, 2 task(s) waived (reason: auth hardening deferred to 1.3), commit ba53cfe55b40
 ```
 
-The reason and the waived task identifiers ride the verdict (completion class `with-waivers`). `--allow-pending` without a non-empty `--reason` is refused. Uncommitted code outside `.walden/` always blocks with no bypass; a repository without usable git fails closed.
+The reason and waived task identifiers ride the verdict. Waivers cover pending work only, not legacy assurance or strict input binding. `--strict` compares the exact judged input snapshot with its captured commit regardless of ignore rules; non-strict mode does not claim local metadata is committed. A named-feature verdict is not certification of the whole repository. Uncommitted code still blocks, and usable Git is required.
 
 ## 9. Lessons
 
