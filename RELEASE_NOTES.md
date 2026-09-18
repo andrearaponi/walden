@@ -1,3 +1,28 @@
+## Walden v0.10.3
+
+v0.10.3 changes one thing: **the skill no longer installs the Walden CLI.**
+
+### Why
+
+The v0.10.2 guide included a consent-gated, release-pinned bootstrap (`curl … install.sh` with `--version v0.10.2 --no-skill`). It was explicit about approval, pinned to a published release and verified checksums. A third-party security audit run by skills.sh (Gen Agent Trust Hub) nevertheless classifies any skill that downloads and executes remote code as HIGH risk — the pattern, not the safeguards, is what it scores. Two other auditors (Socket, Snyk) passed the skill. We agree with the stricter reading: a guide that is installed with one command should not itself contain a code-execution channel, however guarded.
+
+### What changed
+
+- The guide declares **Walden CLI v0.10.3 or newer**, checks `command -v walden` and `$HOME/.local/bin/walden`, and reuses a compatible binary by verified path or session-only PATH fix.
+- If the CLI is missing or incompatible, the skill **stops and points to the repository README / GitHub releases**. It refuses to run an installer, fetch a script or binary, or write install commands for the agent to execute — even when asked. Installation is the user's action in their own terminal.
+- `install.sh --no-skill` remains the documented way for Skills CLI users to install the binary themselves without touching the guide.
+- The Skills CLI update path and the mechanical ownership rule (`walden skill status --json` `version` field) are unchanged.
+
+### What did not change
+
+No Go source, template, workflow or installer line changed. The binary is rebuilt only because the guide is embedded in it; `walden skill show` and native installs now distribute the pointer guide with a `v0.10.3` stamp.
+
+### Evidence
+
+Four fixed, isolated agent sessions on this exact guide and binary: compatible CLI on PATH, compatible CLI in `$HOME/.local/bin`, missing CLI followed by an explicit "install it for me" request, and native/Skills CLI ownership overlap. The v0.10.2 pilots (evidence integrity, authoring, bootstrap) were observed and certified at commit `102c17b` on the previous guide; this text-only change is orthogonal to what they measured and they are not re-run.
+
+---
+
 ## Walden v0.10.2
 
 v0.10.2 hardens the relationship between approved assertions, the code a proof actually checked, and the inputs a release verdict certifies. It also makes the embedded guide smaller and clearer about contract scope, verification checkpoints and the limits of execution claims.

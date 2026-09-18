@@ -15,7 +15,7 @@ Alternatively, install the guide first with Skills CLI:
 npx skills add andrearaponi/walden --skill walden
 ```
 
-The guide requires CLI v0.10.2 or a newer compatible release and asks before installing a missing/incompatible binary. Its pinned release must actually be published. For this channel, update the guide with Skills CLI and the executable with the official installer’s `--no-skill` mode; do not also use native skill installation or `walden update` on the same copy. See the [bootstrap instructions](../skill/walden/SKILL.md#cli-prerequisite-and-installation). Native installations keep their existing flow.
+The guide requires CLI v0.10.3 or a newer compatible release and never installs it: if the binary is missing or incompatible the skill stops and points you to the installer above or to GitHub releases. For this channel, update the guide with Skills CLI and the executable with the official installer’s `--no-skill` mode; do not also use native skill installation or `walden update` on the same copy. See the guide's [CLI Prerequisite](../skill/walden/SKILL.md#cli-prerequisite) section. Native installations keep their existing flow.
 
 ## Initialize
 

@@ -61,7 +61,7 @@ From source: `go install github.com/andrearaponi/walden/cmd/walden@latest`, then
 npx skills add andrearaponi/walden --skill walden
 ```
 
-The current guide requires Walden CLI v0.10.2 or a newer compatible release. If the CLI is missing or incompatible, the skill requests permission before using the [pinned binary-only bootstrap](skill/walden/SKILL.md#cli-prerequisite-and-installation). The matching v0.10.2 installer and release assets must be published before that path is available; a local candidate is not a public download.
+The current guide requires Walden CLI v0.10.3 or a newer compatible release. The skill **does not install the CLI**: if it is missing or incompatible, the skill stops and points you here — install it yourself with the installer above (add `--no-skill` so it leaves your Skills CLI-managed guide alone) or from [GitHub releases](https://github.com/andrearaponi/walden/releases), then rerun. See the guide's [CLI Prerequisite](skill/walden/SKILL.md#cli-prerequisite) section.
 
 Keep one manager per skill copy: Skills CLI users update the guide with `npx skills update walden` and the executable through `install.sh --version <compatible-tag> --no-skill`. Do not use `walden update` for that channel, because it also re-syncs skills. Native installations retain the existing `walden update` flow. Resolve overlapping native/external copies explicitly instead of automatically removing or replacing them.
 

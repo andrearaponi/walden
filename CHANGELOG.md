@@ -4,6 +4,12 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.3] - 2026-09-18
+
+### Changed
+
+- **Skill no longer installs the CLI.** The v0.10.2 guide carried a consent-gated, release-pinned `curl … install.sh` bootstrap. A third-party security audit on skills.sh classifies any skill that downloads and executes remote code as HIGH risk regardless of consent or pinning. The guide now declares the v0.10.3 minimum, checks PATH and `$HOME/.local/bin`, reuses a compatible binary, and — when the CLI is missing or incompatible — stops and points to the README/GitHub releases. It refuses to run an installer even on request. The Skills CLI update path (`npx skills update walden`, never `walden update` for that channel) and the mechanical ownership rule are unchanged. The kernel, templates and `install.sh` (including `--no-skill`) are unchanged; the binary is rebuilt so the embedded guide matches.
+
 ## [0.10.2] - 2026-09-17
 
 ### Added
