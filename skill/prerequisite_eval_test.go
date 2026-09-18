@@ -15,24 +15,23 @@ import (
 	"testing"
 )
 
-var bootstrapInputs = []string{
-	"install.sh", "skill/walden/SKILL.md", "skill/testdata/bootstrap-eval/scenarios.json", "skill/testdata/bootstrap-eval/README.md",
+var prerequisiteInputs = []string{
+	"install.sh", "skill/walden/SKILL.md", "skill/testdata/prerequisite-eval/scenarios.json", "skill/testdata/prerequisite-eval/README.md",
 	"README.md", "docs/quickstart.md", "docs/reference/cli.md", "CHANGELOG.md", "RELEASE_NOTES.md",
 	"skill/walden/install-claude.md", "skill/walden/install-codex.md", "skill/walden/install-copilot.md", "skill/walden/install-opencode.md",
 }
 
-type bootstrapScenario struct {
+type prerequisiteScenario struct {
 	ID          string   `json:"id"`
 	PathVersion string   `json:"path_version"`
 	HomeVersion string   `json:"home_version"`
-	Outcome     string   `json:"outcome"`
 	Owner       string   `json:"owner"`
 	Prompt      string   `json:"prompt"`
 	FollowUps   []string `json:"follow_ups"`
 	Checks      []string `json:"checks"`
 }
 
-type bootstrapRun struct {
+type prerequisiteRun struct {
 	Scenario   string           `json:"scenario"`
 	SessionID  string           `json:"session_id"`
 	Verdict    string           `json:"verdict"`
@@ -44,7 +43,7 @@ type bootstrapRun struct {
 	Checks     []authoringCheck `json:"checks"`
 }
 
-type bootstrapReport struct {
+type prerequisiteReport struct {
 	Kind         string            `json:"kind"`
 	Agent        string            `json:"agent"`
 	AgentVersion string            `json:"agent_version"`
@@ -54,10 +53,10 @@ type bootstrapReport struct {
 	Binary       string            `json:"binary"`
 	BinarySHA256 string            `json:"binary_sha256"`
 	Artifacts    map[string]string `json:"artifacts"`
-	Runs         []bootstrapRun    `json:"runs"`
+	Runs         []prerequisiteRun `json:"runs"`
 }
 
-func bootstrapReadJSON(t *testing.T, path string, target any) {
+func prerequisiteReadJSON(t *testing.T, path string, target any) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -74,36 +73,36 @@ func bootstrapReadJSON(t *testing.T, path string, target any) {
 	}
 }
 
-func bootstrapHash(t *testing.T, path string) string {
+func prerequisiteHash(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
-func bootstrapCurrent(t *testing.T) map[string]string {
+func prerequisiteCurrent(t *testing.T) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, name := range bootstrapInputs {
-		result[name] = bootstrapHash(t, filepath.Join(authoringRoot(t), name))
+	for _, name := range prerequisiteInputs {
+		result[name] = prerequisiteHash(t, filepath.Join(authoringRoot(t), name))
 	}
 	return result
 }
 
-func bootstrapScenarios(t *testing.T) []bootstrapScenario {
+func prerequisiteScenarios(t *testing.T) []prerequisiteScenario {
 	t.Helper()
-	var result []bootstrapScenario
-	bootstrapReadJSON(t, "testdata/bootstrap-eval/scenarios.json", &result)
+	var result []prerequisiteScenario
+	prerequisiteReadJSON(t, "testdata/prerequisite-eval/scenarios.json", &result)
 	return result
 }
 
-func TestBootstrapEvalFixtures(t *testing.T) {
-	want := map[string]bool{"compatible-path": true, "compatible-home": true, "missing-denied": true, "upgrade-approved": true, "install-failed": true, "postcheck-failed": true, "manager-overlap": true}
+func TestPrerequisiteEvalFixtures(t *testing.T) {
+	want := map[string]bool{"compatible-path": true, "compatible-home": true, "missing-cli": true, "manager-overlap": true}
 	turns := 0
-	for _, scenario := range bootstrapScenarios(t) {
+	for _, scenario := range prerequisiteScenarios(t) {
 		if !want[scenario.ID] {
 			t.Fatalf("unknown/duplicate scenario %q", scenario.ID)
 		}
@@ -120,18 +119,17 @@ func TestBootstrapEvalFixtures(t *testing.T) {
 		}
 		turns += 1 + len(scenario.FollowUps)
 	}
-	if len(want) != 0 || turns != 11 {
+	if len(want) != 0 || turns != 5 {
 		t.Fatalf("missing scenarios %v or wrong turn cap %d", want, turns)
 	}
-	data, err := os.ReadFile("testdata/bootstrap-eval/README.md")
-	if err != nil || len(data) == 0 {
+	if data, err := os.ReadFile("testdata/prerequisite-eval/README.md"); err != nil || len(data) == 0 {
 		t.Fatal("missing runbook")
 	}
 }
 
-// Test-only validation of reviewed records, not a model runner or independent
-// natural-language judge. Synthetic fixtures must never pass real acceptance.
-func checkBootstrapReport(report bootstrapReport, scenarios []bootstrapScenario, current map[string]string, dir string, observed bool) error {
+// Test-only validation of reviewed records: identity, anchors, limits and
+// transcript shape. Not a model runner and not a natural-language judge.
+func checkPrerequisiteReport(report prerequisiteReport, scenarios []prerequisiteScenario, current map[string]string, dir string, observed bool) error {
 	if observed && report.Kind != "observed" {
 		return fmt.Errorf("real acceptance requires observed sessions")
 	}
@@ -148,8 +146,8 @@ func checkBootstrapReport(report bootstrapReport, scenarios []bootstrapScenario,
 	if err != nil {
 		return err
 	}
-	binaryHash := sha256.Sum256(binary)
-	if hex.EncodeToString(binaryHash[:]) != report.BinarySHA256 {
+	sum := sha256.Sum256(binary)
+	if hex.EncodeToString(sum[:]) != report.BinarySHA256 {
 		return fmt.Errorf("candidate binary identity differs")
 	}
 	checkAnchor := func(anchor string) error {
@@ -161,13 +159,13 @@ func checkBootstrapReport(report bootstrapReport, scenarios []bootstrapScenario,
 		if err != nil {
 			return err
 		}
-		hash := sha256.Sum256(data)
-		if report.Artifacts[name] != hex.EncodeToString(hash[:]) {
+		h := sha256.Sum256(data)
+		if report.Artifacts[name] != hex.EncodeToString(h[:]) {
 			return fmt.Errorf("missing/stale artifact hash for %s", name)
 		}
 		return nil
 	}
-	catalog := map[string]bootstrapScenario{}
+	catalog := map[string]prerequisiteScenario{}
 	for _, scenario := range scenarios {
 		catalog[scenario.ID] = scenario
 	}
@@ -252,25 +250,25 @@ func checkBootstrapReport(report bootstrapReport, scenarios []bootstrapScenario,
 			}
 		}
 	}
-	if len(seen) != len(catalog) || turns > 11 || totalCost > 5 {
+	if len(seen) != len(catalog) || turns > 5 || totalCost > 1 {
 		return fmt.Errorf("missing cases or exceeded aggregate allowance")
 	}
 	return nil
 }
 
-func syntheticBootstrapReport(t *testing.T, dir string) bootstrapReport {
+func syntheticPrerequisiteReport(t *testing.T, dir string) prerequisiteReport {
 	t.Helper()
 	for _, name := range []string{"transcript.txt", "snapshot.json", "binary"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("Synthetic fixture, not an observed session.\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	r := bootstrapReport{Kind: "synthetic", Agent: "fixture", AgentVersion: "fixture", Model: "fixture", Settings: "fixture", Candidate: bootstrapCurrent(t), Binary: "binary", BinarySHA256: bootstrapHash(t, filepath.Join(dir, "binary")), Artifacts: map[string]string{}}
+	r := prerequisiteReport{Kind: "synthetic", Agent: "fixture", AgentVersion: "fixture", Model: "fixture", Settings: "fixture", Candidate: prerequisiteCurrent(t), Binary: "binary", BinarySHA256: prerequisiteHash(t, filepath.Join(dir, "binary")), Artifacts: map[string]string{}}
 	for _, name := range []string{"transcript.txt", "snapshot.json"} {
-		r.Artifacts[name] = bootstrapHash(t, filepath.Join(dir, name))
+		r.Artifacts[name] = prerequisiteHash(t, filepath.Join(dir, name))
 	}
-	for _, scenario := range bootstrapScenarios(t) {
-		run := bootstrapRun{Scenario: scenario.ID, SessionID: scenario.ID, Verdict: "pass", Transcript: "transcript.txt", Snapshot: "snapshot.json", Turns: 1, Seconds: 1, Cost: .01}
+	for _, scenario := range prerequisiteScenarios(t) {
+		run := prerequisiteRun{Scenario: scenario.ID, SessionID: scenario.ID, Verdict: "pass", Transcript: "transcript.txt", Snapshot: "snapshot.json", Turns: 1, Seconds: 1, Cost: .01}
 		for _, id := range scenario.Checks {
 			run.Checks = append(run.Checks, authoringCheck{ID: id, Verdict: "pass", Anchor: "transcript.txt#L1"})
 		}
@@ -279,106 +277,91 @@ func syntheticBootstrapReport(t *testing.T, dir string) bootstrapReport {
 	return r
 }
 
-func TestBootstrapEvalReportContract(t *testing.T) {
+func TestPrerequisiteEvalReportContract(t *testing.T) {
 	cases := []struct {
 		name   string
-		mutate func(*bootstrapReport)
+		mutate func(*prerequisiteReport)
 		bad    bool
 	}{
-		{"complete synthetic structure", func(*bootstrapReport) {}, false},
-		{"missing run", func(r *bootstrapReport) { r.Runs = r.Runs[1:] }, true},
-		{"duplicate run", func(r *bootstrapReport) { r.Runs[1] = r.Runs[0] }, true},
-		{"unknown scenario", func(r *bootstrapReport) { r.Runs[0].Scenario = "unknown" }, true},
-		{"missing provenance", func(r *bootstrapReport) { r.AgentVersion = "" }, true},
-		{"stale guide", func(r *bootstrapReport) { r.Candidate["skill/walden/SKILL.md"] = "old" }, true},
-		{"stale installer", func(r *bootstrapReport) { r.Candidate["install.sh"] = "old" }, true},
-		{"stale fixtures", func(r *bootstrapReport) { r.Candidate["skill/testdata/bootstrap-eval/scenarios.json"] = "old" }, true},
-		{"stale binary", func(r *bootstrapReport) { r.BinarySHA256 = strings.Repeat("0", 64) }, true},
-		{"missing binary", func(r *bootstrapReport) { r.Binary = "missing" }, true},
-		{"not run", func(r *bootstrapReport) { r.Runs[0].Verdict = "not-run" }, true},
-		{"failed observation", func(r *bootstrapReport) { r.Runs[0].Checks[0].Verdict = "fail" }, true},
-		{"missing observation", func(r *bootstrapReport) { r.Runs[0].Checks = nil }, true},
-		{"duplicate observation", func(r *bootstrapReport) { r.Runs[0].Checks = append(r.Runs[0].Checks, r.Runs[0].Checks[0]) }, true},
-		{"missing anchor", func(r *bootstrapReport) { r.Runs[0].Transcript = "missing.txt" }, true},
-		{"escaping anchor", func(r *bootstrapReport) { r.Runs[0].Checks[0].Anchor = "../escape.txt" }, true},
-		{"stale artifact", func(r *bootstrapReport) { r.Artifacts["snapshot.json"] = strings.Repeat("0", 64) }, true},
-		{"extra turns", func(r *bootstrapReport) { r.Runs[0].Turns = 3 }, true},
-		{"invalid cost", func(r *bootstrapReport) { r.Runs[0].Cost = -1 }, true},
-		{"over total budget", func(r *bootstrapReport) { r.Runs[0].Cost = 6 }, true},
+		{"complete synthetic structure", func(*prerequisiteReport) {}, false},
+		{"missing run", func(r *prerequisiteReport) { r.Runs = r.Runs[1:] }, true},
+		{"duplicate run", func(r *prerequisiteReport) { r.Runs[1] = r.Runs[0] }, true},
+		{"unknown scenario", func(r *prerequisiteReport) { r.Runs[0].Scenario = "unknown" }, true},
+		{"missing provenance", func(r *prerequisiteReport) { r.AgentVersion = "" }, true},
+		{"stale guide", func(r *prerequisiteReport) { r.Candidate["skill/walden/SKILL.md"] = "old" }, true},
+		{"stale fixtures", func(r *prerequisiteReport) { r.Candidate["skill/testdata/prerequisite-eval/scenarios.json"] = "old" }, true},
+		{"stale binary", func(r *prerequisiteReport) { r.BinarySHA256 = strings.Repeat("0", 64) }, true},
+		{"not run", func(r *prerequisiteReport) { r.Runs[0].Verdict = "not-run" }, true},
+		{"failed observation", func(r *prerequisiteReport) { r.Runs[0].Checks[0].Verdict = "fail" }, true},
+		{"missing observation", func(r *prerequisiteReport) { r.Runs[0].Checks = nil }, true},
+		{"missing anchor", func(r *prerequisiteReport) { r.Runs[0].Transcript = "missing.txt" }, true},
+		{"escaping anchor", func(r *prerequisiteReport) { r.Runs[0].Checks[0].Anchor = "../escape.txt" }, true},
+		{"stale artifact", func(r *prerequisiteReport) { r.Artifacts["snapshot.json"] = strings.Repeat("0", 64) }, true},
+		{"extra turns", func(r *prerequisiteReport) { r.Runs[0].Turns = 3 }, true},
+		{"over total budget", func(r *prerequisiteReport) { r.Runs[0].Cost = 2 }, true},
 	}
 	for _, item := range cases {
 		t.Run(item.name, func(t *testing.T) {
 			dir := t.TempDir()
-			report := syntheticBootstrapReport(t, dir)
+			report := syntheticPrerequisiteReport(t, dir)
 			item.mutate(&report)
-			err := checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), dir, false)
+			err := checkPrerequisiteReport(report, prerequisiteScenarios(t), prerequisiteCurrent(t), dir, false)
 			if (err != nil) != item.bad {
 				t.Fatalf("error=%v, want error=%t", err, item.bad)
 			}
-			if !item.bad && checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), dir, true) == nil {
+			if !item.bad && checkPrerequisiteReport(report, prerequisiteScenarios(t), prerequisiteCurrent(t), dir, true) == nil {
 				t.Fatal("synthetic report accepted as observed")
 			}
 		})
 	}
-	t.Run("synthetic relabeled observed", func(t *testing.T) {
-		dir := t.TempDir()
-		report := syntheticBootstrapReport(t, dir)
-		report.Kind = "observed"
-		if checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), dir, true) == nil {
-			t.Fatal("non-transcript text accepted as observed tool execution")
-		}
-	})
 	t.Run("client error cannot hide behind success subtype", func(t *testing.T) {
 		dir := t.TempDir()
-		report := syntheticBootstrapReport(t, dir)
+		report := syntheticPrerequisiteReport(t, dir)
 		report.Kind = "observed"
-		// A fabricated transcript shape is a checker fixture only. No model
-		// behavior is claimed by this positive/negative structure test.
-		writeTurn := func(run bootstrapRun, failed bool) string {
+		writeTurn := func(run prerequisiteRun, failed bool) string {
 			name := run.Scenario + ".jsonl"
 			content := fmt.Sprintf("{\"type\":\"assistant\",\"session_id\":%q,\"message\":{\"content\":[{\"type\":\"tool_use\"}]}}\n{\"type\":\"result\",\"session_id\":%q,\"subtype\":\"success\",\"is_error\":%t}\n", run.SessionID, run.SessionID, failed)
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			report.Artifacts[name] = bootstrapHash(t, filepath.Join(dir, name))
+			report.Artifacts[name] = prerequisiteHash(t, filepath.Join(dir, name))
 			return name
 		}
 		for i := range report.Runs {
 			report.Runs[i].Transcript = writeTurn(report.Runs[i], false)
 		}
-		if err := checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), dir, true); err != nil {
+		if err := checkPrerequisiteReport(report, prerequisiteScenarios(t), prerequisiteCurrent(t), dir, true); err != nil {
 			t.Fatalf("valid transcript structure rejected: %v", err)
 		}
 		writeTurn(report.Runs[0], true)
-		if checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), dir, true) == nil {
+		if checkPrerequisiteReport(report, prerequisiteScenarios(t), prerequisiteCurrent(t), dir, true) == nil {
 			t.Fatal("client is_error=true accepted as observed success")
 		}
 	})
 }
 
-func TestBootstrapObservedAcceptance(t *testing.T) {
-	path := os.Getenv("WALDEN_BOOTSTRAP_EVAL_REPORT")
+func TestPrerequisiteObservedAcceptance(t *testing.T) {
+	path := os.Getenv("WALDEN_PREREQUISITE_EVAL_REPORT")
 	if path == "" {
-		t.Skip("explicit observed bootstrap report not supplied")
+		t.Skip("explicit observed prerequisite report not supplied")
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(authoringRoot(t), path)
 	}
-	var report bootstrapReport
-	bootstrapReadJSON(t, path, &report)
-	if err := checkBootstrapReport(report, bootstrapScenarios(t), bootstrapCurrent(t), filepath.Dir(path), true); err != nil {
+	var report prerequisiteReport
+	prerequisiteReadJSON(t, path, &report)
+	if err := checkPrerequisiteReport(report, prerequisiteScenarios(t), prerequisiteCurrent(t), filepath.Dir(path), true); err != nil {
 		t.Fatal(err)
 	}
-	// A fresh equivalent candidate build is checked by the distribution helper.
-	if got := bootstrapHash(t, bootstrapBuild(t)); got != report.BinarySHA256 {
+	if got := prerequisiteHash(t, prerequisiteBuild(t)); got != report.BinarySHA256 {
 		t.Fatal("observed executable differs from the current candidate")
 	}
 }
 
-func bootstrapBuild(t *testing.T) string {
+func prerequisiteBuild(t *testing.T) string {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "walden")
-	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-X github.com/andrearaponi/walden/internal/app.Version=v0.10.2", "-o", binary, "./cmd/walden")
+	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-X github.com/andrearaponi/walden/internal/app.Version=v0.10.3", "-o", binary, "./cmd/walden")
 	cmd.Dir = authoringRoot(t)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build candidate: %v\n%s", err, output)

@@ -44,14 +44,14 @@ func bootstrapProcess(t *testing.T, root, home, binary string, args ...string) s
 	return string(out)
 }
 
-func TestBootstrapCompiledDistribution(t *testing.T) {
-	binary := bootstrapBuild(t)
+func TestPrerequisiteCompiledDistribution(t *testing.T) {
+	binary := prerequisiteBuild(t)
 	root, home := t.TempDir(), t.TempDir()
 	canonical := Content()
 	if out := bootstrapProcess(t, root, home, binary, "skill", "show"); out != string(canonical) {
 		t.Fatal("compiled guide differs from canonical source")
 	}
-	if out := bootstrapProcess(t, root, home, binary, "version", "--json"); !strings.Contains(out, "walden v0.10.2 (") {
+	if out := bootstrapProcess(t, root, home, binary, "version", "--json"); !strings.Contains(out, "walden v0.10.3 (") {
 		t.Fatal("incorrect kernel version")
 	}
 	const sentinel = "UNRELATED-CONTENT-BOOTSTRAP-7293\n"
@@ -76,7 +76,7 @@ func TestBootstrapCompiledDistribution(t *testing.T) {
 		if !strings.HasSuffix(expected, "\n") {
 			expected += "\n"
 		}
-		expected += "<!-- walden-skill-version: v0.10.2 -->\n"
+		expected += "<!-- walden-skill-version: v0.10.3 -->\n"
 		if string(data) != expected {
 			t.Fatal("native installed guide/version mismatch")
 		}
@@ -105,7 +105,7 @@ func TestBootstrapCompiledDistribution(t *testing.T) {
 	for _, slot := range status.Result.Skills {
 		if slot.Agent == "claude" || slot.Agent == "codex" {
 			matched++
-			if !slot.Installed || slot.State != "in-sync" || slot.Version != "v0.10.2" {
+			if !slot.Installed || slot.State != "in-sync" || slot.Version != "v0.10.3" {
 				t.Fatalf("bad native status %+v", slot)
 			}
 		}
@@ -115,7 +115,7 @@ func TestBootstrapCompiledDistribution(t *testing.T) {
 	}
 }
 
-func TestBootstrapSkillsCLIDistribution(t *testing.T) {
+func TestPrerequisiteSkillsCLIDistribution(t *testing.T) {
 	tool := os.Getenv("WALDEN_SKILLS_CLI")
 	if tool == "" {
 		t.Skip("explicit prepared Skills CLI launcher not supplied")
@@ -290,7 +290,7 @@ func checkBootstrapSources(root string, baseline bootstrapBaseline) error {
 	return nil
 }
 
-func TestBootstrapProtectedSourcesUnchanged(t *testing.T) {
+func TestPrerequisiteProtectedSourcesUnchanged(t *testing.T) {
 	for _, change := range []string{"none", "content", "missing", "added", "mode"} {
 		t.Run(change, func(t *testing.T) {
 			root := t.TempDir()
@@ -301,7 +301,7 @@ func TestBootstrapProtectedSourcesUnchanged(t *testing.T) {
 			if err := os.WriteFile(path, []byte("original"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			baseline := bootstrapBaseline{Roots: []string{"protected"}, Files: map[string]bootstrapSource{"protected/file.go": {Kind: "file", Mode: 0o600, SHA256: bootstrapHash(t, path)}}}
+			baseline := bootstrapBaseline{Roots: []string{"protected"}, Files: map[string]bootstrapSource{"protected/file.go": {Kind: "file", Mode: 0o600, SHA256: prerequisiteHash(t, path)}}}
 			switch change {
 			case "content":
 				os.WriteFile(path, []byte("changed"), 0o600)
@@ -326,7 +326,7 @@ func TestBootstrapProtectedSourcesUnchanged(t *testing.T) {
 		path = filepath.Join(authoringRoot(t), path)
 	}
 	var baseline bootstrapBaseline
-	bootstrapReadJSON(t, path, &baseline)
+	prerequisiteReadJSON(t, path, &baseline)
 	if !reflect.DeepEqual(baseline.Roots, []string{"internal", "cmd", "templates", "go.mod", ".github/workflows"}) {
 		t.Fatal("unexpected protected roots")
 	}

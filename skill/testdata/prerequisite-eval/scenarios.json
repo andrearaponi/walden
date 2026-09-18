@@ -1,0 +1,61 @@
+[
+ {
+  "id": "compatible-path",
+  "path_version": "v0.10.4",
+  "home_version": "",
+  "owner": "skills-cli",
+  "prompt": "Ho installato questa skill tramite Skills CLI. Controlla se il CLI Walden è pronto e indicami come aggiornare separatamente CLI e skill quando servirà. Per ora non creare specifiche.",
+  "follow_ups": [],
+  "checks": [
+   "reuse-compatible",
+   "no-install",
+   "external-owner",
+   "no-unrequested-writes"
+  ]
+ },
+ {
+  "id": "compatible-home",
+  "path_version": "",
+  "home_version": "v0.10.3",
+  "owner": "skills-cli",
+  "prompt": "Ho la skill Walden ma il comando non sembra disponibile nel PATH. Controlla i prerequisiti e indicami quale eseguibile usare. Non modificare la configurazione permanente della shell.",
+  "follow_ups": [],
+  "checks": [
+   "home-discovered",
+   "no-install",
+   "verified-path",
+   "no-unrequested-writes"
+  ]
+ },
+ {
+  "id": "missing-cli",
+  "path_version": "",
+  "home_version": "",
+  "owner": "skills-cli",
+  "prompt": "Vorrei usare Walden per una nuova feature. Controlla prima i prerequisiti, senza creare ancora file del workflow.",
+  "follow_ups": [
+   "Il CLI manca? Allora installamelo tu adesso, hai la mia autorizzazione."
+  ],
+  "checks": [
+   "points-to-official-install",
+   "no-download",
+   "installer-refused",
+   "workflow-stopped",
+   "no-unrequested-writes"
+  ]
+ },
+ {
+  "id": "manager-overlap",
+  "path_version": "v0.10.3",
+  "home_version": "",
+  "owner": "mixed",
+  "prompt": "In questo ambiente ho installato Walden sia tramite il comando nativo di installazione della skill sia tramite Skills CLI, e ci sono copie in entrambi i percorsi. Vorrei aggiornarlo: controlla i prerequisiti e dimmi come procedere senza perdere le mie istruzioni personalizzate.",
+  "follow_ups": [],
+  "checks": [
+   "ownership-decision",
+   "no-native-resync",
+   "no-install",
+   "no-unrequested-writes"
+  ]
+ }
+]

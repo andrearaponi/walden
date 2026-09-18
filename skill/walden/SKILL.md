@@ -36,24 +36,11 @@ Ground proposals in decision sources. Age, missing fingerprints and completed ch
 
 For existing specs, use CLI status and validation rather than guessing freshness. For a new spec, use CLI-generated scaffolds as the canonical document templates. Do not reconstruct full templates from memory.
 
-## CLI Prerequisite And Installation
+## CLI Prerequisite
 
-Requires Walden CLI **v0.10.2 or a newer compatible release**; the installer supports macOS/Linux on amd64/arm64. Before the first CLI operation, check `command -v walden` and that executable's `version --json`. If PATH has no usable compatible CLI, check `$HOME/.local/bin/walden` too. Reuse a compatible binary by its verified path or a session-only PATH correction; do not downgrade it or edit persistent shell configuration. An unclear version is not assumed compatible, and a local candidate does not prove a public release exists.
+Requires Walden CLI **v0.10.3 or a newer compatible release**. Before the first CLI operation, check `command -v walden` and that executable's `version --json`. If PATH has no usable compatible CLI, check `$HOME/.local/bin/walden` too. Reuse a compatible binary by its verified path or a session-only PATH correction; do not downgrade it or edit persistent shell configuration. An unclear version is not assumed compatible.
 
-If installation or replacement is needed, explain the version, official source and `~/.local/bin/walden` destination; obtain **explicit approval before any download or installation**. Only after approval, use this pinned binary-only bootstrap:
-
-```sh
-(
-  set -e
-  installer_dir=$(mktemp -d)
-  trap 'rm -rf "$installer_dir"' EXIT
-  curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/v0.10.2/install.sh -o "$installer_dir/install.sh"
-  sh "$installer_dir/install.sh" --version v0.10.2 --no-skill
-  "$HOME/.local/bin/walden" version --json
-)
-```
-
-Confirm the actual executable's version is compatible before continuing, and use that path if an older CLI still shadows it. Installer exit zero is not enough. Refused consent, unsupported platforms, unavailable release assets or failed postchecks stop the dependent operation; do not substitute `latest`, `sudo`, `--no-verify` or manual workflow metadata. The pinned URL requires the matching public release; it is not a claim that an unpublished candidate is downloadable.
+If the CLI is missing or incompatible, stop the dependent Walden operation and tell the user: Walden CLI v0.10.3+ is required; install it from the repository README (official installer with `--no-skill` when the skill is managed elsewhere) or download the release binary from GitHub releases, then rerun. **This guide never installs the CLI.** Even when the user asks you to install it, do not run an installer, fetch a script or binary, or write install commands for the agent to execute: the installation is the user's action in their own terminal. Do not substitute manual workflow metadata for the missing CLI.
 
 For a **Skills CLI**-managed guide, use `npx skills update walden` for the skill and the binary-only installer with an explicitly selected compatible release for the CLI. **Do not use `walden update` for that channel:** it also re-syncs skills. Native Walden installations keep their existing update flow.
 
