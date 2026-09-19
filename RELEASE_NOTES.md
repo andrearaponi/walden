@@ -1,3 +1,27 @@
+## Walden v0.10.4
+
+A patch driven by one real Windows onboarding session: the user succeeded only because Go happened to be installed, saw "embedded version dev" on a v0.10.3 binary, and was refused three times before getting a command that worked on his platform.
+
+### Fixed: `go install` builds now report their version everywhere
+
+`walden version` resolved the module version from build info via `effectiveVersion()`; `skill status` and `skill install` read the raw ldflags variable and therefore reported and stamped `dev`. Both call sites now use `effectiveVersion()`. Release builds are unaffected (ldflags win); source builds still say `dev`.
+
+### Added: Windows binaries, and an honest `walden update` on Windows
+
+The release now ships `walden-<tag>-windows-amd64.exe` and `walden-<tag>-windows-arm64.exe`, listed in `checksums.txt`. `install.sh` remains POSIX-only (darwin/linux) and, on any other system, names the Windows paths instead of only "Unsupported OS".
+
+On Windows `walden update` and `walden update --check` refuse **before any network use**: a running `.exe` cannot rename itself, and a half-swapped binary is worse than a clear message. Update with `go install github.com/andrearaponi/walden/cmd/walden@<tag>` or by replacing the `.exe`.
+
+### Changed: the prerequisite pointer knows the platform
+
+The guide still never installs the CLI. It now determines the platform, resolves `go` on PATH, and gives one pointer: `go install …@v0.10.4` wherever `go` resolves, otherwise the repository page (`https://github.com/andrearaponi/walden`: README installer on macOS/Linux, `.exe` on the releases page for Windows). If asked to install anyway it restates the refusal once and repeats the same single pointer or block — never the other branch. No `curl`, `wget`, `install.sh` URL or pinned bootstrap appears in the guide. The four companion install guides are aligned to v0.10.4 and covered by the documentation contract test that previously missed them.
+
+### Evidence
+
+Kernel change: two call sites plus one guard, each red→green on existing seams. Five fixed, isolated agent sessions on this guide and binary, including a simulated Windows host (fixture `uname`/`go` stubs, labelled as such) with an explicit "install it for me" follow-up. Cross-builds for both Windows targets from the release tree. The v0.10.3 features keep their `a012501` certification and are not re-run.
+
+---
+
 ## Walden v0.10.3
 
 v0.10.3 changes one thing: **the skill no longer installs the Walden CLI.**

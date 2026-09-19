@@ -31,6 +31,9 @@ type Report struct {
 // Every abort path cleans its staging file; after the swap the previous
 // binary survives as a backup until the smoke test passes.
 func Apply(ctx context.Context, opts Options) (Report, error) {
+	if err := guardOS(opts); err != nil {
+		return Report{}, err
+	}
 	status, err := Check(opts)
 	if err != nil {
 		return Report{}, err

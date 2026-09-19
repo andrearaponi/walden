@@ -38,9 +38,15 @@ For existing specs, use CLI status and validation rather than guessing freshness
 
 ## CLI Prerequisite
 
-Requires Walden CLI **v0.10.3 or a newer compatible release**. Before the first CLI operation, check `command -v walden` and that executable's `version --json`. If PATH has no usable compatible CLI, check `$HOME/.local/bin/walden` too. Reuse a compatible binary by its verified path or a session-only PATH correction; do not downgrade it or edit persistent shell configuration. An unclear version is not assumed compatible.
+Requires Walden CLI **v0.10.4 or a newer compatible release**. Before the first CLI operation, check `command -v walden` and that executable's `version --json`. If PATH has no usable compatible CLI, check `$HOME/.local/bin/walden` too (on Windows: `Get-Command walden` and `%USERPROFILE%\go\bin\walden.exe`). Reuse a compatible binary by its verified path or a session-only PATH correction; do not downgrade it or edit persistent shell configuration. An unclear version is not assumed compatible.
 
-If the CLI is missing or incompatible, stop the dependent Walden operation and tell the user: Walden CLI v0.10.3+ is required; install it from the repository README (official installer with `--no-skill` when the skill is managed elsewhere) or download the release binary from GitHub releases, then rerun. **This guide never installs the CLI.** Even when the user asks you to install it, do not run an installer, fetch a script or binary, or write install commands for the agent to execute: the installation is the user's action in their own terminal. Do not substitute manual workflow metadata for the missing CLI.
+If the CLI is missing or incompatible, stop the dependent Walden operation. **This guide never installs the CLI**: do not run an installer, fetch a script or binary, or write install commands for the agent to execute; installation is the user's action in their own terminal. Determine the platform (`uname -s` on POSIX shells; PowerShell, `$env:OS`, `MSYS`/`MINGW` mean Windows) **and** run `command -v go` (PowerShell: `Get-Command go`) so the branch below is a lookup, not a question to the user. Then name one path:
+
+- `go` resolves (any platform): `go install github.com/andrearaponi/walden/cmd/walden@v0.10.4` as a single command block, then make sure `$(go env GOPATH)/bin` (Windows: `%USERPROFILE%\go\bin`) is on PATH.
+- `go` does not resolve, macOS/Linux: open https://github.com/andrearaponi/walden — the README has the one-line installer (add `--no-skill` when the skill is managed elsewhere) and the releases page has the binary. No command block: you do not carry that installer line.
+- `go` does not resolve, Windows: download `walden-v0.10.4-windows-<arch>.exe` from https://github.com/andrearaponi/walden/releases, rename it to `walden.exe` and place it on PATH.
+
+If the user then asks you to install anyway, restate once that you do not install and repeat the **same** single pointer or block — **exactly one** block per reply, never the other branch, never a fetched script. Do not repeat the refusal a third time; do not fetch anything. Do not substitute manual workflow metadata for the missing CLI.
 
 For a **Skills CLI**-managed guide, use `npx skills update walden` for the skill and the binary-only installer with an explicitly selected compatible release for the CLI. **Do not use `walden update` for that channel:** it also re-syncs skills. Native Walden installations keep their existing update flow.
 

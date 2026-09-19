@@ -22,6 +22,10 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
 
     steps:
       - name: Check out repository
@@ -43,8 +47,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME}"
           OUTPUT="walden-${VERSION}-${GOOS}-${GOARCH}"
+          if [ "${GOOS}" = "windows" ]; then OUTPUT="${OUTPUT}.exe"; fi
           go build -ldflags "-X github.com/andrearaponi/walden/internal/app.Version=${VERSION}" -o "${OUTPUT}" ./cmd/walden
-          chmod +x "${OUTPUT}"
+          if [ "${GOOS}" != "windows" ]; then chmod +x "${OUTPUT}"; fi
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4

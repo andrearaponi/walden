@@ -60,7 +60,7 @@ func runSkillStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	// Status is a report, not a gate: drift never changes the exit code.
 	result := output.Result{
-		Summary:  fmt.Sprintf("skill status against embedded version %s", Version),
+		Summary:  fmt.Sprintf("skill status against embedded version %s", effectiveVersion()),
 		Skills:   skills,
 		Warnings: warnings,
 		ExitCode: 0,
@@ -129,7 +129,7 @@ func skillOptions() (skilldist.Options, error) {
 		return skilldist.Options{}, fmt.Errorf("resolve working directory: %w", err)
 	}
 	return skilldist.Options{
-		Version: Version,
+		Version: effectiveVersion(),
 		WorkDir: workDir,
 		Env:     skilldist.EnvFromOS(),
 	}, nil
