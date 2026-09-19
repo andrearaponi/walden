@@ -51,7 +51,7 @@ func TestPrerequisiteCompiledDistribution(t *testing.T) {
 	if out := bootstrapProcess(t, root, home, binary, "skill", "show"); out != string(canonical) {
 		t.Fatal("compiled guide differs from canonical source")
 	}
-	if out := bootstrapProcess(t, root, home, binary, "version", "--json"); !strings.Contains(out, "walden v0.10.3 (") {
+	if out := bootstrapProcess(t, root, home, binary, "version", "--json"); !strings.Contains(out, "walden v0.10.4 (") {
 		t.Fatal("incorrect kernel version")
 	}
 	const sentinel = "UNRELATED-CONTENT-BOOTSTRAP-7293\n"
@@ -76,7 +76,7 @@ func TestPrerequisiteCompiledDistribution(t *testing.T) {
 		if !strings.HasSuffix(expected, "\n") {
 			expected += "\n"
 		}
-		expected += "<!-- walden-skill-version: v0.10.3 -->\n"
+		expected += "<!-- walden-skill-version: v0.10.4 -->\n"
 		if string(data) != expected {
 			t.Fatal("native installed guide/version mismatch")
 		}
@@ -105,7 +105,7 @@ func TestPrerequisiteCompiledDistribution(t *testing.T) {
 	for _, slot := range status.Result.Skills {
 		if slot.Agent == "claude" || slot.Agent == "codex" {
 			matched++
-			if !slot.Installed || slot.State != "in-sync" || slot.Version != "v0.10.3" {
+			if !slot.Installed || slot.State != "in-sync" || slot.Version != "v0.10.4" {
 				t.Fatalf("bad native status %+v", slot)
 			}
 		}

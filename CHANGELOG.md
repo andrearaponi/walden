@@ -4,6 +4,21 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.4] - 2026-09-19
+
+### Fixed
+
+- **`go install` builds reported `dev` in skill commands.** `walden version` already resolved the module version from build info, but `skill status` and `skill install` read the raw ldflags variable: a `go install …@v0.10.3` binary said "embedded version dev" and stamped `dev` into installed skills. Both now use `effectiveVersion()`.
+
+### Added
+
+- **Windows release assets.** `walden-<tag>-windows-amd64.exe` and `walden-<tag>-windows-arm64.exe` are built and listed in `checksums.txt`. `install.sh` still supports darwin/linux only; on other systems it now names the Windows paths (`go install …@<tag>` or the `.exe` asset) instead of a bare "Unsupported OS".
+- **Honest self-update on Windows.** `walden update` (and `--check`) refuses before any network use on Windows — a running `.exe` cannot replace itself in place — and names the two supported update paths.
+
+### Changed
+
+- **Platform-aware prerequisite pointer.** When the CLI is missing or incompatible, the guide now detects the platform, resolves `go` on PATH, and gives one pointer (`go install …@v0.10.4` wherever `go` resolves; otherwise `https://github.com/andrearaponi/walden` — README installer on macOS/Linux, `.exe` on the releases page for Windows). If the user asks the agent to install anyway, it restates the refusal once and repeats the same single pointer or block instead of offering alternatives. The guide still contains no download-and-execute instruction. Minimum CLI is v0.10.4. The four companion install guides are aligned and now covered by the documentation contract test.
+
 ## [0.10.3] - 2026-09-18
 
 ### Changed

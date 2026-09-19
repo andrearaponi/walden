@@ -17,7 +17,9 @@ Prints CLI version, JSON contract version (`v0beta1`), and supported document sc
 
 Self-updates the binary from GitHub releases with checksum verification and rollback on failure, then re-syncs every installed skill. `--check` reports availability without applying; `--version` pins a specific tag (strict `vX.Y.Z` tags only).
 
-This is the native distribution flow, not a binary-only update. For a Skills CLI-managed guide, use Skills CLI for the guide and the official installer with `--version <compatible-tag> --no-skill` for the executable. `--no-skill` is an **installer option**, not a flag on `walden update`. The current guide requires v0.10.2 or a newer compatible CLI and available matching release assets.
+This is the native distribution flow, not a binary-only update. For a Skills CLI-managed guide, use Skills CLI for the guide and the official installer with `--version <compatible-tag> --no-skill` for the executable. `--no-skill` is an **installer option**, not a flag on `walden update`. The current guide requires v0.10.4 or a newer compatible CLI and available matching release assets.
+
+Release assets are named `walden-<tag>-<os>-<arch>` for `darwin`/`linux` × `amd64`/`arm64`, and `walden-<tag>-windows-<arch>.exe` for Windows; `checksums.txt` lists all of them. **On Windows `walden update` refuses before any download**: a running `.exe` cannot replace itself in place. Update with `go install github.com/andrearaponi/walden/cmd/walden@<tag>` or by replacing the `.exe` from the releases page.
 
 ### `walden repo init [--json]`
 

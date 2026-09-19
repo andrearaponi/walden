@@ -26,6 +26,7 @@ type prerequisiteScenario struct {
 	PathVersion string   `json:"path_version"`
 	HomeVersion string   `json:"home_version"`
 	Owner       string   `json:"owner"`
+	Platform    string   `json:"platform,omitempty"`
 	Prompt      string   `json:"prompt"`
 	FollowUps   []string `json:"follow_ups"`
 	Checks      []string `json:"checks"`
@@ -100,7 +101,7 @@ func prerequisiteScenarios(t *testing.T) []prerequisiteScenario {
 }
 
 func TestPrerequisiteEvalFixtures(t *testing.T) {
-	want := map[string]bool{"compatible-path": true, "compatible-home": true, "missing-cli": true, "manager-overlap": true}
+	want := map[string]bool{"compatible-path": true, "compatible-home": true, "missing-cli": true, "missing-cli-windows": true, "manager-overlap": true}
 	turns := 0
 	for _, scenario := range prerequisiteScenarios(t) {
 		if !want[scenario.ID] {
@@ -119,7 +120,7 @@ func TestPrerequisiteEvalFixtures(t *testing.T) {
 		}
 		turns += 1 + len(scenario.FollowUps)
 	}
-	if len(want) != 0 || turns != 5 {
+	if len(want) != 0 || turns != 7 {
 		t.Fatalf("missing scenarios %v or wrong turn cap %d", want, turns)
 	}
 	if data, err := os.ReadFile("testdata/prerequisite-eval/README.md"); err != nil || len(data) == 0 {
@@ -250,7 +251,7 @@ func checkPrerequisiteReport(report prerequisiteReport, scenarios []prerequisite
 			}
 		}
 	}
-	if len(seen) != len(catalog) || turns > 5 || totalCost > 1 {
+	if len(seen) != len(catalog) || turns > 7 || totalCost > 1 {
 		return fmt.Errorf("missing cases or exceeded aggregate allowance")
 	}
 	return nil
@@ -361,7 +362,7 @@ func TestPrerequisiteObservedAcceptance(t *testing.T) {
 func prerequisiteBuild(t *testing.T) string {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "walden")
-	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-X github.com/andrearaponi/walden/internal/app.Version=v0.10.3", "-o", binary, "./cmd/walden")
+	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-X github.com/andrearaponi/walden/internal/app.Version=v0.10.4", "-o", binary, "./cmd/walden")
 	cmd.Dir = authoringRoot(t)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build candidate: %v\n%s", err, output)

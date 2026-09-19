@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -392,4 +393,33 @@ func TestBootstrapInstallerLegacyModes(t *testing.T) {
 			t.Fatalf("target validation: %s", output)
 		}
 	})
+}
+
+// A non-POSIX host must be refused before any network use, and the refusal
+// must name the two Windows paths instead of a bare "Unsupported OS".
+func TestBootstrapInstallerUnsupportedOSPointer(t *testing.T) {
+	for _, uname := range []string{"MINGW64_NT-10.0-22631", "MSYS_NT-10.0", "CYGWIN_NT-10.0"} {
+		t.Run(uname, func(t *testing.T) {
+			f := newFixture(t, "curl")
+			f.env["TEST_OS"] = uname
+			before := f.homeSnapshot()
+			output, code := f.run("/bin/sh", "--version", "v0.10.4", "--no-skill")
+			if code == 0 {
+				t.Fatalf("installer accepted %s: %s", uname, output)
+			}
+			for _, want := range []string{"go install github.com/andrearaponi/walden/cmd/walden@", ".exe", "releases"} {
+				if !strings.Contains(output, want) {
+					t.Errorf("refusal on %s must name %q, got:\n%s", uname, want, output)
+				}
+			}
+			for _, line := range strings.Split(read(t, f.events), "\n") {
+				if strings.HasPrefix(line, "download ") {
+					t.Fatalf("network used before the OS refusal: %s", line)
+				}
+			}
+			if after := f.homeSnapshot(); !reflect.DeepEqual(before, after) {
+				t.Fatalf("refusal changed the home: %v → %v", before, after)
+			}
+		})
+	}
 }

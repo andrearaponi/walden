@@ -117,7 +117,11 @@ detect_platform() {
   OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
   case "$OS" in
     darwin|linux) ;;
-    *) err "Unsupported OS: $OS (supported: darwin, linux)"; exit 1 ;;
+    *)
+      err "Unsupported OS: $OS (this installer supports darwin and linux)."
+      err "On Windows, install with: go install github.com/andrearaponi/walden/cmd/walden@${VERSION:-<tag>}"
+      err "or download walden-<tag>-windows-<arch>.exe from https://github.com/${REPO}/releases and place it on PATH as walden.exe."
+      exit 1 ;;
   esac
 
   raw_arch="$(uname -m)"

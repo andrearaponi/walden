@@ -2,14 +2,14 @@
 
 ## Choose One Installation Channel
 
-This page describes **native Walden** skill installation. If Skills CLI manages your copy, keep using `npx skills update walden` for the guide and the official installer with `--version <compatible-tag> --no-skill` for the executable. Do not also run the native install/update commands below on that copy. Ask before changing ownership or removing overlapping instructions; see the guide's [CLI Prerequisite](SKILL.md#cli-prerequisite) section (the skill never installs the CLI itself).
+This page describes **native Walden** skill installation. If Skills CLI manages your copy, keep using `npx skills update walden` for the guide and the official installer with `--version v0.10.4 --no-skill` for the executable. Do not also run the native install/update commands below on that copy. Ask before changing ownership or removing overlapping instructions; see the guide's [CLI Prerequisite](SKILL.md#cli-prerequisite) section (the skill never installs the CLI itself).
 
 ## Prerequisites
 
-Use Walden CLI v0.10.2 or a newer compatible release and ensure the selected executable is usable. Once the matching tag is published, a source-install alternative is:
+Use Walden CLI v0.10.4 or a newer compatible release and ensure the selected executable is usable. On macOS/Linux use the installer from the repository README; on Windows (or anywhere with Go) install from source:
 
 ```bash
-go install github.com/andrearaponi/walden/cmd/walden@v0.10.2
+go install github.com/andrearaponi/walden/cmd/walden@v0.10.4
 ```
 
 Verify with:
@@ -62,4 +62,4 @@ Claude detects the intent, loads the skill, and follows the Walden workflow, cal
 
 ## If the CLI Is Missing
 
-If PATH has no compatible `walden`, the skill also checks `~/.local/bin/walden` before offering an authorized, pinned binary-only installation. It verifies path/version afterward and stops if consent, release availability or verification is missing. It never substitutes manual workflow metadata or silently changes persistent shell configuration.
+The skill never installs the CLI. If PATH (and `~/.local/bin/walden`, or `%USERPROFILE%\go\bin\walden.exe` on Windows) has no compatible `walden`, it stops, detects your platform and points you to the matching official path: the README installer with `--no-skill` on macOS/Linux, `go install …@v0.10.4` on Windows with Go, or the `walden-v0.10.4-windows-<arch>.exe` release asset otherwise. It never substitutes manual workflow metadata or silently changes persistent shell configuration.
