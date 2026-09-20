@@ -116,7 +116,20 @@ Removes installed skills.
 
 ### `walden skill status [--json]`
 
-Reports installed skills and drift against the embedded copy.
+Reports the six supported native agent/scope slots and compares readable skill content with the embedded copy. It does not discover every external store from which an agent may load skills.
+
+| State | Meaning |
+| --- | --- |
+| `not-installed` | The requested file or Walden block is absent. |
+| `in-sync` | Readable content matches after excluding the version marker and normalizing LF/CRLF and trailing newlines. |
+| `drifted` | Readable content differs, or a readable Walden block is malformed (with a corruption warning). |
+| `unreadable` | A non-absence I/O error prevented reading the requested path; content comparison was not performed. |
+
+Read-error warnings name the agent, scope, path and underlying cause. A readable target elsewhere does not make a blocked junction readable, and an unavailable body does not produce a user/project content-divergence claim. Text and JSON expose the same distinction.
+
+Inspection never rewrites line endings or changes skills, links, configuration or ownership. The legacy `installed` flag remains true for read failures; it is **not** evidence of readability or ownership. An omitted `version` means no marker version was obtained, not that an external manager was identified. `in-sync` is a content comparison, not provenance.
+
+This is a report, not a conformity gate: a completed inspection exits `0` even when a slot is `drifted` or `unreadable`. Always inspect states and warnings. The updater's existing slot-selection policy is unchanged; this command does not authorize synchronization or repair.
 
 ### `walden skill show [--json]`
 
