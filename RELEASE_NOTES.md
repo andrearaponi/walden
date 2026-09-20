@@ -1,3 +1,23 @@
+## Walden v0.10.5
+
+This patch makes `walden skill status` distinguish a failed read from an actual content difference and compare LF/CRLF copies consistently. It does not change the embedded guide or installation management.
+
+### Unreadable paths are reported as unreadable
+
+A Windows junction can exist while the OS refuses to traverse it. Previously that read error became `drifted`, even though no content comparison had happened. The new `unreadable` state keeps the requested path and reports the underlying cause and comparison-not-performed diagnostic. Other slots remain visible, and a missing body does not manufacture a user/project divergence warning.
+
+### Same guide, different newline convention
+
+LF, CRLF and mixed endings are normalized only in the inspection view, before shared-block and trailing-marker parsing. Substantive edits still report drift. The installed files, unrelated shared-file content and raw install/uninstall writer behavior are not changed.
+
+### Compatibility and limits
+
+The JSON envelope remains `v0beta1`; existing field names/types, scope rows and report-only exit code remain. The new state is additive. `installed=true` preserves the legacy slot flag, including read failures: it is not proof of readability or ownership, and `version` absence does not identify a manager. The updater's selection policy remains unchanged.
+
+The patch does not repair a blocked junction, disable Windows protections, synchronize a Skills CLI installation, or make an agent's external store a native installation. Claude's real installation may still need a separately authorized repair. The embedded skill remains byte-identical; prior binary-bound behavioral reports are historical evidence, not certification of this new executable.
+
+---
+
 ## Walden v0.10.4
 
 A patch driven by one real Windows onboarding session: the user succeeded only because Go happened to be installed, saw "embedded version dev" on a v0.10.3 binary, and was refused three times before getting a command that worked on his platform.

@@ -4,6 +4,17 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.10.5] - 2026-09-20
+
+### Fixed
+
+- **Unreadable is not content drift.** `walden skill status` now reports `unreadable` for non-absence I/O errors, including a junction that Windows refuses to traverse. The warning identifies the agent, scope, requested path and cause, and says comparison was not performed. Unavailable bodies no longer produce a false user/project divergence warning. Readable malformed blocks retain their corruption diagnostic.
+- **LF/CRLF skill comparison.** Status compares a normalized in-memory view before extracting shared blocks or trailing version markers. Identical LF/CRLF/mixed-ending guides compare `in-sync`; real content, whitespace, BOM and lone-CR differences remain significant. Installed files and byte-oriented install/uninstall writers are unchanged.
+
+### Compatibility
+
+- JSON envelope `v0beta1`, field names/types, six native slots and report-only exit semantics are unchanged; the state vocabulary gains `unreadable`. The legacy `installed` boolean remains true on read errors and does not establish readability or ownership. No external-store discovery, automatic repair, ownership migration or updater-policy change is included. The embedded guide remains unchanged.
+
 ## [0.10.4] - 2026-09-19
 
 ### Fixed

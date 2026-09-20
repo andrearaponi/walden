@@ -14,13 +14,16 @@ const (
 	StateNotInstalled = "not-installed"
 	StateInSync       = "in-sync"
 	StateDrifted      = "drifted"
+	StateUnreadable   = "unreadable"
 )
 
 // SkillStatus describes one agent×scope installation slot.
 type SkillStatus struct {
-	Agent     string
-	Scope     Scope
-	Path      string
+	Agent string
+	Scope Scope
+	Path  string
+	// Installed preserves the legacy slot flag, including read failures.
+	// State determines readability; this flag does not establish ownership.
 	Installed bool
 	State     string
 	Version   string
@@ -31,6 +34,10 @@ type SkillStatus struct {
 // warnings (dual-scope divergence, unresolvable targets). Status never
 // mutates anything: it is a report, not a gate.
 func Status(opts Options) ([]SkillStatus, []string) {
+	return statusWithReader(opts, os.ReadFile)
+}
+
+func statusWithReader(opts Options, readFile func(string) ([]byte, error)) ([]SkillStatus, []string) {
 	embedded := normalizeBody(skill.Content())
 	statuses := make([]SkillStatus, 0, len(agents)*2)
 	warnings := []string{}
@@ -39,7 +46,7 @@ func Status(opts Options) ([]SkillStatus, []string) {
 		bodies := map[Scope][]byte{}
 
 		for _, scope := range []Scope{ScopeUser, ScopeProject} {
-			status, body, warning := statusFor(agent, scope, opts, embedded)
+			status, body, comparable, warning := statusFor(agent, scope, opts, embedded, readFile)
 			if warning != "" {
 				warnings = append(warnings, warning)
 			}
@@ -47,7 +54,7 @@ func Status(opts Options) ([]SkillStatus, []string) {
 				continue
 			}
 			statuses = append(statuses, *status)
-			if status.Installed {
+			if comparable {
 				bodies[scope] = body
 			}
 		}
@@ -62,29 +69,34 @@ func Status(opts Options) ([]SkillStatus, []string) {
 	return statuses, warnings
 }
 
-// statusFor classifies one agent×scope slot. It returns a nil status when
-// the scope is unsupported for the agent.
-func statusFor(agent Agent, scope Scope, opts Options, embedded []byte) (*SkillStatus, []byte, string) {
+// statusFor returns a comparable body only after a successful read and block
+// extraction. A readable empty body is comparable; an unavailable body is not.
+// Unsupported scopes retain their existing nil-status behavior.
+func statusFor(agent Agent, scope Scope, opts Options, embedded []byte, readFile func(string) ([]byte, error)) (*SkillStatus, []byte, bool, string) {
 	target, err := resolveTarget(agent, scope, opts)
 	if err != nil {
 		if scope == ScopeProject {
-			return nil, nil, ""
+			return nil, nil, false, ""
 		}
-		return nil, nil, fmt.Sprintf("agent %s: %v", agent.Name, err)
+		return nil, nil, false, fmt.Sprintf("agent %s: %v", agent.Name, err)
 	}
 
 	status := SkillStatus{Agent: agent.Name, Scope: scope, Path: target, State: StateNotInstalled}
 
-	raw, found, err := readInstalled(agent, target)
+	raw, found, err := readInstalled(agent, target, readFile)
 	if err != nil {
-		// A corrupt block is an installation we cannot equate with the
-		// embedded skill: report it as drifted rather than erroring.
 		status.Installed = true
-		status.State = StateDrifted
-		return &status, nil, fmt.Sprintf("agent %s: %v", agent.Name, err)
+		if errors.Is(err, ErrCorruptBlock) {
+			// Successfully read malformed content remains a structural drift,
+			// but no body was extracted for a user/project comparison.
+			status.State = StateDrifted
+			return &status, nil, false, fmt.Sprintf("agent %s (%s): %v", agent.Name, scope, err)
+		}
+		status.State = StateUnreadable
+		return &status, nil, false, fmt.Sprintf("agent %s (%s), path %s: %v; content comparison not performed", agent.Name, scope, target, err)
 	}
 	if !found {
-		return &status, nil, ""
+		return &status, nil, false, ""
 	}
 
 	body, version := Strip(raw)
@@ -96,13 +108,13 @@ func statusFor(agent Agent, scope Scope, opts Options, embedded []byte) (*SkillS
 	} else {
 		status.State = StateDrifted
 	}
-	return &status, normalized, ""
+	return &status, normalized, true, ""
 }
 
 // readInstalled returns the comparable installed content for the slot: the
 // whole file for file-kind agents, the block interior for block-kind ones.
-func readInstalled(agent Agent, target string) (raw []byte, found bool, err error) {
-	data, err := os.ReadFile(target)
+func readInstalled(agent Agent, target string, readFile func(string) ([]byte, error)) (raw []byte, found bool, err error) {
+	data, err := readFile(target)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, false, nil
 	}
@@ -110,14 +122,26 @@ func readInstalled(agent Agent, target string) (raw []byte, found bool, err erro
 		return nil, false, err
 	}
 
+	// Normalize a comparison view before block and stamp parsing. Writers and
+	// their raw-byte parser helpers must never receive this normalized view.
+	data = comparisonLines(data)
 	if agent.Kind == KindBlock {
 		return blockInterior(data, target)
 	}
 	return data, true, nil
 }
 
-// normalizeBody strips trailing newlines so cosmetic differences (such as
-// the extra newline legacy setup.sh blocks carry) do not read as drift.
+// comparisonLines treats CRLF as LF, without altering the original buffer or
+// accepting other whitespace/encoding changes (including lone CR or a BOM).
+func comparisonLines(data []byte) []byte {
+	if !bytes.Contains(data, []byte("\r\n")) {
+		return data
+	}
+	return bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+}
+
+// normalizeBody uses the same line-ending view for embedded/installed content,
+// retaining the existing tolerance for trailing newlines only.
 func normalizeBody(body []byte) []byte {
-	return bytes.TrimRight(body, "\n")
+	return bytes.TrimRight(comparisonLines(body), "\n")
 }
