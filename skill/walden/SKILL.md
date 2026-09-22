@@ -43,14 +43,12 @@ Requires Walden CLI **v0.10.4 or a newer compatible release**. Before the first 
 If the CLI is missing or incompatible, stop the dependent Walden operation. **This guide never installs the CLI**: do not run an installer, fetch a script or binary, or write install commands for the agent to execute; installation is the user's action in their own terminal. Determine the platform (`uname -s` on POSIX shells; PowerShell, `$env:OS`, `MSYS`/`MINGW` mean Windows) **and** run `command -v go` (PowerShell: `Get-Command go`) so the branch below is a lookup, not a question to the user. Then name one path:
 
 - `go` resolves (any platform): `go install github.com/andrearaponi/walden/cmd/walden@v0.10.4` as a single command block, then make sure `$(go env GOPATH)/bin` (Windows: `%USERPROFILE%\go\bin`) is on PATH.
-- `go` does not resolve, macOS/Linux: open https://github.com/andrearaponi/walden — the README has the one-line installer (add `--no-skill` when the skill is managed elsewhere) and the releases page has the binary. No command block: you do not carry that installer line.
+- `go` does not resolve, macOS/Linux: open https://github.com/andrearaponi/walden — the README has the one-line installer and the releases page has the binary. No command block: you do not carry that installer line.
 - `go` does not resolve, Windows: download `walden-v0.10.4-windows-<arch>.exe` from https://github.com/andrearaponi/walden/releases, rename it to `walden.exe` and place it on PATH.
 
 If the user then asks you to install anyway, restate once that you do not install and repeat the **same** single pointer or block — **exactly one** block per reply, never the other branch, never a fetched script. Do not repeat the refusal a third time; do not fetch anything. Do not substitute manual workflow metadata for the missing CLI.
 
-For a **Skills CLI**-managed guide, use `npx skills update walden` for the skill and the binary-only installer with an explicitly selected compatible release for the CLI. **Do not use `walden update` for that channel:** it also re-syncs skills. Native Walden installations keep their existing update flow.
-
-Ownership is a recorded fact, not an inference. When the user reports native and Skills CLI installations, or copies are overlapping, run `walden skill status --json` before recommending any update path. Classify every `"installed": true` entry mechanically: an entry with a `version` field was written by `walden skill install` (Walden re-syncs it); an entry without `version` was not written by this CLI (Skills CLI, manual copy or pre-marker install) and `walden update` would overwrite it. `in-sync`, identical content, user/project scope and a missing `npx` are not ownership evidence; the user's stated channel wins over any inference. Report the classification per path, ask which manager owns each copy, and do not run `walden update` or `skill install` until the user confirms; never automatically remove copies, replace symlinks or reinstall the skill through another manager.
+This guide is distributed through the Skills CLI and the CLI binary is distributed separately; neither installs, inspects or updates the other. Update the guide with `npx skills update walden`; update the binary with `walden update` or the README installer. Do not look for a Walden command that installs, removes or reports the guide: none exists.
 
 ## Ownership And Authorization
 
@@ -89,7 +87,6 @@ Use commands for mechanics; use `walden --help` and command help for syntax deta
 | `walden adopt [<feature>] [--apply]` | Inspect legacy bindings/freshness/provenance without proofs or probes; apply executes selected proofs and needs authorization. |
 | `walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..."` | Record a reusable correction and its prevention rule. Phases include `execute` and `release`. |
 | `walden version` | Inspect binary/schema versions. |
-| `walden skill show` / `walden skill status` | Inspect the embedded guide and installed-content drift. |
 
 Commands support `--json`, including failures. The envelope contains `schema_version`, `command`, `ok`, and `result`; inspect warnings and command-specific fields. Do not re-implement it or infer success from stdout alone.
 

@@ -3,12 +3,10 @@ package selfupdate
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"runtime"
 	"time"
 
 	"github.com/andrearaponi/walden/internal/shell"
-	"github.com/andrearaponi/walden/internal/skilldist"
 )
 
 // defaultBaseURL is the production release host. It is intentionally not
@@ -26,26 +24,17 @@ type Options struct {
 	OS             string
 	Arch           string
 	ExecutablePath string // empty resolves the running binary
-	WorkDir        string
-	Env            skilldist.Env
 	HTTPClient     *http.Client
 	Runner         shell.Runner
 }
 
 // DefaultOptions returns production defaults for the running binary.
 func DefaultOptions(currentVersion string) (Options, error) {
-	workDir, err := os.Getwd()
-	if err != nil {
-		return Options{}, fmt.Errorf("resolve working directory: %w", err)
-	}
-
 	return Options{
 		CurrentVersion: currentVersion,
 		BaseURL:        defaultBaseURL,
 		OS:             runtime.GOOS,
 		Arch:           runtime.GOARCH,
-		WorkDir:        workDir,
-		Env:            skilldist.EnvFromOS(),
 		HTTPClient:     &http.Client{Timeout: 30 * time.Second},
 		Runner:         shell.NewExecRunner(),
 	}, nil

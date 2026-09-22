@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andrearaponi/walden/internal/skilldist"
 	"github.com/andrearaponi/walden/internal/spec"
 )
 
@@ -39,7 +38,10 @@ func authoringTestEnv(t *testing.T) {
 		}
 		t.Setenv("GOCACHE", filepath.Join(cache, "go-build"))
 	}
-	setSkillTestEnv(t)
+	// Isolate the user home so the compiled binary never touches real settings.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("PATH", filepath.Join(runtime.GOROOT(), "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GOTOOLCHAIN", "local")
 	t.Setenv("GOWORK", "off")
@@ -308,43 +310,11 @@ func authoringProcess(root, binary string) authoringInvoke {
 	}
 }
 
-func authoringInstallationState(t *testing.T, invoke authoringInvoke, agent, scope, expected string) {
-	t.Helper()
-	out := authoringMust(t, invoke, "skill", "status", "--json")
-	var envelope struct {
-		Result struct {
-			Skills []struct {
-				Agent, Scope, State, Version string
-				Installed                    bool
-			} `json:"skills"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal([]byte(out), &envelope); err != nil {
-		t.Fatal(err)
-	}
-	for _, slot := range envelope.Result.Skills {
-		if slot.Agent == agent && slot.Scope == scope {
-			if !slot.Installed || slot.State != expected || slot.Version != "v0.10.1-authoring-test" {
-				t.Fatalf("unexpected installation state: %+v", slot)
-			}
-			return
-		}
-	}
-	t.Fatalf("missing installation slot %s/%s: %s", agent, scope, out)
-}
-
 func TestAuthoringCompiledBundle(t *testing.T) {
 	authoringTestEnv(t)
 	binary := authoringBuildBinary(t)
 	root := t.TempDir()
 	invoke := authoringProcess(root, binary)
-	canonical, err := os.ReadFile(filepath.Join(authoringSourceRoot(t), "skill/walden/SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if shown := authoringMust(t, invoke, "skill", "show"); shown != string(canonical) {
-		t.Fatal("fresh binary does not expose the current canonical skill")
-	}
 	authoringMust(t, invoke, "repo", "init", "--json")
 	authoringMust(t, invoke, "feature", "init", "authoring-example", "--json")
 	feature, err := spec.LoadFeature(root, "authoring-example")
@@ -364,39 +334,6 @@ func TestAuthoringCompiledBundle(t *testing.T) {
 	authoringApprove(t, invoke)
 	authoringMust(t, invoke, "validate", "authoring-example", "--all", "--json")
 	authoringMust(t, invoke, "task", "complete", "authoring-example", "1.1", "--json")
-
-	authoringMust(t, invoke, "skill", "install", "--all", "--json")
-	for _, agent := range []string{"claude", "codex", "copilot", "opencode"} {
-		authoringInstallationState(t, invoke, agent, "user", "in-sync")
-	}
-	authoringMust(t, invoke, "skill", "install", "claude", "--project", "--json")
-	path := filepath.Join(root, ".claude/skills/walden/SKILL.md")
-	installed, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, version := skilldist.Strip(installed)
-	if !bytes.Equal(body, canonical) || version != "v0.10.1-authoring-test" {
-		t.Fatal("installed bytes/version differ from the fresh binary")
-	}
-	authoringInstallationState(t, invoke, "claude", "project", "in-sync")
-
-	const sentinel = "USER-OWNED-SENTINEL-8f2a"
-	authoringWrite(t, filepath.Join(root, "AGENTS.md"), sentinel+"\n")
-	authoringMust(t, invoke, "skill", "install", "codex", "--project", "--json")
-	managed, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(managed), sentinel) || !strings.Contains(string(managed), string(canonical)) {
-		t.Fatal("managed-block installation lost user text or embedded content")
-	}
-	authoringInstallationState(t, invoke, "codex", "project", "in-sync")
-
-	// Status intentionally exits zero on drift; the JSON state is the oracle.
-	authoringWrite(t, path, strings.Replace(string(installed), "# Walden", "# DRIFT-SENTINEL-97b3", 1))
-	authoringInstallationState(t, invoke, "claude", "project", "drifted")
-	authoringInstallationState(t, invoke, "claude", "user", "in-sync")
 }
 
 func TestAuthoringBaselineCLICompatibility(t *testing.T) {

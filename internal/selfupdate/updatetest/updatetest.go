@@ -16,7 +16,6 @@ import (
 
 	"github.com/andrearaponi/walden/internal/selfupdate"
 	"github.com/andrearaponi/walden/internal/shell"
-	"github.com/andrearaponi/walden/internal/skilldist"
 )
 
 // TB is the subset of testing.TB the fixture needs, kept local so importing
@@ -28,8 +27,8 @@ type TB interface {
 }
 
 // Fixture wires a complete offline update environment: a fake release host
-// serving one tag for the current platform (with real checksums), a fake
-// installed executable, and a home carrying one installed claude skill.
+// serving one tag for the current platform (with real checksums) and a fake
+// installed executable.
 type Fixture struct {
 	Options    selfupdate.Options
 	Executable string
@@ -50,15 +49,6 @@ func New(t TB, tag, currentVersion string, binaryContent []byte) Fixture {
 		t.Fatalf("seed current executable: %v", err)
 	}
 
-	home := tempDir(t)
-	skillPath := filepath.Join(home, ".claude", "skills", "walden", "SKILL.md")
-	if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
-		t.Fatalf("create skill dir: %v", err)
-	}
-	if err := os.WriteFile(skillPath, []byte("skill body\n"), 0o644); err != nil {
-		t.Fatalf("seed skill file: %v", err)
-	}
-
 	return Fixture{
 		Options: selfupdate.Options{
 			CurrentVersion: currentVersion,
@@ -66,8 +56,6 @@ func New(t TB, tag, currentVersion string, binaryContent []byte) Fixture {
 			OS:             runtime.GOOS,
 			Arch:           runtime.GOARCH,
 			ExecutablePath: executable,
-			WorkDir:        tempDir(t),
-			Env:            skilldist.Env{Home: home},
 			HTTPClient:     server.Client(),
 			Runner:         shell.NewExecRunner(),
 		},

@@ -11,7 +11,7 @@ Walden is an open-source, spec-driven delivery kernel: a deterministic CLI that 
   <img src="site/walden-og.jpg" alt="Walden — Intention before code. Proof before completion." />
 </p>
 
-Most teams run Walden through a coding agent. The AI skill handles the non-deterministic half — asking clarifying questions, drafting requirements, designing architecture, planning tasks — and drives the CLI at every step. The CLI enforces the deterministic half: phase order, freshness fingerprints, verification proofs, execution evidence, and the release gate. You keep the judgment calls — nothing gets approved on your behalf.
+Most teams run Walden through a coding agent. The embedded AI skill handles the non-deterministic half — asking clarifying questions, drafting requirements, designing architecture, planning tasks — and drives the CLI at every step. The CLI enforces the deterministic half: phase order, freshness fingerprints, verification proofs, execution evidence, and the release gate. You keep the judgment calls — nothing gets approved on your behalf.
 
 ## When to use Walden
 
@@ -41,35 +41,28 @@ Requirements are written as [EARS](docs/reference/spec-format.md) acceptance cri
 
 ## Install
 
-Walden is two artifacts with one manager each: the **binary** comes from GitHub releases, the **AI skill** comes from the [Skills CLI](https://skills.sh). Neither installs the other.
-
-### Binary
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
 ```
 
-Downloads the latest release binary for your platform (darwin/linux, amd64/arm64), verifies its SHA-256 checksum and installs it to `~/.local/bin/walden`. Flags pass through the pipe with `sh -s --`:
+Downloads the latest release binary for your platform (darwin/linux, amd64/arm64), verifies its SHA-256 checksum, installs it to `~/.local/bin/walden`, and offers to install the AI skill for your coding agent — Claude Code, Codex, Copilot, or OpenCode. Flags pass through the pipe with `sh -s --`:
 
 | Flag | Effect |
 | --- | --- |
+| `--skill <agent\|all>` | Install the skill non-interactively (`claude`, `codex`, `copilot`, `opencode`, `all`) |
+| `--no-skill` | Install only the binary, without skill prompts or changes; incompatible with `--skill` and `--uninstall` |
 | `--version <tag>` | Install a specific release instead of the latest |
-| `--no-verify` | Skip checksum verification (releases <= v0.4.0 have no checksums) |
-| `--uninstall` | Remove the binary |
+| `--uninstall` | Remove the skill (all agents) and the binary |
 
-From source: `go install github.com/andrearaponi/walden/cmd/walden@latest`. Later, `walden update` upgrades the binary in place (checksum-verified, atomic). It changes one file: the executable.
+From source: `go install github.com/andrearaponi/walden/cmd/walden@latest`, then `walden skill install claude` — the skill ships inside the binary, always at the matching version. Later, `walden update` upgrades the binary (checksum-verified, atomic) and re-syncs every installed skill.
 
-### AI skill
+### Skill-first installation (Skills CLI)
 
 ```bash
 npx skills add andrearaponi/walden --skill walden
 ```
 
-Installs the guide project-level for the agents the Skills CLI detects (Claude Code, Codex, Copilot, OpenCode); add `--global` for a user-level copy, `--copy` for a committable file instead of a link. Update it with `npx skills update walden`. Details, scopes and removal: [skill/walden/install.md](skill/walden/install.md).
-
-The current guide requires Walden CLI v0.10.4 or a newer compatible release. The skill **does not install the CLI**: if it is missing or incompatible, the skill stops, detects your platform and points you here, then you install the binary yourself and rerun. See the guide's [CLI Prerequisite](skill/walden/SKILL.md#cli-prerequisite) section.
-
-Without Node, as a manual fallback (not a second channel): copy this repository's `skill/walden/` directory into your agent's skills directory, for example `~/.claude/skills/walden/`, and copy again when the guide changes.
+The current guide requires Walden CLI v0.10.4 or a newer compatible release. The skill **does not install the CLI**: if it is missing or incompatible, the skill stops, detects your platform and points you here — install it yourself with the installer above (add `--no-skill` so it leaves your Skills CLI-managed guide alone) or from [GitHub releases](https://github.com/andrearaponi/walden/releases), then rerun. See the guide's [CLI Prerequisite](skill/walden/SKILL.md#cli-prerequisite) section.
 
 ### Windows
 
@@ -80,6 +73,8 @@ go install github.com/andrearaponi/walden/cmd/walden@v0.10.4   # then ensure %US
 ```
 
 or grab `walden-v0.10.4-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
+
+Keep one manager per skill copy: Skills CLI users update the guide with `npx skills update walden` and the executable through `install.sh --version <compatible-tag> --no-skill`. Do not use `walden update` for that channel, because it also re-syncs skills. Native installations retain the existing `walden update` flow. Resolve overlapping native/external copies explicitly instead of automatically removing or replacing them.
 
 ## Quickstart
 

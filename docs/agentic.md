@@ -24,14 +24,14 @@ Within authoring, each AC gets a brief **Acceptance check** describing the obser
 
 ## Install the skill
 
-The skill ships embedded in the binary, versioned with it:
+The skill is distributed through the [Skills CLI](https://skills.sh), separately from the binary:
 
 ```bash
-walden skill install claude     # or: codex | copilot | opencode | --all
-walden skill status             # drift against the embedded copy
+npx skills add andrearaponi/walden --skill walden     # project-level; add --global for user scope
+npx skills update walden                                # later
 ```
 
-`walden update` re-syncs every installed skill with the binary, so the instructions and the CLI they drive never diverge. `--project` installs at repository scope instead of user scope.
+The guide declares the CLI version it requires and checks it through `walden version --json` before its first operation; the binary knows nothing about the guide. See [skill/walden/install.md](../skill/walden/install.md) for scopes, committed copies and removal.
 
 ## What a session looks like
 
@@ -66,9 +66,9 @@ The failure mode of agent-driven development is unverifiable velocity: plausible
 - Evidence records declared proof outcomes against spec and code identities. Authors and reviewers remain responsible for choosing assertions that actually exercise the intended behavior.
 - Every agent action that matters is a CLI invocation — auditable in the same JSON envelope your pipelines already parse.
 
-Install the skill once with `walden skill install`, then ask to use Walden when appropriate. Human review still requires attention: the skill removes repeated scaffolding and state bookkeeping, not the responsibility to understand the contract.
+Install the skill once with the Skills CLI, then ask to use Walden when appropriate. Human review still requires attention: the skill removes repeated scaffolding and state bookkeeping, not the responsibility to understand the contract.
 
 ## Companions and internals
 
-- **`walden skill show`** prints the embedded `SKILL.md` — the exact operational instructions the agent follows. It is intentionally self-contained and is the agent-facing counterpart of these human-facing docs.
+- **[`skill/walden/SKILL.md`](../skill/walden/SKILL.md)** is the exact operational guide the agent follows. It is intentionally self-contained and is the agent-facing counterpart of these human-facing docs.
 - **`walden-history`** (shipped in-repo at `skill/walden-history/`, installed manually) narrates committed `.walden/` history — sourced feature chronicles, product eras, rework archaeology — and officiates the [retirement ceremony](adoption.md#retirement).

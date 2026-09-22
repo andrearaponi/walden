@@ -18,7 +18,7 @@ import (
 var prerequisiteInputs = []string{
 	"install.sh", "skill/walden/SKILL.md", "skill/testdata/prerequisite-eval/scenarios.json", "skill/testdata/prerequisite-eval/README.md",
 	"README.md", "docs/quickstart.md", "docs/reference/cli.md", "CHANGELOG.md", "RELEASE_NOTES.md",
-	"skill/walden/install-claude.md", "skill/walden/install-codex.md", "skill/walden/install-copilot.md", "skill/walden/install-opencode.md",
+	"skill/walden/install.md",
 }
 
 type prerequisiteScenario struct {

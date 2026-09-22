@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// canonicalGuide reads the published guide from the repository: the binary no
+// longer carries a copy, so the file on disk is the only source of truth.
+func canonicalGuide(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(authoringRoot(t), "skill/walden/SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func requireAuthoringText(t *testing.T, text string, fragments ...string) {
 	t.Helper()
 	text = strings.ToLower(strings.Join(strings.Fields(text), " "))

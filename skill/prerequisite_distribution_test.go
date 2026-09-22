@@ -3,7 +3,6 @@ package skill
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -44,74 +43,22 @@ func bootstrapProcess(t *testing.T, root, home, binary string, args ...string) s
 	return string(out)
 }
 
+// The compiled binary carries the kernel version the guide checks and nothing
+// of the guide itself: `skill` is an unknown word to it.
 func TestPrerequisiteCompiledDistribution(t *testing.T) {
 	binary := prerequisiteBuild(t)
 	root, home := t.TempDir(), t.TempDir()
-	canonical := Content()
-	if out := bootstrapProcess(t, root, home, binary, "skill", "show"); out != string(canonical) {
-		t.Fatal("compiled guide differs from canonical source")
-	}
 	if out := bootstrapProcess(t, root, home, binary, "version", "--json"); !strings.Contains(out, "walden v0.10.4 (") {
 		t.Fatal("incorrect kernel version")
 	}
-	const sentinel = "UNRELATED-CONTENT-BOOTSTRAP-7293\n"
-	for _, path := range []string{filepath.Join(home, ".codex/AGENTS.md"), filepath.Join(root, "AGENTS.md")} {
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(sentinel), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	cmd := exec.Command(binary, "skill", "show")
+	cmd.Dir, cmd.Env = root, bootstrapEnv(home)
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.HasPrefix(string(out), "unknown command: skill show") {
+		t.Fatalf("compiled binary still answers `skill show`: err=%v\n%s", err, out)
 	}
-	for _, agent := range []string{"claude", "codex"} {
-		bootstrapProcess(t, root, home, binary, "skill", "install", agent, "--json")
-		bootstrapProcess(t, root, home, binary, "skill", "install", agent, "--project", "--json")
-	}
-	for _, path := range []string{filepath.Join(home, ".claude/skills/walden/SKILL.md"), filepath.Join(root, ".claude/skills/walden/SKILL.md")} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		expected := string(canonical)
-		if !strings.HasSuffix(expected, "\n") {
-			expected += "\n"
-		}
-		expected += "<!-- walden-skill-version: v0.10.4 -->\n"
-		if string(data) != expected {
-			t.Fatal("native installed guide/version mismatch")
-		}
-	}
-	for _, path := range []string{filepath.Join(home, ".codex/AGENTS.md"), filepath.Join(root, "AGENTS.md")} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(string(data), sentinel) || !bytes.Contains(data, canonical) {
-			t.Fatal("Codex block replacement lost user content or canonical guide")
-		}
-	}
-	var status struct {
-		Result struct {
-			Skills []struct {
-				Agent, Scope, State, Version string
-				Installed                    bool
-			} `json:"skills"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal([]byte(bootstrapProcess(t, root, home, binary, "skill", "status", "--json")), &status); err != nil {
-		t.Fatal(err)
-	}
-	matched := 0
-	for _, slot := range status.Result.Skills {
-		if slot.Agent == "claude" || slot.Agent == "codex" {
-			matched++
-			if !slot.Installed || slot.State != "in-sync" || slot.Version != "v0.10.4" {
-				t.Fatalf("bad native status %+v", slot)
-			}
-		}
-	}
-	if matched != 4 {
-		t.Fatalf("missing native scope checks: %d", matched)
+	if entries, _ := os.ReadDir(home); len(entries) != 0 {
+		t.Fatalf("compiled binary wrote into the home on an unknown command: %v", entries)
 	}
 }
 
@@ -189,7 +136,7 @@ func TestPrerequisiteSkillsCLIDistribution(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !bytes.Equal(data, Content()) {
+				if !bytes.Equal(data, canonicalGuide(t)) {
 					t.Fatalf("external guide mismatch at %s", path)
 				}
 			}

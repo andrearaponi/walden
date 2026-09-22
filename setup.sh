@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
 BINARY_NAME="walden"
 WALDEN="${INSTALL_DIR}/${BINARY_NAME}"
+SKILLS_CLI_ADD="npx skills add andrearaponi/walden"
 
 # --- Colors (degrade gracefully) ---
 
@@ -112,51 +113,14 @@ verify_binary() {
   fi
 }
 
-# --- Skill install (delegated to the binary) ---
+# --- Skills CLI pointer ---
 
-prompt_skill_install() {
-  if ! [ -t 0 ]; then
-    info "Non-interactive mode: skipping skill install"
-    info "Run '${WALDEN} skill install <agent>' to install the skill"
-    return 0
-  fi
-
-  printf "\n${BOLD}Install Walden skill for:${NC}\n"
-  printf "  1) Claude Code\n"
-  printf "  2) Codex\n"
-  printf "  3) Copilot\n"
-  printf "  4) OpenCode\n"
-  printf "  5) All\n"
-  printf "  6) Skip\n"
-  printf "\n${BOLD}Choice [1-6]:${NC} "
-
-  read -r choice < /dev/tty
-
-  case "$choice" in
-    1) "$WALDEN" skill install claude ;;
-    2) "$WALDEN" skill install codex ;;
-    3) "$WALDEN" skill install copilot ;;
-    4) "$WALDEN" skill install opencode ;;
-    5) "$WALDEN" skill install --all ;;
-    6) info "Skill install skipped" ;;
-    *) warn "Invalid choice: ${choice}. Skipping skill install." ;;
-  esac
-}
-
-verify_skill() {
-  "$WALDEN" skill status
+point_to_skills_cli() {
+  printf "\n${BOLD}AI skill:${NC} install or update it with the Skills CLI\n"
+  printf "  %s\n" "$SKILLS_CLI_ADD"
 }
 
 # --- Uninstall ---
-
-uninstall_skill() {
-  if [ -x "$WALDEN" ]; then
-    "$WALDEN" skill uninstall --all
-  else
-    warn "walden binary not found at ${WALDEN}; skill files may remain"
-    warn "Reinstall and run '${BINARY_NAME} skill uninstall --all' to remove them"
-  fi
-}
 
 uninstall_binary() {
   if [ -f "$WALDEN" ]; then
@@ -172,10 +136,12 @@ uninstall_binary() {
 usage() {
   printf "${BOLD}setup.sh${NC} — install or uninstall Walden\n\n"
   printf "Usage:\n"
-  printf "  ./setup.sh              Install binary and skill\n"
-  printf "  ./setup.sh install      Install binary and skill\n"
-  printf "  ./setup.sh uninstall    Remove binary and skill\n"
-  printf "  ./setup.sh --help       Show this help\n"
+  printf "  ./setup.sh              Build and install the binary\n"
+  printf "  ./setup.sh install      Build and install the binary\n"
+  printf "  ./setup.sh uninstall    Remove the binary\n"
+  printf "  ./setup.sh --help       Show this help\n\n"
+  printf "This script installs the binary only. Get the AI skill with the Skills CLI:\n"
+  printf "  %s\n" "$SKILLS_CLI_ADD"
 }
 
 # --- Main ---
@@ -190,13 +156,11 @@ main() {
       build_binary
       install_binary
       verify_binary
-      prompt_skill_install
-      verify_skill
+      point_to_skills_cli
       printf "\n${BOLD}=== Done ===${NC}\n"
       ;;
     uninstall)
       printf "\n${BOLD}=== Walden Uninstall ===${NC}\n\n"
-      uninstall_skill
       uninstall_binary
       printf "\n${BOLD}=== Done ===${NC}\n"
       ;;

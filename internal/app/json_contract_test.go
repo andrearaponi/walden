@@ -32,10 +32,8 @@ func chdirContract(t *testing.T) string {
 // TestJSONErrorContract asserts the envelope contract for one error-inducing
 // invocation of every --json command: parseable envelope on stdout, ok=false,
 // the command's canonical name, a non-empty summary, a non-zero exit code,
-// and nothing on stderr. Two commands are absent by design: `version` has no
-// error path at all, and `skill status` fails only when the working directory
-// cannot be resolved, which is not portably inducible (its error path routes
-// through the same unit-tested renderer as every other command).
+// and nothing on stderr. One command is absent by design: `version` has no
+// error path at all.
 func TestJSONErrorContract(t *testing.T) {
 	cases := []struct {
 		name          string
@@ -134,16 +132,6 @@ func TestJSONErrorContract(t *testing.T) {
 				Version = "dev"
 				buildInfoVersion = func() string { return "(devel)" }
 			},
-		},
-		{
-			name:        "skill install with unknown agent",
-			args:        []string{"skill", "install", "nonexistent-agent", "--json"},
-			wantCommand: "skill-install",
-		},
-		{
-			name:        "skill uninstall with invalid flag combination",
-			args:        []string{"skill", "uninstall", "--all", "--project", "--json"},
-			wantCommand: "skill-uninstall",
 		},
 		{
 			name:        "verify with invalid feature name",

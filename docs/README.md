@@ -36,4 +36,4 @@ Walden is a spec-driven delivery kernel: a deterministic CLI that takes a featur
 - *Using it every day?* [The Daily Workflow](workflow.md) with [CLI Commands](reference/cli.md) at hand.
 - *Building tooling on top?* [JSON Contract](reference/json.md), then [Spec File Format](reference/spec-format.md).
 
-Documentation describes the released version whose tag matches this checkout. Version history lives in the [CHANGELOG](../CHANGELOG.md); agent-facing operational instructions live in the embedded skill (`walden skill show`), which is distributed with the binary and intentionally self-contained.
+Documentation describes the released version whose tag matches this checkout. Version history lives in the [CHANGELOG](../CHANGELOG.md); agent-facing operational instructions live in the skill guide ([`skill/walden/SKILL.md`](../skill/walden/SKILL.md)), distributed through the Skills CLI and intentionally self-contained.

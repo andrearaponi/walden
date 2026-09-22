@@ -1,3 +1,31 @@
+## Walden v0.11.0
+
+The binary no longer distributes the AI skill. The Skills CLI is the only channel for the guide; GitHub releases are the only channel for the binary; neither knows about the other. This closes the dual-channel period that started when `walden skill install` was added in v0.5.0 and that the last two patches spent reconciling.
+
+### Removed: `walden skill …`, skill re-sync, installer skill handoff
+
+`walden skill install|uninstall|status|show` no longer exist — `walden skill …` is an unknown command, indistinguishable from a typo, and the binary embeds no copy of `SKILL.md`, knows no agent path and names no channel. `walden update` replaces the executable and nothing else; `changed_files` has one entry. `install.sh` installs the binary, rejects `--skill <agent>` with a pointer to the Skills CLI, and `--uninstall` removes only `~/.local/bin/walden`. `--no-skill` is accepted as a no-op so older instructions keep working; it is not advertised and will be removed later.
+
+### Changed: one channel, one sentence
+
+Install the guide with `npx skills add andrearaponi/walden` (project-level by default, `--global` for user scope, `--copy` for a committable file) and update it with `npx skills update walden`. This is the same model the companion skills `walden-history` and `walden-soundings` already used. The guide's CLI Prerequisite section replaces two paragraphs of ownership protocol with one sentence naming the two update paths, and its command table loses the `skill show` / `status` row. The floor stays **v0.10.4**: nothing in the guide depends on new CLI behavior, and raising it would have forced the very users being migrated to update first. The four per-agent install pages collapse into `skill/walden/install.md`.
+
+### Compatibility: what a ≤ v0.10.5 user sees once
+
+That binary's `walden update` swaps in v0.11.0 and then, as it always did, calls the new binary's `skill install <agent>` for every copy it detected before the swap. The new binary answers "unknown command" and does no I/O, so the update completes and any Skills CLI-managed copy is untouched. The old binary wraps that answer in its usual non-fatal warning, including its own "run `walden skill install <agent>` to repair" hint. It is verbose and names a command that no longer exists; it happens once. Ignore it and use the Skills CLI for the guide. Prior releases are not modified or re-published.
+
+The JSON envelope remains `v0beta1`; the removal is a reduction, not a reshape. Windows behavior is unchanged: `walden update` still refuses there.
+
+### Why
+
+Two managers for one file need an ownership protocol, and the protocol had to live in the guide, the README, the installer and the kernel at once. It also produced real defects: false drift on CRLF copies and a junction into the Skills CLI store that Windows refused to traverse — the last two patches. Removing the second channel removes the protocol and the class of defects with it. The one relation that remains is the one that was always legitimate: the guide declares which CLI it needs and checks it through `walden version --json`.
+
+### Evidence
+
+Seven executable leaves, each with its own new assertion: unknown-command parity for every `skill` form against a control typo; the updater's fake runner recording exactly one post-swap call (`version`); `internal/skilldist` absent and the module stdlib-only; no `go:embed` in `skill/`; the installer harness rejecting `--skill`, accepting `--no-skill`, leaving a seeded agent file byte-identical on `--uninstall`; the revised guide contract tests; and a distribution contract test whose every negative check (no embed, no agent path, no channel literal in Go sources or templates, no removed command in current docs, guide description absent from the built binary) is paired with a positive control that must match a pre-change fixture. `walden verify` re-proves all seven against the final tree.
+
+---
+
 ## Walden v0.10.5
 
 This patch makes `walden skill status` distinguish a failed read from an actual content difference and compare LF/CRLF copies consistently. It does not change the embedded guide or installation management.

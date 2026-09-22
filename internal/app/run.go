@@ -80,8 +80,6 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runRelease(args[1:], stdout, stderr)
 	case "review":
 		return runReview(args[1:], stdout, stderr)
-	case "skill":
-		return runSkill(args[1:], stdout, stderr)
 	}
 
 	_, _ = fmt.Fprintf(stderr, "unknown command: %s\n\n", strings.Join(args, " "))

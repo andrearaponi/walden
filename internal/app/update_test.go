@@ -195,3 +195,27 @@ func TestRunUpdateUsageListsCommand(t *testing.T) {
 		t.Fatalf("usage does not list the update command: %s", stdout.String())
 	}
 }
+
+// `walden update` changes one file: the executable. Nothing else is listed.
+func TestUpdateChangedFilesExecutableOnly(t *testing.T) {
+	newBinary := []byte("#!/bin/sh\necho \"walden v0.7.0 (schema v0beta1)\"\n")
+	fixture := stubUpdateEnvironment(t, "v0.7.0", "v0.5.0", newBinary)
+
+	var stdout, stderr bytes.Buffer
+	if exitCode := Run([]string{"update", "--json"}, &stdout, &stderr); exitCode != 0 {
+		t.Fatalf("update exited %d (stderr: %s)", exitCode, stderr.String())
+	}
+	var envelope output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	want, _ := filepath.EvalSymlinks(fixture.Executable)
+	if len(envelope.Result.ChangedFiles) != 1 || envelope.Result.ChangedFiles[0] != want {
+		t.Fatalf("changed_files = %v, want exactly [%s]", envelope.Result.ChangedFiles, want)
+	}
+	for _, warning := range envelope.Result.Warnings {
+		if strings.Contains(warning, "skill") {
+			t.Fatalf("update carries a skill warning: %q", warning)
+		}
+	}
+}

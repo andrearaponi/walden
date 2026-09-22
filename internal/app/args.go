@@ -154,10 +154,7 @@ func printCommandHelp(w io.Writer, spec commandSpec) {
 	}
 }
 
-var (
-	jsonFlag    = flagSpec{Name: "--json", Description: "Emit machine-readable JSON instead of text"}
-	projectFlag = flagSpec{Name: "--project", Description: "Install into the repository instead of the user home"}
-)
+var jsonFlag = flagSpec{Name: "--json", Description: "Emit machine-readable JSON instead of text"}
 
 // commandRegistry declares every walden command. Dispatch paths, help output,
 // and flag parsing all derive from this table.
@@ -171,7 +168,7 @@ var commandRegistry = []commandSpec{
 	{
 		Path:    "update",
 		Syntax:  "update [--check] [--version <tag>] [--json]",
-		Summary: "Update the walden binary from GitHub releases and re-sync installed skills",
+		Summary: "Update the walden binary from GitHub releases",
 		BoolFlags: []flagSpec{
 			{Name: "--check", Description: "Report the available update without applying it"},
 			jsonFlag,
@@ -352,45 +349,6 @@ var commandRegistry = []commandSpec{
 				ValueFlags: []flagSpec{
 					{Name: "--phase", Description: "Target requirements|design|tasks", Placeholder: "<phase>"},
 				},
-			},
-		},
-	},
-	{
-		Path:    "skill",
-		Syntax:  "skill <subcommand>",
-		Summary: "AI skill distribution operations",
-		Subcommands: []commandSpec{
-			{
-				Path:    "skill install",
-				Syntax:  "skill install <agent>|--all [--project] [--json]",
-				Summary: "Install the embedded AI skill (claude|codex|copilot|opencode)",
-				BoolFlags: []flagSpec{
-					{Name: "--all", Description: "Target every supported agent"},
-					projectFlag,
-					jsonFlag,
-				},
-			},
-			{
-				Path:    "skill uninstall",
-				Syntax:  "skill uninstall <agent>|--all [--project] [--json]",
-				Summary: "Remove an installed AI skill",
-				BoolFlags: []flagSpec{
-					{Name: "--all", Description: "Target every supported agent"},
-					projectFlag,
-					jsonFlag,
-				},
-			},
-			{
-				Path:      "skill status",
-				Syntax:    "skill status [--json]",
-				Summary:   "Report installed skills and drift against the embedded copy",
-				BoolFlags: []flagSpec{jsonFlag},
-			},
-			{
-				Path:      "skill show",
-				Syntax:    "skill show [--json]",
-				Summary:   "Print the embedded SKILL.md",
-				BoolFlags: []flagSpec{jsonFlag},
 			},
 		},
 	},

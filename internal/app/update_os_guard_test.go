@@ -27,7 +27,7 @@ func TestUpdateRefusesOnWindows(t *testing.T) {
 	staging := t.TempDir()
 	updateOptions = func(current string) (selfupdate.Options, error) {
 		return selfupdate.Options{CurrentVersion: current, BaseURL: "http://release.invalid", OS: "windows", Arch: "amd64",
-			ExecutablePath: staging + "/walden.exe", WorkDir: staging, HTTPClient: &http.Client{Transport: transport}}, nil
+			ExecutablePath: staging + "/walden.exe", HTTPClient: &http.Client{Transport: transport}}, nil
 	}
 	for _, args := range [][]string{{"update"}, {"update", "--check"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

@@ -15,9 +15,9 @@ Prints CLI version, JSON contract version (`v0beta1`), and supported document sc
 
 ### `walden update [--check] [--version <tag>] [--json]`
 
-Self-updates the binary from GitHub releases with checksum verification and rollback on failure, then re-syncs every installed skill. `--check` reports availability without applying; `--version` pins a specific tag (strict `vX.Y.Z` tags only).
+Self-updates the binary from GitHub releases with checksum verification and rollback on failure. It changes one file: the executable. `--check` reports availability without applying; `--version` pins a specific tag (strict `vX.Y.Z` tags only).
 
-This is the native distribution flow, not a binary-only update. For a Skills CLI-managed guide, use Skills CLI for the guide and the official installer with `--version <compatible-tag> --no-skill` for the executable. `--no-skill` is an **installer option**, not a flag on `walden update`. The current guide requires v0.10.4 or a newer compatible CLI and available matching release assets.
+The AI skill is not part of this flow: it is distributed and updated through the Skills CLI (`npx skills update walden`). The current guide requires v0.10.4 or a newer compatible CLI and available matching release assets.
 
 Release assets are named `walden-<tag>-<os>-<arch>` for `darwin`/`linux` × `amd64`/`arm64`, and `walden-<tag>-windows-<arch>.exe` for Windows; `checksums.txt` lists all of them. **On Windows `walden update` refuses before any download**: a running `.exe` cannot replace itself in place. Update with `go install github.com/andrearaponi/walden/cmd/walden@<tag>` or by replacing the `.exe` from the releases page.
 
@@ -104,33 +104,3 @@ One deterministic verdict per feature — `chain`, `validation`, `decisions`, `e
 
 Appends a structured lesson to `.walden/lessons.md`: what happened, what was learned, and the guardrail that prevents the repeat.
 
-## Skills
-
-### `walden skill install <agent>|--all [--project] [--json]`
-
-Installs the embedded AI skill for `claude`, `codex`, `copilot`, or `opencode` (user scope by default, `--project` for repository scope). The skill is versioned with the binary; `walden update` re-syncs installed copies. Do not apply this native installer to a copy managed by Skills CLI unless the user explicitly chooses to change its ownership.
-
-### `walden skill uninstall <agent>|--all [--project] [--json]`
-
-Removes installed skills.
-
-### `walden skill status [--json]`
-
-Reports the six supported native agent/scope slots and compares readable skill content with the embedded copy. It does not discover every external store from which an agent may load skills.
-
-| State | Meaning |
-| --- | --- |
-| `not-installed` | The requested file or Walden block is absent. |
-| `in-sync` | Readable content matches after excluding the version marker and normalizing LF/CRLF and trailing newlines. |
-| `drifted` | Readable content differs, or a readable Walden block is malformed (with a corruption warning). |
-| `unreadable` | A non-absence I/O error prevented reading the requested path; content comparison was not performed. |
-
-Read-error warnings name the agent, scope, path and underlying cause. A readable target elsewhere does not make a blocked junction readable, and an unavailable body does not produce a user/project content-divergence claim. Text and JSON expose the same distinction.
-
-Inspection never rewrites line endings or changes skills, links, configuration or ownership. The legacy `installed` flag remains true for read failures; it is **not** evidence of readability or ownership. An omitted `version` means no marker version was obtained, not that an external manager was identified. `in-sync` is a content comparison, not provenance.
-
-This is a report, not a conformity gate: a completed inspection exits `0` even when a slot is `drifted` or `unreadable`. Always inspect states and warnings. The updater's existing slot-selection policy is unchanged; this command does not authorize synchronization or repair.
-
-### `walden skill show [--json]`
-
-Prints the embedded `SKILL.md`.

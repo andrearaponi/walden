@@ -4,16 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-
-	"github.com/andrearaponi/walden/internal/skilldist"
 )
-
-// SkillSync is one skill installation re-synced by an update.
-type SkillSync struct {
-	Agent string
-	Scope string
-	Path  string
-}
 
 // Report describes a completed or short-circuited update run.
 type Report struct {
@@ -21,13 +12,12 @@ type Report struct {
 	InstalledVersion string
 	ExecutablePath   string
 	ReleaseNotesURL  string
-	SyncedSkills     []SkillSync
 	Warnings         []string
 	AlreadyUpToDate  bool
 }
 
-// Apply runs the full update flow: resolve, compare, snapshot skills, probe,
-// download, verify, swap, smoke-test (with rollback), re-sync skills, report.
+// Apply runs the full update flow: resolve, compare, probe, download, verify,
+// swap, smoke-test (with rollback), report. It replaces one file: the binary.
 // Every abort path cleans its staging file; after the swap the previous
 // binary survives as a backup until the smoke test passes.
 func Apply(ctx context.Context, opts Options) (Report, error) {
@@ -58,13 +48,6 @@ func Apply(ctx context.Context, opts Options) (Report, error) {
 		return Report{}, err
 	}
 
-	// Snapshot before any mutation: the new binary reinstalls these slots.
-	slots := snapshotSkillSlots(skilldist.Options{
-		Version: opts.CurrentVersion,
-		WorkDir: opts.WorkDir,
-		Env:     opts.Env,
-	})
-
 	staged, err := probeStaging(executable)
 	if err != nil {
 		return Report{}, err
@@ -91,22 +74,11 @@ func Apply(ctx context.Context, opts Options) (Report, error) {
 		return Report{}, err
 	}
 
-	synced, warnings := resyncSkills(ctx, opts.Runner, executable, status.TargetVersion, slots)
-
-	report := Report{
+	return Report{
 		PreviousVersion:  status.CurrentVersion,
 		InstalledVersion: status.TargetVersion,
 		ExecutablePath:   executable,
 		ReleaseNotesURL:  fmt.Sprintf("%s/releases/tag/%s", opts.BaseURL, status.TargetVersion),
-		SyncedSkills:     make([]SkillSync, 0, len(synced)),
-		Warnings:         warnings,
-	}
-	for _, slot := range synced {
-		report.SyncedSkills = append(report.SyncedSkills, SkillSync{
-			Agent: slot.Agent,
-			Scope: string(slot.Scope),
-			Path:  slot.Path,
-		})
-	}
-	return report, nil
+		Warnings:         []string{},
+	}, nil
 }
