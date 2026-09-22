@@ -9,9 +9,9 @@ The open source core today includes:
 - Deterministic CLI with all core commands
 - Content-fingerprint freshness chain: tamper detection and provable approval binding on every spec document, with document schema versioning (`walden_schema_version: v1alpha1`) and preserved `x-` frontmatter extensions
 - Versioned JSON output contract (`v0beta1`), honored on success and error paths alike
-- AI skill embedded in the binary (`walden skill install|status|show`) for Claude Code, Codex, Copilot, and OpenCode, with drift detection against the embedded copy
+- AI skill for Claude Code, Codex, Copilot, and OpenCode, distributed through the Skills CLI independently of the binary
 - One-liner installer consuming checksum-verified release binaries
-- Self-update from GitHub releases (`walden update`) with fail-closed verification, rollback, and skill re-sync
+- Self-update from GitHub releases (`walden update`) with fail-closed verification and rollback
 - Execution evidence ledger: task completions bound to spec fingerprints and a code identity, derived states including explicit unattested legacy assurance, `walden verify` with per-proof identities and sticky contamination, per-step proof timeouts, `expect_exit`/`expect_output` assertions, and execution profiles with declared environment probes
 - Aggregate release gate (`walden release check`): one deterministic releasability verdict per declared feature/portfolio scope — chain freshness, full-spec validation, decision-marker lint, evidence states, clean-worktree policy — judging only, executing nothing; pending work blocks by default, with recorded waivers (`--allow-pending --reason`), completion classes, and a certified commit in every verdict
 - Brownfield adoption lane (`walden adopt`): read-only classification plan, fingerprint backfill for recorded approvals, non-executing legacy binding/freshness/provenance assessment and explicitly scoped re-proving

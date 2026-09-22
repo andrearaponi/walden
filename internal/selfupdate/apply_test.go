@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/andrearaponi/walden/internal/shell"
-	"github.com/andrearaponi/walden/internal/skilldist"
 )
 
 // releaseServer serves a complete fake release: latest redirect, one platform
@@ -38,8 +37,8 @@ func releaseServer(t *testing.T, tag string, binaryContent []byte) *httptest.Ser
 	return httptest.NewServer(mux)
 }
 
-// applyFixture assembles an isolated install: a fake current executable, a
-// home with the claude skill installed, and Options wired to the test server.
+// applyFixture assembles an isolated install: a fake current executable and
+// Options wired to the test server.
 func applyFixture(t *testing.T, server *httptest.Server) (Options, string, string) {
 	t.Helper()
 
@@ -49,23 +48,12 @@ func applyFixture(t *testing.T, server *httptest.Server) (Options, string, strin
 		t.Fatalf("seed current executable: %v", err)
 	}
 
-	home := t.TempDir()
-	skillPath := filepath.Join(home, ".claude", "skills", "walden", "SKILL.md")
-	if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
-		t.Fatalf("create skill dir: %v", err)
-	}
-	if err := os.WriteFile(skillPath, []byte("skill body\n"), 0o644); err != nil {
-		t.Fatalf("seed skill file: %v", err)
-	}
-
 	opts := Options{
 		CurrentVersion: "v0.5.0",
 		BaseURL:        server.URL,
 		OS:             runtime.GOOS,
 		Arch:           runtime.GOARCH,
 		ExecutablePath: executable,
-		WorkDir:        t.TempDir(),
-		Env:            skilldist.Env{Home: home},
 		HTTPClient:     server.Client(),
 		Runner:         shell.NewExecRunner(),
 	}
@@ -85,7 +73,7 @@ func assertNoUpdateArtifacts(t *testing.T, dir string) {
 	}
 }
 
-func TestApplyEndToEndInstallsAndSyncs(t *testing.T) {
+func TestApplyEndToEndInstalls(t *testing.T) {
 	newBinary := []byte("#!/bin/sh\necho \"walden v0.7.0 (schema v0beta1)\"\n")
 	server := releaseServer(t, "v0.7.0", newBinary)
 	defer server.Close()
@@ -113,9 +101,6 @@ func TestApplyEndToEndInstallsAndSyncs(t *testing.T) {
 	}
 	if !strings.HasSuffix(report.ReleaseNotesURL, "/releases/tag/v0.7.0") {
 		t.Fatalf("release notes URL = %q, want .../releases/tag/v0.7.0", report.ReleaseNotesURL)
-	}
-	if len(report.SyncedSkills) != 1 || report.SyncedSkills[0].Agent != "claude" {
-		t.Fatalf("synced skills = %+v, want the claude slot", report.SyncedSkills)
 	}
 	if len(report.Warnings) != 0 {
 		t.Fatalf("unexpected warnings: %v", report.Warnings)
@@ -172,4 +157,55 @@ func TestApplyAlreadyUpToDateMakesNoChanges(t *testing.T) {
 		t.Fatalf("executable modified on an up-to-date install: %q", content)
 	}
 	assertNoUpdateArtifacts(t, installDir)
+}
+
+// After the swap the updater talks to the new binary exactly once (the
+// `version` smoke test): no skill re-sync, no skill-shaped argv, no skill
+// warning — not even when pinned to a release older than the current one.
+func TestApplyReportsExecutableOnly(t *testing.T) {
+	newBinary := []byte("#!/bin/sh\necho \"walden v0.7.0 (schema v0beta1)\"\n")
+	server := releaseServer(t, "v0.7.0", newBinary)
+	defer server.Close()
+
+	for _, tc := range []struct {
+		name      string
+		targetTag string
+	}{
+		{"latest", ""},
+		{"pinned older than the sync gate", "v0.7.0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts, executable, _ := applyFixture(t, server)
+			opts.CurrentVersion = "v0.4.0"
+			opts.TargetTag = tc.targetTag
+			runner := &fakeRunner{respond: func(name string, args []string) (shell.Response, error) {
+				return shell.Response{ExitCode: 0, Stdout: "walden v0.7.0 (schema v0beta1)\n"}, nil
+			}}
+			opts.Runner = runner
+
+			report, err := Apply(context.Background(), opts)
+			if err != nil {
+				t.Fatalf("Apply returned error: %v", err)
+			}
+			want, _ := filepath.EvalSymlinks(executable)
+			if report.ExecutablePath != want {
+				t.Fatalf("executable path = %q, want %q", report.ExecutablePath, want)
+			}
+			for _, call := range runner.calls {
+				for _, arg := range call[1:] {
+					if arg == "skill" {
+						t.Fatalf("updater invoked the new binary with a skill argv: %v", call)
+					}
+				}
+			}
+			if len(runner.calls) != 1 || runner.calls[0][1] != "version" {
+				t.Fatalf("post-swap calls = %v, want exactly the version smoke test", runner.calls)
+			}
+			for _, warning := range report.Warnings {
+				if strings.Contains(warning, "skill") {
+					t.Fatalf("report carries a skill warning: %q", warning)
+				}
+			}
+		})
+	}
 }

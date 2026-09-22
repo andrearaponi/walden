@@ -5,7 +5,7 @@ import "testing"
 // These assertions protect the distributed guide's stated contract. They do
 // not establish that a model follows it; behavioral checks are separate.
 func TestExecutionReportingSkillContract(t *testing.T) {
-	text := string(Content())
+	text := string(canonicalGuide(t))
 	for name, fragments := range map[string][]string{
 		"behavioral chronology": {
 			"TDD describes development order, not a passing proof",

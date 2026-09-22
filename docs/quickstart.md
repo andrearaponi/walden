@@ -15,7 +15,7 @@ Alternatively, install the guide first with Skills CLI:
 npx skills add andrearaponi/walden --skill walden
 ```
 
-The guide requires CLI v0.10.4 or a newer compatible release and never installs it: if the binary is missing or incompatible the skill stops, detects your platform and points you to the installer above, to `go install github.com/andrearaponi/walden/cmd/walden@v0.10.4` (Windows with Go), or to the `walden-v0.10.4-windows-<arch>.exe` asset on GitHub releases. For this channel, update the guide with Skills CLI and the executable with the official installer’s `--no-skill` mode; do not also use native skill installation or `walden update` on the same copy. See the guide's [CLI Prerequisite](../skill/walden/SKILL.md#cli-prerequisite) section. Native installations keep their existing flow.
+The guide requires CLI v0.10.4 or a newer compatible release and never installs it: if the binary is missing or incompatible the skill stops, detects your platform and points you to the installer above, to `go install github.com/andrearaponi/walden/cmd/walden@v0.10.4` (Windows with Go), or to the `walden-v0.10.4-windows-<arch>.exe` asset on GitHub releases. Update the guide with `npx skills update walden` and the binary with `walden update`; neither touches the other. See the guide's [CLI Prerequisite](../skill/walden/SKILL.md#cli-prerequisite) section.
 
 ## Initialize
 
@@ -150,10 +150,10 @@ Summary: RELEASABLE — 1 feature(s) certified, completion complete, commit 3f2a
 
 ## The same loop, driven by an agent
 
-Everything you just did by hand is what the embedded skill does for you. Install it once —
+Everything you just did by hand is what the AI skill does for you. Install it once with the Skills CLI —
 
 ```bash
-walden skill install claude     # or codex | copilot | opencode
+npx skills add andrearaponi/walden --skill walden
 ```
 
 — then open your agent and state the intent ("We need a small todo CLI… let's use Walden"). The skill drafts each document, runs the validations, and stops at every gate for *your* approval; the CLI seals the decisions and runs the proofs exactly as above. Same gates, same evidence, none of the typing: [The Agentic Flow](agentic.md).

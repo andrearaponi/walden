@@ -4,6 +4,27 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [0.11.0] - 2026-09-22
+
+### Removed
+
+- **Skill distribution from the binary.** `walden skill install`, `walden skill uninstall`, `walden skill status` and `walden skill show` are gone; `walden skill …` is now an unknown command like any other. The binary no longer embeds `SKILL.md`, knows no agent skill path, and carries no reference to the distribution channel. `internal/skilldist` and the `skills` result field are removed.
+- **Skill re-sync from `walden update`.** The updater replaces one file, the executable, and reports only that path in `changed_files`. It no longer snapshots or re-installs skill copies and emits no skill warning, including for a pinned older target.
+- **Skill handling from the installers.** `install.sh` no longer prompts for a skill, `--skill <agent>` is rejected with a pointer to the Skills CLI, and `--uninstall` removes only the binary. `setup.sh` follows the same shape. `--no-skill` is still accepted as a no-op for compatibility with older instructions and is no longer advertised.
+- **Per-agent install pages.** `skill/walden/install-{claude,codex,copilot,opencode}.md` are replaced by one `skill/walden/install.md`.
+
+### Changed
+
+- **One distribution channel for the guide.** The `walden` skill is installed and updated through the Skills CLI (`npx skills add andrearaponi/walden`, `npx skills update walden`), exactly like the companion skills `walden-history` and `walden-soundings`. The binary comes from GitHub releases. Neither installs, inspects or updates the other. Compatibility stays in one direction: the guide declares its CLI floor (still **v0.10.4**) and checks it through `walden version --json`.
+- **Guide text.** The CLI Prerequisite section drops the dual-channel ownership protocol (classifying installed copies by `version` marker, "one manager per copy", "do not use `walden update` for that channel") in favour of one sentence naming the two update paths. The Command Lookup table no longer lists `walden skill show` / `status`. Everything else in the guide is unchanged.
+- **Installers point at the Skills CLI.** After a successful install, `install.sh` and `setup.sh` print `npx skills add andrearaponi/walden`. The pointer lives in the scripts, not in the binary.
+
+### Compatibility
+
+- **Updating from ≤ v0.10.5.** The old binary's `walden update` still calls the new binary's `skill install <agent>` to re-sync after the swap. The new binary answers with the unknown-command text and touches nothing, so the update succeeds and any Skills CLI-managed copy is left intact. The old binary then prints one verbose, non-fatal warning that quotes that text and its own "run `walden skill install …` to repair" hint — a dead command name, once. Ignore it; install or update the guide with the Skills CLI.
+- **JSON envelope.** Still `v0beta1`. The `skills` field and the `skill-*` command names are removed, not reshaped; every remaining field is unchanged.
+- **Documentation.** README, `docs/` and the guide describe one channel. `site/docs/` regenerates from `docs/` on the next Pages run.
+
 ## [0.10.5] - 2026-09-20
 
 ### Fixed

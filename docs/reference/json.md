@@ -33,18 +33,6 @@ Every command accepts `--json` and emits one envelope on success and error paths
 | `validated_phases`, `skipped_phases` | string[] | Validation scope. |
 | `document_schema_version` | string | Supported document schema (`v1alpha1`, reported by `version`). |
 
-## Skill inspection (`skill status --json`)
-
-`command` is `skill-status`. `result.skills` contains the six native agent/scope slots, preserving the fields `agent`, `scope`, `path`, `installed`, `state` and optional `version`. The same physical path can appear under both user and project scopes when the working directory is the user's home.
-
-- `state`: `not-installed`, `in-sync`, `drifted`, or **`unreadable`** (added in v0.10.5).
-- `unreadable` means a non-absence filesystem read failed. No content comparison or marker extraction was performed; `version` is omitted. `result.warnings` identifies the agent, scope, requested path and original read failure. Do not display this as different content.
-- `installed` retains its legacy value, including `true` on read errors. It is neither a readability guarantee nor a manager/ownership assertion. `not-installed` refers to the queried native location, not every external store an agent might use.
-- `in-sync` compares readable content, excluding the trailing version marker, with CRLF/LF and trailing newlines treated equivalently. Other whitespace, case, BOM and lone-CR changes are not ignored. Shared-file comparison is confined to the Walden block.
-- A readable malformed block remains `drifted` with its corruption warning. An absent file or Walden block remains `not-installed`. User/project divergence is reported only when both bodies were successfully obtained.
-
-A completed inspection keeps `ok: true` and `exit_code: 0`, even for drift/read errors: **successful reporting is not a successful content check**. Invocation/rendering failures still use the ordinary error envelope. Preserve warnings and handle unknown states conservatively. Inspection does not modify files, repair junctions, infer ownership or change which slots the updater selects.
-
 ## Evidence: one shape, three surfaces
 
 Task evidence views use a shared ordered entry shape. It appears under `result.evidence` for verify/status, `result.adoption.features[].evidence` for adoption planning, and `result.release.features[].evidence` for certification. On-disk storage remains a map keyed by task ID; consumers should prefer the CLI views.

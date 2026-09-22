@@ -37,7 +37,6 @@ type Result struct {
 	Coverage              *CoverageReport     `json:"coverage,omitempty"`
 	EARSDistribution      *EARSDistribution   `json:"ears_distribution,omitempty"`
 	Features              []FeatureValidation `json:"features,omitempty"`
-	Skills                []SkillStatus       `json:"skills,omitempty"`
 	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
 	Scope                 *evidence.Scope     `json:"scope,omitempty"`
 	Update                *UpdateStatus       `json:"update,omitempty"`
@@ -153,16 +152,6 @@ type UpdateStatus struct {
 	TargetVersion   string `json:"target_version"`
 	UpdateAvailable bool   `json:"update_available"`
 	Applied         bool   `json:"applied"`
-}
-
-// SkillStatus is the shared output view for one skill installation slot.
-type SkillStatus struct {
-	Agent     string `json:"agent"`
-	Scope     string `json:"scope"`
-	Path      string `json:"path"`
-	Installed bool   `json:"installed"`
-	State     string `json:"state"`
-	Version   string `json:"version,omitempty"`
 }
 
 // EARSDistribution is the JSON output view of EARS form counts.
@@ -325,20 +314,6 @@ func PrintText(w io.Writer, result Result) {
 				verdict = feature.Summary
 			}
 			_, _ = fmt.Fprintf(w, "- %s: %s\n", feature.Feature, verdict)
-		}
-	}
-
-	if len(result.Skills) > 0 {
-		_, _ = fmt.Fprintln(w, "Skills:")
-		for _, skill := range result.Skills {
-			_, _ = fmt.Fprintf(w, "- %s (%s): %s", skill.Agent, skill.Scope, skill.State)
-			if skill.Version != "" {
-				_, _ = fmt.Fprintf(w, " version=%s", skill.Version)
-			}
-			if skill.Installed {
-				_, _ = fmt.Fprintf(w, " path=%s", skill.Path)
-			}
-			_, _ = fmt.Fprintln(w)
 		}
 	}
 

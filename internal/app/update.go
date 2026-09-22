@@ -97,11 +97,6 @@ func runUpdateApply(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Wr
 		return emitResult("update", result, jsonMode, stdout, stderr)
 	}
 
-	changed := []string{report.ExecutablePath}
-	for _, skill := range report.SyncedSkills {
-		changed = append(changed, skill.Path)
-	}
-
 	result := output.Result{
 		Summary: fmt.Sprintf("walden updated: %s -> %s", report.PreviousVersion, report.InstalledVersion),
 		Update: &output.UpdateStatus{
@@ -110,7 +105,7 @@ func runUpdateApply(opts selfupdate.Options, jsonMode bool, stdout, stderr io.Wr
 			UpdateAvailable: true,
 			Applied:         true,
 		},
-		ChangedFiles: changed,
+		ChangedFiles: []string{report.ExecutablePath},
 		Warnings:     report.Warnings,
 		NextAction:   fmt.Sprintf("Release notes: %s", report.ReleaseNotesURL),
 		ExitCode:     0,

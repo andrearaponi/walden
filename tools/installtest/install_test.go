@@ -74,8 +74,7 @@ case "$1" in -s) printf '%s\n' "${TEST_OS:-Darwin}" ;; -m) printf '%s\n' "${TEST
 printf 'payload %s\n' "$*" >> "$EVENTS"
 case "$1" in
  version) test "${TEST_VERSION_FAIL:-0}" = 0 || exit 19; printf 'walden v0.10.2 (fixture)\n' ;;
- skill) exit 0 ;;
- *) exit 23 ;;
+ *) printf 'unknown command: %s\n' "$*" >&2; exit 1 ;;
 esac
 `, 0o700)
 	digest := sha256.Sum256([]byte(read(t, f.payload)))
@@ -182,29 +181,15 @@ func (f *fixture) assertHomeUnchanged(before map[string]string) {
 	}
 }
 
-func (f *fixture) promptTrap() {
-	f.t.Helper()
-	text := read(f.t, f.script)
-	const invocation = "main \"$@\"\n"
-	if !strings.HasSuffix(text, invocation) {
-		f.t.Fatal("installer entry point changed; inspect the test-only loader")
-	}
-	text = strings.TrimSuffix(text, invocation) + `prompt_skill_install() { printf 'PROMPT-TRAP\n' >> "$EVENTS"; return 91; }
-main "$@"
-`
-	put(f.t, f.script, text, 0o700)
-}
-
 func TestBootstrapInstallerBinaryOnly(t *testing.T) {
 	for _, item := range []struct {
-		name, downloader      string
-		replace, trap, latest bool
+		name, downloader string
+		replace, latest  bool
 	}{
-		{"first-install", "curl", false, false, false},
-		{"replace", "curl", true, false, false},
-		{"no-terminal-probe-or-prompt", "curl", false, true, false},
-		{"latest", "curl", false, false, true},
-		{"wget", "wget", false, false, false},
+		{"first-install", "curl", false, false},
+		{"replace", "curl", true, false},
+		{"latest", "curl", false, true},
+		{"wget", "wget", false, false},
 	} {
 		t.Run(item.name, func(t *testing.T) {
 			f := newFixture(t, item.downloader)
@@ -212,9 +197,6 @@ func TestBootstrapInstallerBinaryOnly(t *testing.T) {
 				put(t, f.binary(), "OLD-EXECUTABLE-SENTINEL", 0o700)
 			}
 			before := f.homeSnapshot()
-			if item.trap {
-				f.promptTrap()
-			}
 			args := []string{"--no-skill"}
 			if !item.latest {
 				args = append(args, "--version", "v0.10.2")
@@ -230,7 +212,7 @@ func TestBootstrapInstallerBinaryOnly(t *testing.T) {
 			if info.Mode().Perm()&0o111 == 0 {
 				t.Fatal("installed payload is not executable")
 			}
-			if strings.Contains(f.eventText(), "payload skill") || strings.Contains(f.eventText(), "PROMPT-TRAP") {
+			if strings.Contains(f.eventText(), "payload skill") {
 				t.Fatalf("binary-only path reached skill handoff: %s", f.eventText())
 			}
 			if !strings.Contains(f.eventText(), "payload version") || !strings.Contains(output, "Checksum verified") {
@@ -293,76 +275,67 @@ func TestBootstrapInstallerBinaryOnly(t *testing.T) {
 	})
 }
 
-func TestBootstrapInstallerFlagConflicts(t *testing.T) {
-	for _, args := range [][]string{
-		{"--no-skill", "--skill", "claude"}, {"--skill", "claude", "--no-skill"},
-		{"--no-skill", "--skill", ""}, {"--skill", "", "--no-skill"},
-		{"--no-skill", "--uninstall"}, {"--uninstall", "--no-skill"},
-	} {
-		t.Run(strings.Join(args, "_"), func(t *testing.T) {
-			f := newFixture(t, "curl")
-			put(t, f.binary(), "OLD-EXECUTABLE-SENTINEL", 0o700)
-			before := f.homeSnapshot()
-			output, code := f.run("/bin/sh", args...)
-			if code == 0 || !strings.Contains(output, "--no-skill") || !strings.Contains(output, "cannot") {
-				t.Fatalf("conflict was not specifically rejected: exit %d, %s", code, output)
-			}
-			if f.eventText() != "" {
-				t.Fatalf("conflict reached platform/network/payload execution: %s", f.eventText())
-			}
-			if read(t, f.binary()) != "OLD-EXECUTABLE-SENTINEL" {
-				t.Fatal("conflict changed installed binary")
-			}
-			f.assertHomeUnchanged(before)
-		})
-	}
-	t.Run("help", func(t *testing.T) {
-		f := newFixture(t, "curl")
-		output, code := f.run("/bin/sh", "--help")
-		if code != 0 || !strings.Contains(output, "--no-skill") || f.eventText() != "" {
-			t.Fatalf("invalid help behavior: %s", output)
-		}
-	})
-}
+// The installer places the binary and points at the Skills CLI for the guide.
+// It never prompts for, installs, or removes a skill.
+func TestBootstrapInstallerBinaryOnlyContract(t *testing.T) {
+	const pointer = "npx skills add andrearaponi/walden"
 
-func TestBootstrapInstallerLegacyModes(t *testing.T) {
-	for _, agent := range []string{"claude", "codex", "copilot", "opencode", "all"} {
-		t.Run(agent, func(t *testing.T) {
-			f := newFixture(t, "curl")
-			output, code := f.run("/bin/sh", "--version", "v0.10.2", "--skill", agent)
-			if code != 0 {
-				t.Fatalf("native mode failed: %s", output)
-			}
-			target := agent
-			if target == "all" {
-				target = "--all"
-			}
-			if !strings.Contains(f.eventText(), "payload skill install "+target+"\n") {
-				t.Fatal(f.eventText())
-			}
-		})
-	}
-	t.Run("no-tty", func(t *testing.T) {
-		f := newFixture(t, "curl")
-		output, code := f.run("/bin/sh", "--version", "v0.10.2")
-		if code != 0 || !strings.Contains(output, "Non-interactive mode") || strings.Contains(f.eventText(), "payload skill") {
-			t.Fatalf("terminal-free default: %s", output)
+	t.Run("skill-flag-rejected", func(t *testing.T) {
+		for _, args := range [][]string{{"--skill", "claude"}, {"--skill", "all"}, {"--skill", "unknown-agent"}, {"--version", "v0.10.2", "--skill", "codex"}} {
+			t.Run(strings.Join(args, "_"), func(t *testing.T) {
+				f := newFixture(t, "curl")
+				before := f.homeSnapshot()
+				output, code := f.run("/bin/sh", args...)
+				if code == 0 || !strings.Contains(output, pointer) {
+					t.Fatalf("--skill was not rejected with the Skills CLI pointer: exit %d, %s", code, output)
+				}
+				if f.eventText() != "" {
+					t.Fatalf("rejected flag reached platform/network/payload execution: %s", f.eventText())
+				}
+				if _, err := os.Stat(f.binary()); !os.IsNotExist(err) {
+					t.Fatal("rejected flag installed a binary")
+				}
+				f.assertHomeUnchanged(before)
+			})
 		}
 	})
-	t.Run("prompt-path", func(t *testing.T) {
+
+	t.Run("no-skill-compat-noop", func(t *testing.T) {
 		f := newFixture(t, "curl")
-		f.promptTrap()
-		output, code := f.run("/bin/sh", "--version", "v0.10.2")
-		if code != 91 || !strings.Contains(f.eventText(), "PROMPT-TRAP") {
-			t.Fatalf("native prompt seam was not reached: %d %s", code, output)
+		before := f.homeSnapshot()
+		output, code := f.run("/bin/sh", "--version", "v0.10.2", "--no-skill")
+		if code != 0 || !strings.Contains(f.eventText(), "payload version") {
+			t.Fatalf("--no-skill must install the binary: exit %d, %s\n%s", code, output, f.eventText())
 		}
+		if read(t, f.binary()) != read(t, f.payload) {
+			t.Fatal("installed bytes differ from verified payload")
+		}
+		f.assertHomeUnchanged(before)
 	})
+
+	t.Run("default-no-prompt", func(t *testing.T) {
+		f := newFixture(t, "curl")
+		before := f.homeSnapshot()
+		output, code := f.run("/bin/sh", "--version", "v0.10.2")
+		if code != 0 {
+			t.Fatalf("default install: %s", output)
+		}
+		if strings.Contains(f.eventText(), "payload skill") || strings.Contains(output, "Install Walden skill for") || strings.Contains(output, "Choice [") {
+			t.Fatalf("default install prompted for or installed a skill: %s\n%s", output, f.eventText())
+		}
+		if !strings.Contains(output, pointer) {
+			t.Fatalf("success epilogue does not point at the Skills CLI: %s", output)
+		}
+		f.assertHomeUnchanged(before)
+	})
+
 	for _, present := range []bool{false, true} {
-		t.Run(fmt.Sprintf("uninstall-%v", present), func(t *testing.T) {
+		t.Run(fmt.Sprintf("uninstall-binary-only-%v", present), func(t *testing.T) {
 			f := newFixture(t, "curl")
 			if present {
 				put(t, f.binary(), read(t, f.payload), 0o700)
 			}
+			before := f.homeSnapshot()
 			output, code := f.run("/bin/sh", "--uninstall")
 			if code != 0 {
 				t.Fatalf("uninstall: %s", output)
@@ -370,27 +343,45 @@ func TestBootstrapInstallerLegacyModes(t *testing.T) {
 			if _, err := os.Stat(f.binary()); !os.IsNotExist(err) {
 				t.Fatal("binary remains after uninstall")
 			}
-			if present && !strings.Contains(f.eventText(), "payload skill uninstall --all") {
-				t.Fatal("missing native uninstall delegation")
+			if strings.Contains(f.eventText(), "payload skill") || strings.Contains(f.eventText(), "fetch ") {
+				t.Fatalf("uninstall touched skills or the network: %s", f.eventText())
 			}
-			if strings.Contains(f.eventText(), "fetch ") {
-				t.Fatal("uninstall downloaded files")
+			if read(t, filepath.Join(f.home, ".claude/skills/walden/SKILL.md")) != "UNRELATED-BOOTSTRAP-SENTINEL:.claude/skills/walden/SKILL.md\n" {
+				t.Fatal("uninstall altered an agent skill file")
 			}
+			f.assertHomeUnchanged(before)
 		})
 	}
+
+	t.Run("no-skill-with-uninstall-accepted", func(t *testing.T) {
+		f := newFixture(t, "curl")
+		put(t, f.binary(), read(t, f.payload), 0o700)
+		_, code := f.run("/bin/sh", "--uninstall", "--no-skill")
+		if code != 0 {
+			t.Fatal("--no-skill is a no-op and must not conflict with --uninstall")
+		}
+	})
+
+	t.Run("help", func(t *testing.T) {
+		f := newFixture(t, "curl")
+		output, code := f.run("/bin/sh", "--help")
+		if code != 0 || f.eventText() != "" {
+			t.Fatalf("invalid help behavior: %s", output)
+		}
+		if strings.Contains(output, "--skill <agent>") || strings.Contains(output, "Remove the skill") {
+			t.Fatalf("help still advertises skill operations: %s", output)
+		}
+		if !strings.Contains(output, pointer) {
+			t.Fatalf("help does not point at the Skills CLI: %s", output)
+		}
+	})
+
 	t.Run("explicit-legacy-checksum-bypass", func(t *testing.T) {
 		f := newFixture(t, "curl")
 		f.env["TEST_MISSING_SUMS"] = "1"
-		output, code := f.run("/bin/sh", "--version", "v0.10.2", "--no-verify", "--skill", "claude")
+		output, code := f.run("/bin/sh", "--version", "v0.10.2", "--no-verify")
 		if code != 0 || !strings.Contains(output, "Checksum verification skipped") {
 			t.Fatalf("existing explicit flag changed: %s", output)
-		}
-	})
-	t.Run("invalid-native-target", func(t *testing.T) {
-		f := newFixture(t, "curl")
-		output, code := f.run("/bin/sh", "--skill", "unknown-agent")
-		if code == 0 || f.eventText() != "" || !strings.Contains(output, "Unknown --skill target") {
-			t.Fatalf("target validation: %s", output)
 		}
 	})
 }

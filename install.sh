@@ -3,13 +3,17 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh
 #
-# Flags pass through the pipe: `... | sh -s -- --skill claude`
+# Flags pass through the pipe: `... | sh -s -- --version v0.10.4`
+#
+# This script installs the binary only. The AI skill is distributed through
+# the Skills CLI: `npx skills add andrearaponi/walden`.
 set -e
 
 # --- Constants ---
 
 REPO="andrearaponi/walden"
 REPO_URL="https://github.com/${REPO}"
+SKILLS_CLI_ADD="npx skills add ${REPO}"
 INSTALL_DIR="$HOME/.local/bin"
 BINARY_NAME="walden"
 WALDEN="${INSTALL_DIR}/${BINARY_NAME}"
@@ -17,9 +21,6 @@ WALDEN="${INSTALL_DIR}/${BINARY_NAME}"
 # --- Flags ---
 
 VERSION=""
-SKILL_TARGET=""
-SKILL_REQUESTED=0
-NO_SKILL=0
 NO_VERIFY=0
 UNINSTALL=0
 
@@ -49,14 +50,14 @@ usage() {
   printf "${BOLD}install.sh${NC} — install Walden from GitHub releases\n\n"
   printf "Usage:\n"
   printf "  curl -fsSL https://raw.githubusercontent.com/%s/main/install.sh | sh\n" "$REPO"
-  printf "  curl -fsSL https://raw.githubusercontent.com/%s/main/install.sh | sh -s -- --skill claude\n\n" "$REPO"
+  printf "  curl -fsSL https://raw.githubusercontent.com/%s/main/install.sh | sh -s -- --version v0.10.4\n\n" "$REPO"
   printf "Flags:\n"
   printf "  --version <tag>   Install a specific release (default: latest)\n"
-  printf "  --skill <agent>   Install the AI skill non-interactively: claude|codex|copilot|opencode|all\n"
-  printf "  --no-skill        Install only the binary; do not prompt for or modify skills\n"
   printf "  --no-verify       Skip checksum verification (needed for releases <= v0.4.0)\n"
-  printf "  --uninstall       Remove the skill (all agents) and the binary\n"
-  printf "  --help            Show this help\n"
+  printf "  --uninstall       Remove the binary\n"
+  printf "  --help            Show this help\n\n"
+  printf "This script installs the binary only. Get the AI skill with the Skills CLI:\n"
+  printf "  %s\n" "$SKILLS_CLI_ADD"
 }
 
 # --- Flag parsing ---
@@ -69,12 +70,14 @@ parse_flags() {
         VERSION="$2"
         shift 2 ;;
       --skill)
-        if [ $# -lt 2 ]; then err "--skill requires an agent: claude, codex, copilot, opencode, all"; exit 1; fi
-        SKILL_TARGET="$2"
-        SKILL_REQUESTED=1
-        shift 2 ;;
+        # Skill distribution moved to the Skills CLI; refuse rather than
+        # silently install nothing the user asked for.
+        err "--skill is no longer supported: this installer places the binary only"
+        err "Install the AI skill with the Skills CLI: ${SKILLS_CLI_ADD}"
+        exit 1 ;;
       --no-skill)
-        NO_SKILL=1
+        # Accepted for compatibility with older instructions; the installer
+        # never touches skills, so there is nothing to disable.
         shift ;;
       --no-verify)
         NO_VERIFY=1
@@ -91,24 +94,6 @@ parse_flags() {
         exit 1 ;;
     esac
   done
-}
-
-validate_flags() {
-  if [ "$NO_SKILL" = "1" ] && [ "$SKILL_REQUESTED" = "1" ]; then
-    err "--no-skill cannot be combined with --skill"
-    exit 1
-  fi
-  if [ "$NO_SKILL" = "1" ] && [ "$UNINSTALL" = "1" ]; then
-    err "--no-skill cannot be combined with --uninstall"
-    exit 1
-  fi
-}
-
-validate_skill_target() {
-  case "$SKILL_TARGET" in
-    ""|all|claude|codex|copilot|opencode) ;;
-    *) err "Unknown --skill target: ${SKILL_TARGET} (supported: claude, codex, copilot, opencode, all)"; exit 1 ;;
-  esac
 }
 
 # --- Platform detection ---
@@ -293,65 +278,16 @@ verify_binary() {
   fi
 }
 
-# --- Skill handoff (delegated to the binary) ---
+# --- Skills CLI pointer ---
 
-prompt_skill_install() {
-  # Piped installs (curl | sh) have a pipe on stdin; the terminal, when
-  # there is one, is still reachable through /dev/tty.
-  if ! ( : < /dev/tty ) 2>/dev/null; then
-    info "Non-interactive mode: skipping skill install"
-    info "Run '${WALDEN} skill install <agent>' to install the skill"
-    return 0
-  fi
-
-  printf "\n${BOLD}Install Walden skill for:${NC}\n"
-  printf "  1) Claude Code\n"
-  printf "  2) Codex\n"
-  printf "  3) Copilot\n"
-  printf "  4) OpenCode\n"
-  printf "  5) All\n"
-  printf "  6) Skip\n"
-  printf "\n${BOLD}Choice [1-6]:${NC} "
-
-  read -r choice < /dev/tty
-
-  case "$choice" in
-    1) "$WALDEN" skill install claude ;;
-    2) "$WALDEN" skill install codex ;;
-    3) "$WALDEN" skill install copilot ;;
-    4) "$WALDEN" skill install opencode ;;
-    5) "$WALDEN" skill install --all ;;
-    6) info "Skill install skipped" ;;
-    *) warn "Invalid choice: ${choice}. Skipping skill install." ;;
-  esac
-}
-
-install_skill() {
-  if [ "$NO_SKILL" = "1" ]; then
-    info "Binary-only installation: skill installation skipped (--no-skill)"
-    return 0
-  fi
-  if [ -n "$SKILL_TARGET" ]; then
-    if [ "$SKILL_TARGET" = "all" ]; then
-      "$WALDEN" skill install --all
-    else
-      "$WALDEN" skill install "$SKILL_TARGET"
-    fi
-    return 0
-  fi
-  prompt_skill_install
+point_to_skills_cli() {
+  printf "\n${BOLD}AI skill:${NC} install or update it with the Skills CLI\n"
+  printf "  %s\n" "$SKILLS_CLI_ADD"
 }
 
 # --- Uninstall ---
 
 uninstall() {
-  if [ -x "$WALDEN" ]; then
-    "$WALDEN" skill uninstall --all
-  else
-    warn "walden binary not found at ${WALDEN}; skill files may remain"
-    warn "Reinstall and run '${BINARY_NAME} skill uninstall --all' to remove them"
-  fi
-
   if [ -f "$WALDEN" ]; then
     rm -f "$WALDEN"
     ok "Removed ${WALDEN}"
@@ -364,8 +300,6 @@ uninstall() {
 
 main() {
   parse_flags "$@"
-  validate_flags
-  validate_skill_target
 
   if [ "$UNINSTALL" = "1" ]; then
     printf "\n${BOLD}=== Walden Uninstall ===${NC}\n\n"
@@ -382,7 +316,7 @@ main() {
   verify_checksum
   install_binary
   verify_binary
-  install_skill
+  point_to_skills_cli
   printf "\n${BOLD}=== Done ===${NC}\n"
 }
 
