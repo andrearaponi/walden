@@ -9,6 +9,7 @@ import (
 
 	"github.com/andrearaponi/walden/internal/adopt"
 	"github.com/andrearaponi/walden/internal/output"
+	"github.com/andrearaponi/walden/internal/workflow"
 )
 
 func runAdopt(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -43,15 +44,23 @@ func runAdopt(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	// Progress streams in text mode only: JSON stays one envelope, positions
 	// live in the per-feature array order.
-	var progress adopt.Progress
+	options := adopt.ApplyOptions{}
 	if !jsonMode {
-		progress = func(name string, index, total int) {
+		options.FeatureStarted = func(name string, index, total int) {
 			_, _ = fmt.Fprintf(stdout, "adopting %s (%d/%d)\n", name, index, total)
 		}
+		options.TaskStarted = func(feature string, event workflow.VerifyTaskStart) {
+			printAdoptTaskStart(stdout, feature, event)
+		}
+		options.TaskFinished = func(feature string, event workflow.VerifyTaskFinish) {
+			printAdoptTaskFinish(stdout, feature, event)
+		}
 	}
-	report, err := adopt.Apply(context.Background(), root, featureName, commandRunner, progress)
+	report, err := adopt.ApplyWithOptions(context.Background(), root, featureName, commandRunner, options)
 	if err != nil {
-		return emitResult("adopt", errorResult(err), jsonMode, stdout, stderr)
+		result := errorResult(err)
+		result.Adoption = adoptApplyResult(report).Adoption
+		return emitResult("adopt", result, jsonMode, stdout, stderr)
 	}
 	result := adoptApplyResult(report)
 	if jsonMode {
@@ -67,12 +76,29 @@ func runAdopt(args []string, stdout io.Writer, stderr io.Writer) int {
 	return 0
 }
 
+func printAdoptTaskStart(w io.Writer, feature string, event workflow.VerifyTaskStart) {
+	_, _ = fmt.Fprintf(w, "  %s task %s (%d/%d): starting proof\n", feature, event.TaskID, event.Index, event.Total)
+}
+
+func printAdoptTaskFinish(w io.Writer, feature string, event workflow.VerifyTaskFinish) {
+	verdict := "rejected"
+	if event.Passed {
+		verdict = "accepted"
+	}
+	_, _ = fmt.Fprintf(w, "  %s task %s: execution %s, assertion=%s, integrity=%s, elapsed=%d ms\n",
+		feature, event.TaskID, verdict, event.AssertionResult, event.Integrity, event.Elapsed.Milliseconds())
+	if event.Failure != "" {
+		_, _ = fmt.Fprintf(w, "    %s\n", event.Failure)
+	}
+}
+
 func adoptPlanResult(report adopt.PlanReport) output.Result {
-	status := &output.AdoptionStatus{Scope: &report.Scope}
+	status := &output.AdoptionStatus{Scope: &report.Scope, Workload: adoptionWorkloadSummary(report.Workload)}
 	for _, feature := range report.Features {
 		view := output.AdoptionFeature{
 			Feature: feature.Name, Class: feature.Class, SealableDocs: append([]string(nil), feature.SealableDocs...),
 			ReproveCount: feature.ReproveCount, Reason: feature.BlockReason,
+			Workload: adoptionWorkload(feature.Workload),
 		}
 		for _, entry := range feature.Evidence {
 			view.Evidence = append(view.Evidence, output.EvidenceView(entry))
@@ -102,18 +128,50 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 	}
 }
 
+func adoptionWorkload(work adopt.Workload) *output.AdoptionWorkload {
+	view := &output.AdoptionWorkload{Available: work.Available, Reason: work.Reason}
+	if work.Available {
+		view.Tasks, view.Steps = &work.Tasks, &work.Steps
+	}
+	return view
+}
+
+func adoptionWorkloadSummary(work adopt.WorkloadSummary) *output.AdoptionWorkloadSummary {
+	return &output.AdoptionWorkloadSummary{
+		AssessedTasks: work.AssessedTasks, AssessedSteps: work.AssessedSteps,
+		UnassessedFeatures: append([]string{}, work.UnassessedFeatures...),
+	}
+}
+
 func adoptApplyResult(report adopt.ApplyReport) output.Result {
-	status := &output.AdoptionStatus{Apply: true, Scope: &report.Scope}
+	status := &output.AdoptionStatus{Apply: true, ElapsedMS: elapsedMilliseconds(report.Elapsed)}
+	if report.Scope.Kind != "" {
+		status.Scope = &report.Scope
+	}
+	if report.Workload != nil {
+		status.Workload = adoptionWorkloadSummary(*report.Workload)
+	}
+	var warnings []string
 	for _, feature := range report.Features {
-		status.Features = append(status.Features, output.AdoptionFeature{
-			Feature:    feature.Name,
-			Class:      feature.Class,
-			SealedDocs: append([]string(nil), feature.SealedDocs...),
-			Verified:   append([]string(nil), feature.Verified...),
-			Failed:     append([]string(nil), feature.Failed...),
-			Skipped:    feature.Skipped,
-			Reason:     feature.Error,
-		})
+		view := output.AdoptionFeature{
+			Feature:           feature.Name,
+			Class:             feature.Class,
+			SealedDocs:        append([]string(nil), feature.SealedDocs...),
+			Verified:          append([]string(nil), feature.Verified...),
+			Failed:            append([]string(nil), feature.Failed...),
+			Skipped:           feature.Skipped,
+			Reason:            feature.Error,
+			Workload:          adoptionWorkload(feature.Workload),
+			EvidencePersisted: feature.EvidencePersisted,
+			ElapsedMS:         elapsedMilliseconds(feature.Elapsed),
+		}
+		for _, outcome := range feature.Outcomes {
+			view.Evidence = append(view.Evidence, verificationOutcomeView(outcome))
+		}
+		for _, warning := range feature.Warnings {
+			warnings = append(warnings, feature.Name+": "+warning)
+		}
+		status.Features = append(status.Features, view)
 	}
 
 	totals := report.Totals
@@ -121,6 +179,7 @@ func adoptApplyResult(report adopt.ApplyReport) output.Result {
 		Summary: fmt.Sprintf("ADOPTION — sealed %d doc(s), verified %d, failed %d, skipped %d, blocked %d, errors %d",
 			totals.SealedDocs, totals.Verified, totals.Failed, totals.Skipped, totals.Blocked, totals.Errors),
 		Adoption: status,
+		Warnings: warnings,
 		ExitCode: 0,
 	}
 	if totals.Failed > 0 || totals.Errors > 0 || totals.Blocked > 0 {

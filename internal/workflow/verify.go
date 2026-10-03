@@ -23,16 +23,48 @@ type VerifyOutcome struct {
 	CurrentIdentity  string
 	Profile          evidence.Profile
 	Assessment       evidence.TaskEvidence
+	Elapsed          *time.Duration
 }
 
 type VerifyResult struct {
-	Feature  string
-	Outcomes []VerifyOutcome
-	Failed   []string
-	Checked  bool
-	Skipped  []string
-	Pruned   []string
-	Warnings []string
+	Feature           string
+	Outcomes          []VerifyOutcome
+	Failed            []string
+	Checked           bool
+	Skipped           []string
+	Pruned            []string
+	Warnings          []string
+	EvidencePersisted *bool
+}
+
+// VerifyTaskStart identifies an actual selected proof attempt.
+type VerifyTaskStart struct {
+	TaskID string
+	Index  int
+	Total  int
+}
+
+// VerifyTaskFinish is an execution observation, not final freshness or a
+// persistence claim. Its collections never alias the verifier's records.
+type VerifyTaskFinish struct {
+	TaskID          string
+	Index           int
+	Total           int
+	Passed          bool
+	Failure         string
+	AssertionResult string
+	Integrity       string
+	CauseTask       string
+	ChangedPaths    []string
+	Elapsed         time.Duration
+}
+
+// VerifyOptions configures observation, never proof selection or policy.
+// Now is invocation-local; production time.Time values retain monotonic time.
+type VerifyOptions struct {
+	TaskStarted  func(VerifyTaskStart)
+	TaskFinished func(VerifyTaskFinish)
+	Now          func() time.Time
 }
 
 // Verify re-proves one selected feature. Selection is fixed at the initial
@@ -40,6 +72,23 @@ type VerifyResult struct {
 // source bytes within the invocation. Check mode has identical judgments but
 // no Walden writes. Commands themselves are not sandboxed or rolled back.
 func Verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner) (VerifyResult, error) {
+	result, err := verify(ctx, root, featureName, all, check, runner, nil)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	return result, nil
+}
+
+// VerifyWithOptions preserves observed results even if their final save fails.
+// Verify keeps its compatibility error-return convention; both use this loop.
+func VerifyWithOptions(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner, options VerifyOptions) (VerifyResult, error) {
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	return verify(ctx, root, featureName, all, check, runner, &options)
+}
+
+func verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner, options *VerifyOptions) (VerifyResult, error) {
 	if runner == nil {
 		return VerifyResult{}, fmt.Errorf("proof runner is required")
 	}
@@ -104,6 +153,7 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 	causeTask := ""
 	var causePaths, poisoned []string
 	verifiedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	position := 0
 	for _, task := range tree.LeafTasks() {
 		if !selected[task.ID] {
 			continue
@@ -134,7 +184,20 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 				causeTask = task.ID
 			}
 		}
+		position++
+		var started time.Time
+		var elapsed *time.Duration
+		if options != nil {
+			if options.TaskStarted != nil {
+				options.TaskStarted(VerifyTaskStart{TaskID: task.ID, Index: position, Total: len(selected)})
+			}
+			started = options.Now()
+		}
 		stepResults, _, proofErr := executeProof(ctx, runner, toExecutableTask(task))
+		if options != nil {
+			duration := options.Now().Sub(started)
+			elapsed = &duration
+		}
 		post, postOK := evidence.CaptureManifest(ctx, identityRunner, root)
 		var changed []string
 		if preOK && postOK {
@@ -183,7 +246,7 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 			TasksFingerprint: feature.Tasks.ApprovedFingerprint, CodeIdentity: facts.BeforeCodeIdentity,
 			Profile: profile, Steps: stepResults, Result: evidence.ResultPassed, VerifiedAt: verifiedAt, Execution: facts,
 		}
-		outcome := VerifyOutcome{TaskID: task.ID, Passed: true, Profile: profile}
+		outcome := VerifyOutcome{TaskID: task.ID, Passed: true, Profile: profile, Elapsed: elapsed}
 		if proofErr != nil {
 			outcome.Failure = proofErr.Error()
 		}
@@ -206,6 +269,15 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		ledger.Tasks[task.ID] = record
 		result.Outcomes = append(result.Outcomes, outcome)
 		previous, previousOK = post, postOK
+		if options != nil && options.TaskFinished != nil {
+			options.TaskFinished(VerifyTaskFinish{
+				TaskID: task.ID, Index: position, Total: len(selected),
+				Passed: outcome.Passed, Failure: outcome.Failure,
+				AssertionResult: facts.AssertionResult, Integrity: facts.Integrity,
+				CauseTask: facts.CauseTask, ChangedPaths: append([]string(nil), facts.ChangedPaths...),
+				Elapsed: *elapsed,
+			})
+		}
 	}
 	finalIdentity := ""
 	if previousOK {
@@ -237,9 +309,12 @@ func Verify(ctx context.Context, root, featureName string, all, check bool, runn
 		for _, id := range result.Pruned {
 			delete(ledger.Tasks, id)
 		}
+		persisted := false
+		result.EvidencePersisted = &persisted
 		if err := evidence.Save(root, ledger); err != nil {
-			return VerifyResult{}, fmt.Errorf("persist refreshed evidence: %w", err)
+			return result, fmt.Errorf("persist refreshed evidence: %w", err)
 		}
+		persisted = true
 	}
 	return result, nil
 }

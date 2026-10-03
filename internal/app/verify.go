@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/output"
@@ -41,15 +42,28 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	return emitResult("verify", result, jsonMode, stdout, stderr)
 }
 
+func elapsedMilliseconds(duration *time.Duration) *int64 {
+	if duration == nil {
+		return nil
+	}
+	milliseconds := duration.Milliseconds()
+	return &milliseconds
+}
+
+func verificationOutcomeView(outcome workflow.VerifyOutcome) output.EvidenceStatus {
+	passed := outcome.Passed
+	view := output.EvidenceView(outcome.Assessment)
+	view.TaskID, view.State = outcome.TaskID, outcome.State
+	view.Passed, view.Failure, view.Profile = &passed, outcome.Failure, outcome.Profile
+	view.RecordedIdentity, view.CurrentIdentity = outcome.RecordedIdentity, outcome.CurrentIdentity
+	view.ElapsedMS = elapsedMilliseconds(outcome.Elapsed)
+	return view
+}
+
 func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 	entries := make([]output.EvidenceStatus, 0, len(verifyResult.Outcomes))
 	for _, outcome := range verifyResult.Outcomes {
-		passed := outcome.Passed
-		view := output.EvidenceView(outcome.Assessment)
-		view.TaskID, view.State = outcome.TaskID, outcome.State
-		view.Passed, view.Failure, view.Profile = &passed, outcome.Failure, outcome.Profile
-		view.RecordedIdentity, view.CurrentIdentity = outcome.RecordedIdentity, outcome.CurrentIdentity
-		entries = append(entries, view)
+		entries = append(entries, verificationOutcomeView(outcome))
 	}
 
 	suffix := ""

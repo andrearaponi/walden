@@ -87,6 +87,10 @@ Brownfield lane. Default is a read-only plan for the named feature or, when omit
 
 `--apply` explicitly executes the selected scope: seal eligible recorded approvals, then re-prove needed completed work through verify. A present contradictory fingerprint is never resealed automatically. Apply resumes by classification and exits `1` for failures, blocked selections or errors, preserving the partition. No inspection or binary upgrade automatically replays historical work. Establish current business applicability before applying; see [Brownfield Adoption](../adoption.md).
 
+The plan counts tasks and declared steps, retaining unavailable workloads separately from known zero; these are not test counts or a runtime forecast. Text-mode apply reports task starts/completions and measured durations. Both modes retain proof diagnostics, separate assertion/policy facts and final evidence states. A feature-level error remains separate; `evidence_persisted: false` marks observed results that could not be saved. The legacy verified/failed partitions keep their existing accounting, including exclusion of a feature whose verification could not finish saving.
+
+`elapsed_ms` measures attempted proofs, processed features and the apply operation (including planning), not an ETA; skipped tasks get no invented execution duration. No new fields are persisted in the ledger and no logs are captured automatically. Diagnostics may contain sensitive command output. JSON mode emits one JSON envelope with additive fields and no text progress on stdout, including failure paths. Older compatible CLIs may omit these fields; see the [JSON contract](json.md#adoption-adopt---json).
+
 ## Certification
 
 ### `walden release check [<feature>] [--strict] [--allow-pending --reason <text>] [--json]`

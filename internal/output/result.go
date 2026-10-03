@@ -102,23 +102,43 @@ type WaiverStatus struct {
 
 // AdoptionStatus is the JSON output view of a brownfield adoption plan or run.
 type AdoptionStatus struct {
-	Scope    *evidence.Scope   `json:"scope,omitempty"`
-	Apply    bool              `json:"apply"`
-	Features []AdoptionFeature `json:"features"`
+	Scope     *evidence.Scope          `json:"scope,omitempty"`
+	Apply     bool                     `json:"apply"`
+	Features  []AdoptionFeature        `json:"features"`
+	Workload  *AdoptionWorkloadSummary `json:"workload,omitempty"`
+	ElapsedMS *int64                   `json:"elapsed_ms,omitempty"`
+}
+
+// AdoptionWorkload keeps known zero distinct from unavailable work.
+type AdoptionWorkload struct {
+	Available bool   `json:"available"`
+	Tasks     *int   `json:"tasks,omitempty"`
+	Steps     *int   `json:"steps,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// AdoptionWorkloadSummary reports only the assessed part of the scope.
+type AdoptionWorkloadSummary struct {
+	AssessedTasks      int      `json:"assessed_tasks"`
+	AssessedSteps      int      `json:"assessed_steps"`
+	UnassessedFeatures []string `json:"unassessed_features"`
 }
 
 // AdoptionFeature is one feature's adoption classification and outcome.
 type AdoptionFeature struct {
-	Feature      string           `json:"feature"`
-	Class        string           `json:"class"`
-	SealableDocs []string         `json:"sealable_docs,omitempty"`
-	SealedDocs   []string         `json:"sealed_docs,omitempty"`
-	ReproveCount int              `json:"reprove_count,omitempty"`
-	Evidence     []EvidenceStatus `json:"evidence,omitempty"`
-	Verified     []string         `json:"verified,omitempty"`
-	Failed       []string         `json:"failed,omitempty"`
-	Skipped      int              `json:"skipped,omitempty"`
-	Reason       string           `json:"reason,omitempty"`
+	Feature           string            `json:"feature"`
+	Class             string            `json:"class"`
+	SealableDocs      []string          `json:"sealable_docs,omitempty"`
+	SealedDocs        []string          `json:"sealed_docs,omitempty"`
+	ReproveCount      int               `json:"reprove_count,omitempty"`
+	Workload          *AdoptionWorkload `json:"workload,omitempty"`
+	EvidencePersisted *bool             `json:"evidence_persisted,omitempty"`
+	ElapsedMS         *int64            `json:"elapsed_ms,omitempty"`
+	Evidence          []EvidenceStatus  `json:"evidence,omitempty"`
+	Verified          []string          `json:"verified,omitempty"`
+	Failed            []string          `json:"failed,omitempty"`
+	Skipped           int               `json:"skipped,omitempty"`
+	Reason            string            `json:"reason,omitempty"`
 }
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
@@ -136,6 +156,7 @@ type EvidenceStatus struct {
 	CodeFreshness    string                        `json:"code_freshness,omitempty"`
 	Execution        *evidence.ExecutionAssessment `json:"execution,omitempty"`
 	Gaps             []evidence.Gap                `json:"gaps,omitempty"`
+	ElapsedMS        *int64                        `json:"elapsed_ms,omitempty"`
 }
 
 // ProfileDriftEntry is one differing execution-profile entry: the recorded
@@ -332,6 +353,16 @@ func PrintText(w io.Writer, result Result) {
 		if result.Adoption.Scope != nil {
 			_, _ = fmt.Fprintf(w, "Scope: %s; guarantee: %s\n", result.Adoption.Scope.Description(), result.Adoption.Scope.Guarantee)
 		}
+		if work := result.Adoption.Workload; work != nil {
+			_, _ = fmt.Fprintf(w, "Assessed workload: %d task(s), %d declared step(s)", work.AssessedTasks, work.AssessedSteps)
+			if len(work.UnassessedFeatures) > 0 {
+				_, _ = fmt.Fprintf(w, "; unassessed: %s", strings.Join(work.UnassessedFeatures, ", "))
+			}
+			_, _ = fmt.Fprintln(w)
+		}
+		if result.Adoption.ElapsedMS != nil {
+			_, _ = fmt.Fprintf(w, "Adoption elapsed: %d ms\n", *result.Adoption.ElapsedMS)
+		}
 		for _, feature := range result.Adoption.Features {
 			_, _ = fmt.Fprintf(w, "- %s: %s", feature.Feature, feature.Class)
 			if len(feature.SealableDocs) > 0 {
@@ -348,8 +379,21 @@ func PrintText(w io.Writer, result Result) {
 			if feature.Reason != "" {
 				_, _ = fmt.Fprintf(w, " (%s)", feature.Reason)
 			}
+			if feature.ElapsedMS != nil {
+				_, _ = fmt.Fprintf(w, " elapsed=%d ms", *feature.ElapsedMS)
+			}
 			_, _ = fmt.Fprintln(w)
-			printEvidence(w, feature.Evidence, "  ")
+			if work := feature.Workload; work != nil {
+				if work.Available && work.Tasks != nil && work.Steps != nil {
+					_, _ = fmt.Fprintf(w, "  workload: %d task(s), %d declared step(s)\n", *work.Tasks, *work.Steps)
+				} else {
+					_, _ = fmt.Fprintf(w, "  workload unavailable: %s\n", work.Reason)
+				}
+			}
+			if feature.EvidencePersisted != nil && !*feature.EvidencePersisted {
+				_, _ = fmt.Fprintln(w, "  evidence not persisted; task results describe this attempt only")
+			}
+			printEvidenceWithRunDetails(w, feature.Evidence, "  ", result.Adoption.Apply)
 		}
 	}
 

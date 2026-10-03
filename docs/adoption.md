@@ -43,6 +43,18 @@ A matching full-plan fingerprint can recover assertions omitted from an older ta
 
 `evidence status` also displays these dimensions but retains diagnostic environment probes. Use `adopt` when the request requires a probe-free assessment.
 
+## Read the workload
+
+Alongside the existing task count, the plan reports **declared steps**: the command steps in the selected completed tasks. A legacy single-command proof counts as one; shell bodies, nested commands and test selectors are not expanded. Five steps may run many tests, and a failing first step may prevent later steps from running.
+
+Known zero is different from unavailable work. A blocked feature retains its reason, has no numeric workload, and appears in `unassessed_features`; the totals sum only assessed features:
+
+```text
+Assessed workload: 2 task(s), 5 declared step(s); unassessed: blocked-feature
+```
+
+An absent or unapproved task plan contributes no work to the current adoption selection; zero does not mean the product is implemented. Counts are a planning snapshot, not a frozen execution schedule or permission to replay historical work. Planning remains read-only and executes no proofs or environment probes.
+
 ## Apply only the reviewed scope
 
 ```bash
@@ -60,6 +72,18 @@ Apply records actual outcomes through the hardened verify lane. A mutation or un
 Failures, blocked selections and apply errors produce exit `1`, with the per-feature partition retained. Resume by classification after addressing the cause. Do not fix historical failures by weakening a current contract, silently declaring a spec obsolete, or rerunning live deployment/bootstrap work without authorization.
 
 A full strong certificate over a legacy portfolio may still require new executions. Avoiding automatic replay does not manufacture missing facts or exempt unknown features from an unqualified portfolio claim. History lookup has a current-body fast path and per-invocation reuse; its cost depends on available history, while apply costs what the selected proofs cost.
+
+## Read an apply result
+
+Text mode reports each selected task before its proof starts and its accepted execution or rejection afterward, with measured elapsed time. It keeps the feature name and position, so progress remains attributable even in a large portfolio. JSON mode emits one final envelope, without progress text on stdout.
+
+The final `features[].evidence` entries retain the verifier's failure diagnostic, assertion/integrity facts and final evidence assessment. Read `passed` separately from `state`: an accepted execution can end `stale-code` after a later mutation, and a passing assertion can be rejected by the integrity policy. The legacy `verified` counter counts accepted executions, not a new release certificate. Each final state describes that feature's verification boundary; a later feature can still change the repository.
+
+A feature-level `reason` is not automatically a task-proof failure. If entry was refused, no task execution is invented. If saving the ledger failed after proofs ran, their outcomes remain visible with `evidence_persisted: false` and the feature error, but are not added to the legacy successful-feature partitions. Do not mistake an in-memory result for saved evidence or rerun a proof just to recover a diagnostic already in the report.
+
+`elapsed_ms` is measured duration, **not an ETA**. Task time covers attempted proof steps and runner/timeout cleanup, excluding progress rendering, profile probes and identity capture. Feature time includes processing and saving that feature; invocation time includes planning. Enclosing intervals are measured directly, not summed from nested timings. Zero milliseconds can be a real rounded measurement. Skipped tasks have no new task outcome or duration, even though processing a no-op feature takes time.
+
+There is no automatic log capture or timing history. The ledger does not gain raw output, but an existing verifier diagnostic can contain command output: protect any redirected CLI report accordingly. These additive reporting fields may be absent on older compatible CLIs; absence is not zero or evidence of success.
 
 ## Format compatibility
 
