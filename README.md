@@ -39,6 +39,12 @@ Requirements ──▶ Design ──▶ Tasks ──▶ Execute
 
 Requirements are written as [EARS](docs/reference/spec-format.md) acceptance criteria with stable IDs; the design must cover every criterion; every leaf task carries an executable verification proof. Completing a task records durable evidence bound to the approved spec chain and to the code it proved. If anything changes after approval — a document, the code — staleness surfaces instead of hiding behind a checked box, and `walden release check` judges the declared feature or portfolio scope. Strict mode binds the actual spec/evidence inputs to the named commit. Legacy records retain explicit uncertainty; upgrading does not automatically replay historical plans.
 
+## Inspect adoption before execution
+
+`walden adopt <feature> --json` assesses existing Walden specs without executing proofs or environment probes. It reports task and declared-step workloads, keeping unavailable features separate from known zero.
+
+After reviewing the scope, `walden adopt <feature> --apply` runs the applicable completed proofs. v0.12.0 adds task progress, measured durations, and complete failure/integrity diagnostics, including results that could not be saved. It does not waive untestable proofs, estimate historical runtime or change release guarantees. See [Brownfield Adoption](docs/adoption.md) and the [JSON contract](docs/reference/json.md#adoption-adopt---json).
+
 ## Install
 
 Walden is two artifacts with one manager each: the **binary** comes from GitHub releases, the **AI skill** comes from the [Skills CLI](https://skills.sh). Neither installs the other.
@@ -76,10 +82,10 @@ Without Node, as a manual fallback (not a second channel): copy this repository'
 The POSIX installer does not run on Windows. Install from source with Go, or download the release asset:
 
 ```powershell
-go install github.com/andrearaponi/walden/cmd/walden@v0.10.4   # then ensure %USERPROFILE%\go\bin is on PATH
+go install github.com/andrearaponi/walden/cmd/walden@v0.12.0   # then ensure %USERPROFILE%\go\bin is on PATH
 ```
 
-or grab `walden-v0.10.4-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
+or grab `walden-v0.12.0-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
 
 ## Quickstart
 

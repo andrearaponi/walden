@@ -1,3 +1,39 @@
+## Walden v0.12.0
+
+Adoption becomes observable before, during and after execution. This release makes `walden adopt` explain its workload, preserve the verifier's diagnosis and report measured durations, without changing which proofs run or which evidence is accepted.
+
+### Before: declared work, not a guess
+
+The read-only plan reports selected completed tasks and declared proof steps. Known zero stays distinct from unavailable work: blocked features retain their reasons and appear in `unassessed_features`, outside the assessed totals. These counts are not test counts, expanded shell processes, an ETA or permission to replay historical delivery work.
+
+### During: task progress and measured duration
+
+Text-mode apply reports each selected task before its proof starts and its execution outcome afterward, with feature/task identifiers and position. Durations use monotonic elapsed time: task time covers attempted proofs; feature time includes preparation and saving; invocation time includes planning. The enclosing measurements are not sums of nested timings. JSON mode still emits one final envelope, with no progress text on stdout.
+
+### After: preserve the diagnosis and its limits
+
+Apply now retains the verifier's failure detail, assertion/integrity facts, final feature-level evidence assessment and warnings. A passing assertion can still be rejected for mutation or contamination; an accepted pure prefix can end stale-code after a later mutation.
+
+If a ledger write fails after proofs ran, their observed results remain available with `evidence_persisted: false` and the feature error. They are not promoted into durable evidence or the legacy successful-feature partitions. Entry failures and no-op runs invent no task executions or durations.
+
+### Compatibility and distribution
+
+- No command, flag, adoption class, selection rule, timeout/purity policy or release guarantee changes.
+- JSON reporting grows additively within `v0beta1`. Document schema `v1alpha1` and ledger schema `v1alpha2` are unchanged; no timing or raw-output fields are added to storage.
+- This is not a waiver for an untestable legacy specification. A required proof still has to pass, or its contract needs an explicit reviewed change.
+- The skill remains independently distributed through the Skills CLI and supports CLI v0.10.4 or newer compatible releases. The new reporting is available in v0.12.0; absent fields on older binaries are not zero measurements.
+- Update the binary with `walden update` on supported systems, and update the guide separately with `npx skills update walden`. Windows users replace the executable or use the Go installation path. Neither artifact installs the other.
+
+The release also aligns the README, roadmap and site with the current skill distribution channel. The guide published on the repository's default branch is the source consumed by skills.sh; previously installed copies require an explicit Skills CLI update.
+
+### Verification
+
+The feature has focused tests for workload availability, non-executing inspection, diagnostic propagation, mutation/contamination, measured intervals, no-op storage and output compatibility. Native-CLI end-to-end tests use real temporary Git repositories and exercise actual failure, retry and late persistence errors. The full suite runs with the race detector; documentation examples are checked against production projections.
+
+An operator-run pilot on an existing repository reported three completed tasks and four declared proof steps, with all three accepted and pure. The reported 17.600-second invocation matched the external wall-clock measurement. Only the selected evidence ledger changed; a pending production proof remained excluded. This demonstrates observability on a real workload, not a performance improvement, a diagnosis of an older failure, or certification of the entire adopter repository.
+
+---
+
 ## Walden v0.11.0
 
 The binary no longer distributes the AI skill. The Skills CLI is the only channel for the guide; GitHub releases are the only channel for the binary; neither knows about the other. This closes the dual-channel period that started when `walden skill install` was added in v0.5.0 and that the last two patches spent reconciling.

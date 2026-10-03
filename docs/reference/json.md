@@ -35,7 +35,7 @@ Every command accepts `--json` and emits one envelope on success and error paths
 
 ## Evidence: one shape, three surfaces
 
-Task evidence views use a shared ordered entry shape. It appears under `result.evidence` for verify/status, `result.adoption.features[].evidence` for adoption planning, and `result.release.features[].evidence` for certification. On-disk storage remains a map keyed by task ID; consumers should prefer the CLI views.
+Task evidence views use a shared ordered entry shape. It appears under `result.evidence` for verify/status, `result.adoption.features[].evidence` for adoption planning and executed apply outcomes, and `result.release.features[].evidence` for certification. On-disk storage remains a map keyed by task ID; consumers should prefer the CLI views.
 
 | Entry field | Type | Meaning |
 | --- | --- | --- |
@@ -51,6 +51,7 @@ Task evidence views use a shared ordered entry shape. It appears under `result.e
 | `profile` | object | Recorded diagnostic execution profile. |
 | `profile_drift` | array | `{key, recorded, current}` diagnostic differences when probes were run. |
 | `profile_legacy` | bool | Recorded profile is absent; this alone does not establish the record's age or execution policy. |
+| `elapsed_ms` | integer | Measured proof-attempt duration in adoption apply; absent from planning, historical read views and ordinary verify output. |
 
 Binding states are `current`, `reconstructed-equivalent`, `changed`, `unknown`, or `contradictory`. A reconstructed-equivalent binding establishes the same complete proof contract, not historical purity.
 
@@ -110,10 +111,84 @@ The criterion names and producer/judge split remain stable. Hardened identity, p
 `result.adoption` contains `apply`, `scope`, and `features`. Feature classes remain `backfill`, `re-prove`, `complete`, and `blocked`:
 
 - plan: `sealable_docs`, `reprove_count`, and per-task `evidence` assessments;
-- apply: `sealed_docs`, `verified`, `failed`, `skipped`;
-- `reason`: a blocker or apply error.
+- apply: `sealed_docs`, `verified`, `failed`, `skipped`, plus observed task details;
+- `reason`: a blocker or feature-level apply error.
 
 Planning executes no proof or environment probe. `complete` means nothing to adopt, not that every planned feature task is complete. Apply executes only its explicit scope and exits `1` for failures, blocked selections or errors, retaining the partition. Technical classes do not decide current business applicability.
+
+### Workload
+
+`result.adoption.workload` sums available feature workloads. `assessed_tasks` counts completed tasks selected for re-proving; `assessed_steps` counts their declared command steps, not tests or expanded shell processes. A supported legacy proof counts as one step. `unassessed_features` lists blocked features in the selected scope; their unknown work does not silently become zero. Example:
+
+```json
+{
+  "assessed_tasks": 2,
+  "assessed_steps": 5,
+  "unassessed_features": ["blocked-feature"]
+}
+```
+
+Each `features[].workload` has `available`. Known zero retains explicit `tasks` and `steps`:
+
+```json
+{
+  "available": true,
+  "tasks": 0,
+  "steps": 0
+}
+```
+
+Unavailable work omits both numbers and includes its reason:
+
+```json
+{
+  "available": false,
+  "reason": "tasks assessment unavailable: malformed proof"
+}
+```
+
+An absent or unapproved task plan contributes zero to the existing adoption selection, not a claim of product completeness. Workloads in apply describe its initial plan. The verifier still selects against the current state when each feature begins; counts are neither a frozen schedule nor execution authorization.
+
+### Executed work and time
+
+The paths below are inside `result.adoption`, except the explicitly named warnings field:
+
+| Field | Meaning |
+| --- | --- |
+| `elapsed_ms` | Apply-operation elapsed time, including planning; absent on read-only planning. |
+| `features[].elapsed_ms` | Time processing that feature, including sealing, verification and saving. |
+| `features[].evidence` | Only actual attempted-task outcomes in apply, using the shared evidence shape; historical assessments in plan. |
+| `features[].evidence[].elapsed_ms` | Time in the attempted proof steps, including runner wait/timeout cleanup, excluding progress rendering, probes and identity capture. |
+| `features[].evidence_persisted` | Present only when the verifier attempted a ledger write: true after success, false after failure. A pruning-only write does not imply a proof execution. |
+| `features[].reason` | Feature-level blocker/error, separate from individual `evidence[].failure` diagnoses. |
+| `result.warnings` | Feature-qualified verifier warnings, including run-contamination diagnostics. |
+
+Durations are measured monotonic intervals in integer milliseconds, not an ETA or historical estimate. Enclosing intervals are not sums of nested measurements. Measured zero remains present; skipped tasks have no new outcome or duration. No duration, raw-output tail or new diagnostic sidecar is stored in the ledger.
+
+Each outcome retains the verifier's diagnosis and final feature-level assessment. `passed` is an accepted execution, not a substitute for `state`, `execution.facts.assertion_result` or `execution.facts.integrity`. A pure prefix can retain `passed: true` with `state: stale-code`. A later feature can still invalidate earlier code freshness; this is not a new repository-wide release verdict.
+
+The legacy `verified`/`failed` identifier partitions keep their accounting for features whose verification returned normally. If a late save fails, the feature still reports its observed outcomes but they are not added to those partitions. An in-memory accepted result is not durable evidence. Example excerpt (binding/profile fields omitted):
+
+```json
+{
+  "feature": "sample",
+  "class": "re-prove",
+  "reason": "persist refreshed evidence: write failed",
+  "evidence_persisted": false,
+  "evidence": [
+    {
+      "task_id": "1",
+      "state": "verified",
+      "passed": true,
+      "elapsed_ms": 125
+    }
+  ]
+}
+```
+
+An entry failure creates no task result. A fatal planning error after apply begins can carry invocation time without a scope or workload; argument errors before apply begins carry no invented timing. JSON mode emits one final envelope without text progress on stdout. Existing stderr warnings retain their behavior.
+
+All additions remain optional for consumers of older compatible CLIs: missing fields are not zero measurements or proof of success. Diagnostics may contain existing verifier command output; there is no automatic redaction or log capture. Document/evidence formats and assurance semantics are unchanged.
 
 ## Error paths and stability
 

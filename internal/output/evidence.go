@@ -3,11 +3,16 @@ package output
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/andrearaponi/walden/internal/evidence"
 )
 
 func printEvidence(w io.Writer, entries []EvidenceStatus, indent string) {
+	printEvidenceWithRunDetails(w, entries, indent, false)
+}
+
+func printEvidenceWithRunDetails(w io.Writer, entries []EvidenceStatus, indent string, runDetails bool) {
 	for _, entry := range entries {
 		_, _ = fmt.Fprintf(w, "%s- %s: %s", indent, entry.TaskID, entry.State)
 		if entry.Failure != "" {
@@ -18,6 +23,24 @@ func printEvidence(w io.Writer, entries []EvidenceStatus, indent string) {
 		}
 		if entry.Binding != nil && entry.Execution != nil {
 			_, _ = fmt.Fprintf(w, " [binding=%s code=%s execution=%s]", entry.Binding.State, entry.CodeFreshness, entry.Execution.State)
+		}
+		if runDetails {
+			if entry.Passed != nil {
+				_, _ = fmt.Fprintf(w, " passed=%t", *entry.Passed)
+			}
+			if entry.ElapsedMS != nil {
+				_, _ = fmt.Fprintf(w, " elapsed=%d ms", *entry.ElapsedMS)
+			}
+			if entry.Execution != nil && entry.Execution.Facts != nil {
+				facts := entry.Execution.Facts
+				_, _ = fmt.Fprintf(w, " assertion=%s integrity=%s", facts.AssertionResult, facts.Integrity)
+				if facts.CauseTask != "" {
+					_, _ = fmt.Fprintf(w, " cause=%s", facts.CauseTask)
+				}
+				if len(facts.ChangedPaths) > 0 {
+					_, _ = fmt.Fprintf(w, " changed=%s", strings.Join(facts.ChangedPaths, ", "))
+				}
+			}
 		}
 		_, _ = fmt.Fprintln(w)
 		for _, gap := range entry.Gaps {

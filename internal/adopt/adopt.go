@@ -40,6 +40,23 @@ type FeaturePlan struct {
 	ReproveCount int
 	BlockReason  string
 	Evidence     []evidence.TaskEvidence
+	Workload     Workload
+}
+
+// Workload describes declared proof steps, not tests or expanded commands.
+// Unavailable work is not a known zero; Reason carries the existing blocker.
+type Workload struct {
+	Available bool
+	Tasks     int
+	Steps     int
+	Reason    string
+}
+
+// WorkloadSummary sums only assessed features in the requested scope.
+type WorkloadSummary struct {
+	AssessedTasks      int
+	AssessedSteps      int
+	UnassessedFeatures []string
 }
 
 // Totals aggregates the portfolio.
@@ -57,6 +74,7 @@ type PlanReport struct {
 	Scope    evidence.Scope
 	Features []FeaturePlan
 	Totals   Totals
+	Workload WorkloadSummary
 }
 
 // Plan classifies every feature (or one, when named) and counts the work.
@@ -71,9 +89,19 @@ func Plan(ctx context.Context, root, featureName string) (PlanReport, error) {
 	// judged against a single tree.
 	identity, identityOK := evidence.Identity(ctx, gitRunner, root)
 
-	report := PlanReport{Scope: evidence.NewScope(featureName != "", names...)}
+	report := PlanReport{
+		Scope:    evidence.NewScope(featureName != "", names...),
+		Workload: WorkloadSummary{UnassessedFeatures: []string{}},
+	}
 	for _, name := range names {
 		plan := classify(ctx, root, name, identity, identityOK)
+		if plan.Workload.Available {
+			report.Workload.AssessedTasks += plan.Workload.Tasks
+			report.Workload.AssessedSteps += plan.Workload.Steps
+		} else {
+			plan.Workload.Reason = plan.BlockReason
+			report.Workload.UnassessedFeatures = append(report.Workload.UnassessedFeatures, name)
+		}
 		report.Features = append(report.Features, plan)
 		switch plan.Class {
 		case ClassBackfill:
@@ -121,7 +149,8 @@ func classify(ctx context.Context, root, name string, identity string, identityO
 		return plan
 	}
 
-	plan.Evidence, err = assessEvidence(ctx, root, feature, identity, identityOK)
+	var stepCounts map[string]int
+	plan.Evidence, stepCounts, err = assessEvidence(ctx, root, feature, identity, identityOK)
 	if err != nil {
 		plan.Class, plan.BlockReason = ClassBlocked, err.Error()
 		return plan
@@ -161,8 +190,11 @@ func classify(ctx context.Context, root, name string, identity string, identityO
 	for _, entry := range plan.Evidence {
 		if entry.State != evidence.StateVerified && entry.State != evidence.StatePending {
 			plan.ReproveCount++
+			plan.Workload.Steps += stepCounts[entry.TaskID]
 		}
 	}
+	plan.Workload.Available = true
+	plan.Workload.Tasks = plan.ReproveCount
 	switch {
 	case len(plan.SealableDocs) > 0:
 		plan.Class = ClassBackfill
@@ -190,19 +222,27 @@ func chainContradiction(feature spec.Feature) string {
 
 // assessEvidence never executes a profile probe or proof. Invalid approved
 // plans and unreadable ledgers are assessment blockers, not zero-work success.
-func assessEvidence(ctx context.Context, root string, feature spec.Feature, identity string, identityOK bool) ([]evidence.TaskEvidence, error) {
+func assessEvidence(ctx context.Context, root string, feature spec.Feature, identity string, identityOK bool) ([]evidence.TaskEvidence, map[string]int, error) {
 	if !feature.Tasks.Exists || feature.Tasks.Status != "approved" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	tree, err := spec.ParseTaskTree(feature.Tasks)
 	if err != nil {
-		return nil, fmt.Errorf("tasks assessment unavailable: %w", err)
+		return nil, nil, fmt.Errorf("tasks assessment unavailable: %w", err)
 	}
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	current, leafs := evidence.FeatureInputs(feature, tree)
 	evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, "")
-	return evidence.Derive(ledger, current, identity, identityOK, leafs), nil
+	stepCounts := make(map[string]int, len(leafs))
+	for _, leaf := range leafs {
+		proof := leaf.Definition.Proof
+		stepCounts[leaf.ID] = len(proof.Steps)
+		if proof.LegacyCommand != "" {
+			stepCounts[leaf.ID] = 1
+		}
+	}
+	return evidence.Derive(ledger, current, identity, identityOK, leafs), stepCounts, nil
 }
