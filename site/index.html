@@ -31,7 +31,7 @@
   <header class="site-head">
     <div class="brand">
       <a class="wordmark" href="#top">Walden<span class="mark">§</span></a>
-      <a class="version-tag" id="version-tag" href="https://github.com/andrearaponi/walden/releases/latest" aria-label="Latest release">v0.10.1</a>
+      <a class="version-tag" id="version-tag" href="https://github.com/andrearaponi/walden/releases/latest" aria-label="Latest release">v0.12.0</a>
     </div>
     <nav class="nav" aria-label="Primary">
       <a class="nav-docs" href="docs/">Docs</a>
@@ -120,7 +120,8 @@
             <li>AC traceability — 100% coverage required</li>
             <li>a verification proof on every leaf task</li>
             <li>execution evidence bound to the code — re-provable with <code>verify</code></li>
-            <li>one releasability verdict per repository — <code>release check</code></li>
+            <li>a verdict per selected feature or portfolio — <code>release check</code></li>
+            <li>adoption workloads, task progress &amp; measured durations — <code>adopt</code></li>
             <li>stale-document detection &amp; reconciliation</li>
           </ul>
           <p class="voice-foot">deterministic · the same answer every time</p>
@@ -280,9 +281,9 @@
       <div class="stack-grid">
         <article class="recipe">
           <h3 class="recipe-name">Your coding agent</h3>
-          <p>Claude Code, Codex, Copilot, OpenCode — the skill ships inside the
-             binary. It drafts the specs; the kernel enforces the gates.</p>
-          <code class="recipe-cmd">walden skill install &lt;agent&gt;</code>
+          <p>Claude Code, Codex, Copilot, OpenCode — install the guide through the
+             Skills CLI. It drafts the specs; the separate Walden binary enforces the gates.</p>
+          <code class="recipe-cmd">npx skills add andrearaponi/walden --skill walden</code>
           <span class="recipe-out">skill drafts · kernel enforces</span>
         </article>
 
@@ -322,9 +323,9 @@
     <section class="install" id="install">
       <div class="section-label"><span>§ 06</span> Install</div>
       <p class="lede">
-        One command. The latest release binary lands in <code>~/.local/bin/walden</code>,
-        checksum-verified — then it installs its own AI skill for Claude&nbsp;Code, Codex,
-        Copilot, or OpenCode. No Go toolchain, no clone.
+        The latest release binary lands in <code>~/.local/bin/walden</code>,
+        checksum-verified. Install the AI guide separately through the Skills CLI;
+        neither artifact installs the other. No Go toolchain is needed for the binary.
       </p>
 
       <div class="code-block">
@@ -333,9 +334,10 @@
       </div>
 
       <p class="install-alt">
-        Prefer the toolchain? <code>go install github.com/andrearaponi/walden/cmd/walden@latest</code>
-        &nbsp;·&nbsp; then <code>walden skill install &lt;agent&gt;</code>. Building from a clone?
-        <code>./setup.sh</code> still works.
+        Add the guide: <code>npx skills add andrearaponi/walden --skill walden</code>.
+        Update it with <code>npx skills update walden</code>; update the binary separately
+        with <code>walden update</code>. Prefer Go?
+        <code>go install github.com/andrearaponi/walden/cmd/walden@latest</code>.
       </p>
     </section>
 

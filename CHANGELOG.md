@@ -4,6 +4,26 @@ All notable changes to Walden will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses semantic versioning. The JSON contract uses `v0beta1` until the CLI stabilizes to v1.0.0.
 
+## [Unreleased]
+
+## [0.12.0] - 2026-10-03
+
+### Added
+
+- **Adoption workloads.** `walden adopt` counts selected completed tasks and their declared proof steps, with blocked/unavailable features excluded visibly from assessed totals rather than treated as zero. Shell bodies and test selectors are not expanded.
+- **Adoption execution diagnostics.** Apply retains per-task failure reasons, assertion/integrity facts, final evidence assessments and feature-qualified warnings. Results observed before a failed ledger save remain visible with `evidence_persisted: false`, without claiming durable evidence or changing legacy partition accounting.
+- **Progress and measured time.** Text-mode apply reports task starts and execution outcomes; both output modes report measured proof, feature and invocation durations. JSON remains one envelope without progress text on stdout. Skipped tasks receive no invented executions or durations.
+
+### Changed
+
+- **Guide and release documentation.** The skill explains the additive adoption fields and their limits. README, CLI/JSON/adoption references, roadmap and site describe the release and the separate Skills CLI distribution channel.
+
+### Compatibility
+
+- Existing flags, classes, proof selection, execution/purity policies and release judgments are unchanged. JSON fields are additive within `v0beta1`; document schema `v1alpha1` and ledger schema `v1alpha2` are unchanged.
+- No historical ETA, automatic raw-log capture, timing ledger fields, proof exemptions or legacy-success bypass are introduced. An accepted execution is not necessarily current verified evidence.
+- The guide still supports CLI v0.10.4 or newer compatible releases; the new reporting requires v0.12.0. Update the binary and guide independently.
+
 ## [0.11.0] - 2026-09-22
 
 ### Removed
