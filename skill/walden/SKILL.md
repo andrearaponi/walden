@@ -11,7 +11,7 @@ Author and review deliberately; delegate workflow mechanics to the CLI. Reply in
 
 ## Entry Decision
 
-Before creating a feature or choosing a phase, inspect the request, applicable project rules, and existing contracts. Read `.walden/constitution.md` and relevant `.walden/lessons.md` when present. Do not create a spec merely because the user mentioned Walden.
+Before creating a feature or choosing a phase, inspect the request, applicable project rules, and existing contracts. Read `.walden/constitution.md` and relevant `.walden/lessons.md` when present. When an approved `.walden/contracts.md` exists, start discovery from it: read in full only the features it identifies as related, then follow their citations as needed. Do not create a spec merely because the user mentioned Walden.
 
 | Contract impact | Route |
 | --- | --- |
@@ -85,6 +85,10 @@ Use commands for mechanics; use `walden --help` and command help for syntax deta
 | `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |
 | `walden release check [<feature>] [--strict]` | Judge existing evidence and release blockers; never executes proofs or publishes. |
 | `walden adopt [<feature>] [--apply]` | Inspect legacy bindings/freshness/provenance without proofs or probes; apply executes selected proofs and needs authorization. |
+| `walden consolidate` | Read-only report: contract changes since the last consolidation, review scope, deterministic findings, comparisons of each change with its linked statements, and identifiers. |
+| `walden consolidate start` | Start consolidation tracking; approved features become the unconsolidated backlog. |
+| `walden consolidate open` | Open `.walden/contracts.md` for review; refused while it disagrees with the specifications or, with changes pending, its coherence review is incomplete. |
+| `walden consolidate approve` | Seal the reviewed view and record the checkpoint, only after explicit user approval; refused while a covered feature has a revision in review. |
 | `walden lesson log --feature <name> --phase <phase> --trigger "..." --lesson "..." --guardrail "..."` | Record a reusable correction and its prevention rule. Phases include `execute` and `release`. |
 | `walden version` | Inspect binary/schema versions. |
 
@@ -240,6 +244,16 @@ Backfill trusts recorded approval and seals the current body; disclose that inte
 When available, read adoption's workload as declared steps, not tests or an ETA: unavailable features are separate from known zero, and counts do not authorize execution. After apply, retain per-task diagnostics and read accepted execution (`passed`), final state and integrity separately. `evidence_persisted: false` means observed results were not saved; a feature error before any attempt creates no task result. `elapsed_ms` measures the current attempt or enclosing feature/invocation, not historical cost. These fields may be absent on older compatible CLIs; absence is not zero. Protect redirected diagnostics, which may contain command output; Walden adds no automatic logs or timing history. Inspect the available failure reason before proposing a diagnostic replay.
 
 Retirement requires explicit confirmation. **Before deletion**, verify that Git preserves each spec/evidence file at a recoverable last-live commit, identify the reason and successor, and agree where any surviving requirements belong. Missing history or an unresolved mixed contract means stop, not fabricate recovery or create an unauthorized commit. Do not offer history-free deletion as an equivalent Walden retirement or a waiver of its recovery prerequisite. Then remove only the authorized files and record name, date, reason, last-live commit and successor in `.walden/RETIRED.md`. The optional `walden-history` companion can assist; it is not required, and retirement does not independently authorize committing or publishing.
+
+### Consolidation
+
+Keep the portfolio consistent in small steps rather than auditing it after dozens of specifications. `status` warns when a consolidation is suggested or due: two and three specifications whose approved requirements changed since the last one. `feature init` and `release check` repeat the due warning without blocking. If `walden consolidate --help` is unavailable in the installed CLI, skip this section.
+
+When it is suggested or due, or the user asks, run `walden consolidate`. Read `.walden/contracts.md` and only the features in the reported scope; for features linked only through widely cited files, their view entry is usually enough. Then compare every added, changed or removed statement in the report's comparisons with the linked statements the report shows beside it: report each contradiction, duplicated rule or dependency on a removed or changed statement with both qualified identifiers. The comparison is the material to check, so there is no need to read unrelated specifications in full. Record the outcome under `## Coherence Review` in `.walden/contracts.md`: one `### <feature>` entry per pending feature with the inconsistencies found, or none, citing the linked statements you compared as `feature#ID` in inline code; the CLI refuses to open or approve the view while an entry is missing, empty or cites none of them. Look for overlaps, contradictions, removals still cited elsewhere and obsolete obligations, and report each with its qualified identifiers. Deterministic findings are leads, not verdicts.
+
+Propose every fix as a revision of the affected specification through its normal review path. A consolidation authorizes no other work: never approve, retire or execute anything as part of it. Then update the view for the scoped features: `Purpose:` (one line on what the feature guarantees today), `Active:` (the identifiers the report lists), `Reserved:` (removed identifiers; keep reserved identifiers listed for good), `Sources:` and `Related:`. Run `walden consolidate open`, present the view, and run `walden consolidate approve` only after the user's explicit approval. If `status` reports the view stale, review it and run `walden consolidate open` again. The CLI owns the record and the review state: never edit `.walden/consolidation.json` or the view frontmatter by hand.
+
+In an existing portfolio, `walden consolidate start` records today's approved specifications as an unconsolidated backlog. Consolidate backlog features in small batches when the user asks, never all at once.
 
 ### Release judgment
 

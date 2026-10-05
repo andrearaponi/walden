@@ -1,0 +1,945 @@
+{
+ "domain": "city parking service (synthetic)",
+ "consolidation_prompts": {
+  "explicit": "Sono state approvate tre modifiche alle specifiche di questo repository. Esegui la consolidazione dei contratti: verifica che le modifiche siano coerenti con le altre specifiche e preparami la vista aggiornata dei contratti (.walden/contracts.md) per la mia approvazione.",
+  "plain": "Sono state approvate tre modifiche alle specifiche di questo repository. Esegui la consolidazione dei contratti e preparami la vista aggiornata dei contratti (.walden/contracts.md) per la mia approvazione."
+ },
+ "acceptance_variants": [
+  "v10",
+  "v11",
+  "v12"
+ ],
+ "development_variants": [
+  "v1",
+  "v2",
+  "v3",
+  "v4",
+  "v5",
+  "v6",
+  "v7",
+  "v8",
+  "v9"
+ ],
+ "variants": [
+  {
+   "id": "v1",
+   "changes": [
+    {
+     "feature": "night-parking",
+     "kind": "new",
+     "body": "changes/v1/night-parking.md"
+    },
+    {
+     "feature": "payments",
+     "kind": "revised",
+     "body": "changes/v1/payments.md"
+    },
+    {
+     "feature": "refunds",
+     "kind": "revised",
+     "body": "changes/v1/refunds.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v1-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "night-parking",
+      "parking-zones"
+     ],
+     "expect": "reports that night-parking#R1.AC1 charges a night tariff while parking-zones#R1.AC2 makes parking free outside operating hours (20:00-08:00 under decision P1)"
+    },
+    {
+     "id": "v1-obsolete-dependency",
+     "kind": "obsolete-dependency",
+     "semantic": true,
+     "features": [
+      "payments",
+      "notifications"
+     ],
+     "expect": "reports that the payments revision removed charge retries (payments#R1.AC3) while notifications#R1.AC2 still notifies about failed retries"
+    },
+    {
+     "id": "v1-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "refunds",
+      "operator-console"
+     ],
+     "expect": "reports that the new refunds criterion restates operator-console#R1.AC2 (recording refund approvals in the audit log) instead of citing it"
+    },
+    {
+     "id": "v1-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "night-parking"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P9-night-tariff.md"
+    },
+    {
+     "id": "v1-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "refunds"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v2",
+   "changes": [
+    {
+     "feature": "ev-fast-charging",
+     "kind": "new",
+     "body": "changes/v2/ev-fast-charging.md"
+    },
+    {
+     "feature": "parking-sessions",
+     "kind": "revised",
+     "body": "changes/v2/parking-sessions.md"
+    },
+    {
+     "feature": "reporting",
+     "kind": "revised",
+     "body": "changes/v2/reporting.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v2-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "ev-fast-charging",
+      "ev-charging"
+     ],
+     "expect": "reports that ev-fast-charging#R1.AC1 closes the parking session after 2 hours while ev-charging#R1.AC2 only notifies the driver after 4 hours"
+    },
+    {
+     "id": "v2-obsolete-dependency",
+     "kind": "obsolete-dependency",
+     "semantic": true,
+     "features": [
+      "parking-sessions",
+      "notifications"
+     ],
+     "expect": "reports that the parking-sessions revision removed the zone maximum duration (parking-sessions#R1.AC3) while notifications#R1.AC1 still warns 10 minutes before it"
+    },
+    {
+     "id": "v2-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "reporting",
+      "privacy-retention"
+     ],
+     "expect": "reports that the new reporting criterion restates privacy-retention#R1.AC1 (removing plates after 13 months) instead of citing it"
+    },
+    {
+     "id": "v2-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "parking-sessions"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P8-open-ended-sessions.md"
+    },
+    {
+     "id": "v2-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "reporting"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC2"
+    }
+   ]
+  },
+  {
+   "id": "v3",
+   "changes": [
+    {
+     "feature": "resident-surcharge",
+     "kind": "new",
+     "body": "changes/v3/resident-surcharge.md"
+    },
+    {
+     "feature": "account-management",
+     "kind": "revised",
+     "body": "changes/v3/account-management.md"
+    },
+    {
+     "feature": "operator-console",
+     "kind": "revised",
+     "body": "changes/v3/operator-console.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v3-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "resident-surcharge",
+      "resident-permits"
+     ],
+     "expect": "reports that resident-surcharge#R1.AC1 charges residents in their home zone while resident-permits#R1.AC2 lets them park there free"
+    },
+    {
+     "id": "v3-obsolete-dependency",
+     "kind": "obsolete-dependency",
+     "semantic": true,
+     "features": [
+      "account-management",
+      "privacy-retention"
+     ],
+     "expect": "reports that the account-management revision stopped storing payment tokens (account-management#R1.AC3) while privacy-retention#R1.AC2 still deletes stored payment tokens"
+    },
+    {
+     "id": "v3-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "operator-console",
+      "audit-log"
+     ],
+     "expect": "reports that the new operator-console criterion restates audit-log#R1.AC1 (one audit entry per operator action) instead of citing it"
+    },
+    {
+     "id": "v3-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "resident-surcharge"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P10-resident-surcharge.md"
+    },
+    {
+     "id": "v3-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "account-management"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC4"
+    }
+   ]
+  },
+  {
+   "id": "v4",
+   "changes": [
+    {
+     "feature": "ev-flat-fee",
+     "kind": "new",
+     "body": "changes/v4/ev-flat-fee.md"
+    },
+    {
+     "feature": "fines",
+     "kind": "revised",
+     "body": "changes/v4/fines.md"
+    },
+    {
+     "feature": "public-api",
+     "kind": "revised",
+     "body": "changes/v4/public-api.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v4-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "ev-flat-fee",
+      "ev-charging"
+     ],
+     "expect": "reports that ev-flat-fee#R1.AC1 charges a flat 5 EUR per charging session while ev-charging#R1.AC1 bills charging per kWh"
+    },
+    {
+     "id": "v4-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "fines",
+      "fine-appeals"
+     ],
+     "expect": "reports that the fines revision shortens the payment deadline to 14 days (fines#R1.AC2) while fine-appeals#R1.AC1 accepts appeals for 28 days, so appeals can arrive after the fine is overdue"
+    },
+    {
+     "id": "v4-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "public-api",
+      "parking-zones"
+     ],
+     "expect": "reports that the new public-api criterion restates parking-zones#R1.AC1 (returning the zone that contains a location) instead of citing it"
+    },
+    {
+     "id": "v4-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "ev-flat-fee"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P11-ev-flat-fee.md"
+    },
+    {
+     "id": "v4-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "public-api"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v5",
+   "changes": [
+    {
+     "feature": "weekly-visitor-pass",
+     "kind": "new",
+     "body": "changes/v5/weekly-visitor-pass.md"
+    },
+    {
+     "feature": "enforcement-checks",
+     "kind": "revised",
+     "body": "changes/v5/enforcement-checks.md"
+    },
+    {
+     "feature": "notifications",
+     "kind": "revised",
+     "body": "changes/v5/notifications.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v5-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "weekly-visitor-pass",
+      "visitor-permits"
+     ],
+     "expect": "reports that weekly-visitor-pass#R1.AC1 lets a visitor park free for seven days while visitor-permits#R1.AC2 caps visitor parking at 10 hours a week"
+    },
+    {
+     "id": "v5-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "enforcement-checks",
+      "accessible-parking"
+     ],
+     "expect": "reports that the enforcement-checks revision no longer treats blue badges as coverage (enforcement-checks#R1.AC1, R1.AC2) while accessible-parking#R1.AC1 lets badge holders park free in every zone, so they would be reported uncovered and fined"
+    },
+    {
+     "id": "v5-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "notifications",
+      "fines"
+     ],
+     "expect": "reports that the new notifications criterion restates fines#R1.AC1 (issuing a fine for a confirmed uncovered plate) instead of citing it"
+    },
+    {
+     "id": "v5-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "weekly-visitor-pass"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P12-weekly-visitor-pass.md"
+    },
+    {
+     "id": "v5-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "notifications"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC4"
+    }
+   ]
+  },
+  {
+   "id": "v6",
+   "changes": [
+    {
+     "feature": "paperless-receipts",
+     "kind": "new",
+     "body": "changes/v6/paperless-receipts.md"
+    },
+    {
+     "feature": "audit-log",
+     "kind": "revised",
+     "body": "changes/v6/audit-log.md"
+    },
+    {
+     "feature": "ev-charging",
+     "kind": "revised",
+     "body": "changes/v6/ev-charging.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v6-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "paperless-receipts",
+      "receipts"
+     ],
+     "expect": "reports that paperless-receipts#R1.AC1 makes receipts available only in the app, never by email, while receipts#R1.AC2 sends a receipt by email on request"
+    },
+    {
+     "id": "v6-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "audit-log",
+      "operator-console"
+     ],
+     "expect": "reports that the audit-log revision records only actions on fines (audit-log#R1.AC1) while operator-console#R1.AC2 relies on it to record refund approvals"
+    },
+    {
+     "id": "v6-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "ev-charging",
+      "session-pricing"
+     ],
+     "expect": "reports that the new ev-charging criterion restates session-pricing#R1.AC1 (pricing per started minute) instead of citing it"
+    },
+    {
+     "id": "v6-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "paperless-receipts"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P13-paperless-receipts.md"
+    },
+    {
+     "id": "v6-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "ev-charging"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v7",
+   "changes": [
+    {
+     "feature": "family-accounts",
+     "kind": "new",
+     "body": "changes/v7/family-accounts.md"
+    },
+    {
+     "feature": "payments",
+     "kind": "revised",
+     "body": "changes/v7/payments.md"
+    },
+    {
+     "feature": "privacy-retention",
+     "kind": "revised",
+     "body": "changes/v7/privacy-retention.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v7-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "family-accounts",
+      "account-management"
+     ],
+     "expect": "reports that family-accounts#R1.AC1 lets a family account hold up to 5 plates while account-management#R1.AC2 refuses any plate beyond 3 per account"
+    },
+    {
+     "id": "v7-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "payments",
+      "receipts"
+     ],
+     "expect": "reports that the payments revision replaces the charge at session close with one monthly charge (payments#R1.AC1) while receipts#R1.AC1 issues a receipt with zone, duration and amount for each successful charge, or refunds#R1.AC1 refunds a session's charge in full; naming either dependent counts"
+    },
+    {
+     "id": "v7-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "privacy-retention",
+      "audit-log"
+     ],
+     "expect": "reports that the new privacy-retention criterion restates audit-log#R1.AC2 (keeping audit entries unchanged for 2 years) instead of citing it"
+    },
+    {
+     "id": "v7-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "family-accounts"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P14-family-accounts.md"
+    },
+    {
+     "id": "v7-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "privacy-retention"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v8",
+   "changes": [
+    {
+     "feature": "tax-archive",
+     "kind": "new",
+     "body": "changes/v8/tax-archive.md"
+    },
+    {
+     "feature": "enforcement-checks",
+     "kind": "revised",
+     "body": "changes/v8/enforcement-checks.md"
+    },
+    {
+     "feature": "session-pricing",
+     "kind": "revised",
+     "body": "changes/v8/session-pricing.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v8-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "tax-archive",
+      "privacy-retention"
+     ],
+     "expect": "reports that tax-archive#R1.AC1 keeps the plate of every closed session for 10 years while privacy-retention#R1.AC1 removes plates from sessions older than 13 months (or privacy-retention#R1.AC2 deletes plates within 30 days of an account closing)"
+    },
+    {
+     "id": "v8-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "enforcement-checks",
+      "fines"
+     ],
+     "expect": "reports that the enforcement-checks revision sends uncovered plates to back-office review instead of reporting them as uncovered (enforcement-checks#R1.AC2) while fines#C2 lets only plates reported uncovered by enforcement-checks#R1.AC2 be fined (fines#R1.AC1 fines a confirmed uncovered plate), so no fine can be issued"
+    },
+    {
+     "id": "v8-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "session-pricing",
+      "parking-zones"
+     ],
+     "expect": "reports that the new session-pricing criterion restates parking-zones#R1.AC2 (free parking outside operating hours) instead of citing it"
+    },
+    {
+     "id": "v8-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "tax-archive"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P15-tax-archive.md"
+    },
+    {
+     "id": "v8-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "session-pricing"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v9",
+   "changes": [
+    {
+     "feature": "erasure-requests",
+     "kind": "new",
+     "body": "changes/v9/erasure-requests.md"
+    },
+    {
+     "feature": "visitor-permits",
+     "kind": "revised",
+     "body": "changes/v9/visitor-permits.md"
+    },
+    {
+     "feature": "receipts",
+     "kind": "revised",
+     "body": "changes/v9/receipts.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v9-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "erasure-requests",
+      "audit-log"
+     ],
+     "expect": "reports that erasure-requests#R1.AC1 removes a driver's plates from audit entries within 30 days of a request while audit-log#R1.AC2 keeps every audit entry unchanged for 2 years"
+    },
+    {
+     "id": "v9-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "visitor-permits",
+      "enforcement-checks"
+     ],
+     "expect": "reports that the visitor-permits revision replaces the visitor's plate with a one-time code (visitor-permits#R1.AC1) while enforcement-checks#R1.AC1 checks coverage by plate and counts visitor permits as coverage (enforcement-checks#C1), so visiting vehicles would be reported uncovered"
+    },
+    {
+     "id": "v9-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "receipts",
+      "payments"
+     ],
+     "expect": "reports that the new receipts criterion restates payments#R1.AC1 (charging the default payment method when a priced session closes) instead of citing it"
+    },
+    {
+     "id": "v9-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "erasure-requests"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P16-erasure-requests.md"
+    },
+    {
+     "id": "v9-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "receipts"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v10",
+   "changes": [
+    {
+     "feature": "event-pricing",
+     "kind": "new",
+     "body": "changes/v10/event-pricing.md"
+    },
+    {
+     "feature": "resident-permits",
+     "kind": "revised",
+     "body": "changes/v10/resident-permits.md"
+    },
+    {
+     "feature": "fines",
+     "kind": "revised",
+     "body": "changes/v10/fines.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v10-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "event-pricing",
+      "session-pricing"
+     ],
+     "expect": "reports that event-pricing#R1.AC1 prices event sessions without a daily cap while session-pricing#R1.AC2 charges the zone's daily cap whenever a session's price would exceed it"
+    },
+    {
+     "id": "v10-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "resident-permits",
+      "visitor-permits"
+     ],
+     "expect": "reports that the resident-permits revision registers a resident's plate instead of issuing a permit (resident-permits#R1.AC1) while visitor-permits#C1 lets only holders of resident-permits#R1.AC1 permits issue visitor permits, so no resident could issue one"
+    },
+    {
+     "id": "v10-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "fines",
+      "enforcement-checks"
+     ],
+     "expect": "reports that the new fines criterion restates enforcement-checks#R1.AC2 (reporting a plate that nothing covers as uncovered) instead of citing it"
+    },
+    {
+     "id": "v10-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "event-pricing"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P17-event-pricing.md"
+    },
+    {
+     "id": "v10-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "fines"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v11",
+   "changes": [
+    {
+     "feature": "masked-plates",
+     "kind": "new",
+     "body": "changes/v11/masked-plates.md"
+    },
+    {
+     "feature": "parking-zones",
+     "kind": "revised",
+     "body": "changes/v11/parking-zones.md"
+    },
+    {
+     "feature": "resident-permits",
+     "kind": "revised",
+     "body": "changes/v11/resident-permits.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v11-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "masked-plates",
+      "operator-console"
+     ],
+     "expect": "reports that masked-plates#R1.AC1 shows only the last two characters of the plate when an operator opens a session while operator-console#R1.AC1 shows its plate"
+    },
+    {
+     "id": "v11-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "parking-zones",
+      "parking-sessions"
+     ],
+     "expect": "reports that the parking-zones revision returns the district that contains a location instead of its zone (parking-zones#R1.AC1) while parking-sessions#C1 (or public-api#C1) takes zones from that lookup, so a session or an API client no longer gets a single zone with its hours and tariff; naming either dependent counts"
+    },
+    {
+     "id": "v11-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "resident-permits",
+      "visitor-permits"
+     ],
+     "expect": "reports that the new resident-permits criterion restates visitor-permits#R1.AC2 (refusing visitor permits beyond 10 hours a week) instead of citing it"
+    },
+    {
+     "id": "v11-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "masked-plates"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P18-masked-plates.md"
+    },
+    {
+     "id": "v11-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "resident-permits"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  },
+  {
+   "id": "v12",
+   "changes": [
+    {
+     "feature": "fast-collection",
+     "kind": "new",
+     "body": "changes/v12/fast-collection.md"
+    },
+    {
+     "feature": "refunds",
+     "kind": "revised",
+     "body": "changes/v12/refunds.md"
+    },
+    {
+     "feature": "parking-zones",
+     "kind": "revised",
+     "body": "changes/v12/parking-zones.md"
+    }
+   ],
+   "injections": [
+    {
+     "id": "v12-contradiction",
+     "kind": "contradiction",
+     "semantic": true,
+     "features": [
+      "fast-collection",
+      "fine-appeals"
+     ],
+     "expect": "reports that fast-collection#R1.AC1 sends a fine to collection after its deadline even while an appeal is open, while fine-appeals#R1.AC2 suspends the payment deadline while an appeal is open"
+    },
+    {
+     "id": "v12-broken-dependency",
+     "kind": "broken-dependency",
+     "semantic": true,
+     "features": [
+      "refunds",
+      "operator-console"
+     ],
+     "expect": "reports that the refunds revision replaces operator approval with automatic refunds of requests up to 20 EUR (refunds#R1.AC2) while operator-console#R1.AC2 records operator approvals of refund requests that refunds#R1.AC2 no longer defines (operator-console#C1)"
+    },
+    {
+     "id": "v12-duplicate-rule",
+     "kind": "duplicate-rule",
+     "semantic": true,
+     "features": [
+      "parking-zones",
+      "session-pricing"
+     ],
+     "expect": "reports that the new parking-zones criterion restates session-pricing#R1.AC2 (charging the zone's daily cap) instead of citing it"
+    },
+    {
+     "id": "v12-missing-decision",
+     "kind": "missing-decision",
+     "semantic": false,
+     "features": [
+      "fast-collection"
+     ],
+     "expect": "missing cited decision",
+     "path": "docs/decisions/P19-fast-collection.md"
+    },
+    {
+     "id": "v12-reserved-reuse",
+     "kind": "reserved-reuse",
+     "semantic": false,
+     "features": [
+      "parking-zones"
+     ],
+     "expect": "reserved identifier defined again",
+     "identifier": "R1.AC3"
+    }
+   ]
+  }
+ ],
+ "discovery": [
+  {
+   "id": "d1",
+   "prompt": "Vorrei che i residenti potessero sospendere temporaneamente il proprio permesso durante le vacanze. Prepara i requisiti per la mia approvazione.",
+   "related": [
+    "resident-permits"
+   ],
+   "allowed": [
+    "visitor-permits",
+    "enforcement-checks"
+   ]
+  },
+  {
+   "id": "d2",
+   "prompt": "Vorrei che le ricevute mostrassero anche l'IVA applicata a ogni sosta. Prepara i requisiti per la mia approvazione.",
+   "related": [
+    "receipts"
+   ],
+   "allowed": [
+    "payments",
+    "session-pricing"
+   ]
+  }
+ ],
+ "schedule": {
+  "conditions": {
+   "explicit": [
+    "baseline",
+    "candidate"
+   ],
+   "plain": [
+    "candidate"
+   ]
+  },
+  "repetitions": 3,
+  "discovery_arms": [
+   "candidate"
+  ]
+ },
+ "thresholds": {
+  "explicit_detection_min": 0.8,
+  "explicit_margin_min": -0.05,
+  "plain_detection_min": 0.7,
+  "discovery_related_min": 5
+ },
+ "baseline_workflow": {
+  "cli_sha256": "13da6f3652f33e83e6eb9211e7690b894a1ca780ca87739b4c9c0d14e8d856c2",
+  "guide_sha256": "1e9f672cf965c8ac14fa4ebe9eea884d8f7b5af89df4385f3b7665cf91a212e8"
+ },
+ "budget": {
+  "session_usd": 2,
+  "session_seconds": 900,
+  "sessions_usd": 15,
+  "review_usd": 3,
+  "total_usd": 18
+ }
+}

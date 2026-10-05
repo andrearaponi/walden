@@ -101,6 +101,27 @@ One deterministic verdict per feature — `chain`, `validation`, `decisions`, `e
 - `--strict` binds the exact consumed spec/evidence bytes and presence to one existing commit, even for ignored inputs. An unqualified request also checks the committed feature inventory. Missing, different, unreadable or symlinked inputs block; ignored scratch outside the input set does not.
 - Uncommitted changes outside `.walden/` always block, with no bypass. No usable git fails closed. Dirty `.walden/` warns by default (a refreshed ledger legitimately precedes its own commit) and blocks under `--strict`.
 - The verdict carries `completion`, `certified_commit`, explicit feature/portfolio scope and guarantee, and committed-input binding status. A named-feature pass is not a repository-wide certificate. Non-strict mode does not claim local metadata is committed; pending waivers never waive unattested evidence or strict input defects.
+- A due contract consolidation adds a note to `release.repository_warnings`; it never blocks and never changes the verdict, blockers, completion class or exit code.
+
+## Consolidation
+
+See [Contract Consolidation](../consolidation.md) for the cycle; `walden consolidate --help` prints it too, and each subcommand's help states its preconditions, refusals and next step. `status` also reports the consolidation state and its warnings; `feature init` repeats a due consolidation as a warning. None of this ever blocks a command.
+
+### `walden consolidate report [--json]`
+
+Also plain `walden consolidate`. Read-only report: tracking state, pending contract changes, backlog, threshold (`none`, `suggested`, `due`), view state, the bounded review scope with link reasons and widely cited files, deterministic findings, and the defined identifiers of the scoped features. Writes nothing, runs no proofs or probes; exit `0` unless the specs directory is unreadable.
+
+### `walden consolidate start [--json]`
+
+Starts tracking: records every approved, fresh feature as the unconsolidated backlog and scaffolds `.walden/contracts.md` in draft when absent. Refused when tracking already started.
+
+### `walden consolidate open [--json]`
+
+Moves the view to `in-review`. Refused, naming every problem and changing nothing, while the view disagrees with the specifications or, with changes pending, its coherence review lacks a non-empty entry per pending feature citing a linked statement of its comparison.
+
+### `walden consolidate approve [--json]`
+
+Run only after the user's explicit approval. Requires the view in review, no mismatches, a complete coherence review while changes are pending, and approved, fresh requirements for every covered feature. Seals the view and records the checkpoint in `.walden/consolidation.json`; covered features become consolidated. Re-running it on an unchanged approved view repairs a record left behind by an interrupted write.
 
 ## Lessons
 

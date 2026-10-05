@@ -80,6 +80,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runRelease(args[1:], stdout, stderr)
 	case "review":
 		return runReview(args[1:], stdout, stderr)
+	case "consolidate":
+		return runConsolidate(args[1:], stdout, stderr)
 	}
 
 	_, _ = fmt.Fprintf(stderr, "unknown command: %s\n\n", strings.Join(args, " "))
@@ -210,6 +212,9 @@ func runFeatureInit(args []string, stdout io.Writer, stderr io.Writer) int {
 		if report.AlreadyExists {
 			summary = fmt.Sprintf("feature scaffold already exists for %s", report.FeatureName)
 			warnings = append(warnings, "feature already exists; existing files were preserved")
+		}
+		if due := dueConsolidationWarning(root); due != "" {
+			warnings = append(warnings, due)
 		}
 
 		result := output.Result{
@@ -444,6 +449,7 @@ func runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	result := statusSuccessResult(state)
+	attachConsolidation(root, &result)
 	if jsonMode {
 		if err := output.PrintJSON(stdout, "status", result); err != nil {
 			_, _ = fmt.Fprintf(stderr, "render json output: %v\n", err)

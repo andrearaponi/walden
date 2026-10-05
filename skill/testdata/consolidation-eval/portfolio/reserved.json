@@ -1,0 +1,38 @@
+{
+ "account-management": [
+  "R1.AC4"
+ ],
+ "ev-charging": [
+  "R1.AC3"
+ ],
+ "fines": [
+  "R1.AC3"
+ ],
+ "notifications": [
+  "R1.AC4"
+ ],
+ "parking-zones": [
+  "R1.AC3"
+ ],
+ "privacy-retention": [
+  "R1.AC3"
+ ],
+ "public-api": [
+  "R1.AC3"
+ ],
+ "receipts": [
+  "R1.AC3"
+ ],
+ "refunds": [
+  "R1.AC3"
+ ],
+ "reporting": [
+  "R1.AC2"
+ ],
+ "resident-permits": [
+  "R1.AC3"
+ ],
+ "session-pricing": [
+  "R1.AC3"
+ ]
+}
