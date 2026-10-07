@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-08
+
+### Added
+
+- **Contract consolidation.** `walden consolidate` keeps a portfolio consistent in small, regular steps instead of an audit after dozens of specifications. A feature whose approved requirements changed since the last consolidation is a pending change; with two pending changes `status`, `feature init` and `release check` suggest a consolidation, with three they report it as due — warnings, never blockers. The read-only report lists the bounded review scope (the pending features and every feature linked to them by a `feature#ID` reference or a shared cited file), deterministic findings (missing cited files, dangling references, reused reserved identifiers) and, for each pending feature, its statements marked added, changed or removed with the recorded text beside them. The reviewing agent records the outcome per pending feature under `## Coherence Review` in the current-contract view `.walden/contracts.md`; the CLI checks that review for presence, coverage and citations, never for correctness, and `consolidate open` and `consolidate approve` refuse while it is incomplete or the view disagrees with the specifications. On an existing portfolio, `consolidate start` records today's approved features as an unconsolidated backlog to consolidate in batches. Every subcommand's `--help` states its preconditions, effects, refusals and next step; `docs/consolidation.md` describes the cycle.
+
 ## [0.12.0] - 2026-10-03
 
 ### Added

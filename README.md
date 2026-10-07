@@ -45,6 +45,10 @@ Requirements are written as [EARS](docs/reference/spec-format.md) acceptance cri
 
 After reviewing the scope, `walden adopt <feature> --apply` runs the applicable completed proofs. v0.12.0 adds task progress, measured durations, and complete failure/integrity diagnostics, including results that could not be saved. It does not waive untestable proofs, estimate historical runtime or change release guarantees. See [Brownfield Adoption](docs/adoption.md) and the [JSON contract](docs/reference/json.md#adoption-adopt---json).
 
+## Keep the portfolio coherent
+
+A long-lived repository accumulates specifications. `walden consolidate` counts the features whose approved requirements changed since the last consolidation, reminds you at two and three (warnings, never blockers), bounds the review to those features and the ones linked to them, and seals the outcome in a current-contract view, `.walden/contracts.md`, that the CLI checks against the specifications. See [Contract Consolidation](docs/consolidation.md).
+
 ## Install
 
 Walden is two artifacts with one manager each: the **binary** comes from GitHub releases, the **AI skill** comes from the [Skills CLI](https://skills.sh). Neither installs the other.
@@ -82,10 +86,10 @@ Without Node, as a manual fallback (not a second channel): copy this repository'
 The POSIX installer does not run on Windows. Install from source with Go, or download the release asset:
 
 ```powershell
-go install github.com/andrearaponi/walden/cmd/walden@v0.12.0   # then ensure %USERPROFILE%\go\bin is on PATH
+go install github.com/andrearaponi/walden/cmd/walden@v0.13.0   # then ensure %USERPROFILE%\go\bin is on PATH
 ```
 
-or grab `walden-v0.12.0-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
+or grab `walden-v0.13.0-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
 
 ## Quickstart
 
