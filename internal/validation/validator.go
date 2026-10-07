@@ -17,11 +17,11 @@ var (
 	statusValues           = map[string]struct{}{"draft": {}, "in-review": {}, "approved": {}}
 	checkboxPattern        = regexp.MustCompile(`(?m)^- \[[ x]\] \d+\.`)
 	subtaskPattern         = regexp.MustCompile(`^(\s*)- \[[ x]\] (\d+(?:\.\d+)?)\b`)
-	requirementHeader      = regexp.MustCompile(`(?m)^### (R\d+)\b`)
-	acceptanceIDPattern    = regexp.MustCompile("`(R\\d+\\.AC\\d+)`")
-	nfrIDPattern           = regexp.MustCompile("`(NFR\\d+)`")
-	constraintIDPattern    = regexp.MustCompile("`(C\\d+)`")
-	backtickIDPattern      = regexp.MustCompile("`((?:R\\d+(?:\\.AC\\d+)?)|(?:NFR\\d+)|(?:C\\d+))`")
+	requirementHeader      = spec.RequirementHeaderPattern
+	acceptanceIDPattern    = spec.CriterionIDPattern
+	nfrIDPattern           = spec.NFRIDPattern
+	constraintIDPattern    = spec.ConstraintIDPattern
+	backtickIDPattern      = spec.AnyIDPattern
 	coverageRowPattern     = regexp.MustCompile("(?m)^\\| `((?:R\\d+)|(?:NFR\\d+))` \\|")
 	requiredSectionsDesign = []string{
 		"## Architecture",

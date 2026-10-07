@@ -1,0 +1,30 @@
+# Requirements Document
+
+## Introduction
+
+Refund mistaken sessions and small refund requests automatically.
+
+## Requirements
+
+### R1 Refunds
+
+**User Story:** As a driver, I want mistaken sessions refunded, so that I do not pay for parking I did not use.
+
+#### Acceptance Criteria
+
+1. `R1.AC1` WHEN a driver stops a session within 2 minutes of starting it, the system SHALL refund the charge in full.
+   - Acceptance check: a session stopped after 90 seconds is refunded in full.
+2. `R1.AC2` WHEN a driver submits a refund request of up to 20 EUR, the system SHALL refund it automatically.
+   - Acceptance check: a request for 3 EUR is refunded without operator action.
+
+## Non-Functional Requirements
+
+- None specific to this feature.
+
+## Constraints And Dependencies
+
+- `C1` Refunds reverse charges made under `payments#R1.AC1`.
+
+## Out Of Scope
+
+- Anything not listed above.

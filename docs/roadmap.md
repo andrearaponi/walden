@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.12.0
+## Current Release: v0.13.0
 
 The open source core today includes:
 
@@ -15,6 +15,7 @@ The open source core today includes:
 - Execution evidence ledger: task completions bound to spec fingerprints and a code identity, derived states including explicit unattested legacy assurance, `walden verify` with per-proof identities and sticky contamination, per-step proof timeouts, `expect_exit`/`expect_output` assertions, and execution profiles with declared environment probes
 - Aggregate release gate (`walden release check`): one deterministic releasability verdict per declared feature/portfolio scope — chain freshness, full-spec validation, decision-marker lint, evidence states, clean-worktree policy — judging only, executing nothing; pending work blocks by default, with recorded waivers (`--allow-pending --reason`), completion classes, and a certified commit in every verdict
 - Brownfield adoption lane (`walden adopt`): read-only classification and declared-step workload with explicit unavailable features, fingerprint backfill for recorded approvals, non-executing legacy binding/freshness/provenance assessment and explicitly scoped re-proving; apply retains failure/integrity diagnoses, final evidence assessments, persistence outcomes, task progress and measured durations
+- Contract consolidation (`walden consolidate`): pending contract changes counted since the last consolidation, advisory reminders at two and three, a read-only report with the bounded review scope, deterministic findings and statement comparisons, and a CLI-checked current-contract view with its coherence review, sealed only after explicit approval
 - Retirement convention (`.walden/RETIRED.md`) and the `walden-history` companion skill for sourced chronicles over committed spec history
 - Documentation pack (quickstart, lifecycle, workflow, adoption, CI, and full CLI/JSON/format references)
 - Example project with shell-safe verification, validated in CI as a compatibility fixture

@@ -20,9 +20,12 @@ type flagSpec struct {
 // usage and per-command help) all read from this declaration, so parsing
 // behavior and documentation cannot drift apart.
 type commandSpec struct {
-	Path        string
-	Syntax      string
-	Summary     string
+	Path    string
+	Syntax  string
+	Summary string
+	// Details are optional help lines printed under the summary: the cycle a
+	// group belongs to, or a command's preconditions, refusals and next step.
+	Details     []string
 	BoolFlags   []flagSpec
 	ValueFlags  []flagSpec
 	Subcommands []commandSpec
@@ -129,6 +132,12 @@ func parseCommandArgs(spec commandSpec, args []string) (commandArgs, parseOutcom
 // for leaf commands; the subcommand list for group commands.
 func printCommandHelp(w io.Writer, spec commandSpec) {
 	_, _ = fmt.Fprintf(w, "Usage:\n  %s %s\n      %s\n", binaryName, spec.Syntax, spec.Summary)
+	if len(spec.Details) > 0 {
+		_, _ = fmt.Fprintln(w)
+		for _, line := range spec.Details {
+			_, _ = fmt.Fprintf(w, "  %s\n", line)
+		}
+	}
 
 	if len(spec.Subcommands) > 0 {
 		_, _ = fmt.Fprintln(w, "\nSubcommands:")
@@ -349,6 +358,67 @@ var commandRegistry = []commandSpec{
 				ValueFlags: []flagSpec{
 					{Name: "--phase", Description: "Target requirements|design|tasks", Placeholder: "<phase>"},
 				},
+			},
+		},
+	},
+	{
+		Path:    "consolidate",
+		Syntax:  "consolidate <subcommand>",
+		Summary: "Contract consolidation: report changes since the last consolidation and maintain the current-contract view",
+		Details: []string{
+			"The cycle:",
+			"  1. walden status suggests a consolidation when two specifications changed their approved requirements since the last one, and reports it due at three or more; walden feature init and walden release check repeat the due warning. Warnings never block.",
+			"  2. walden consolidate (read-only) reports the pending changes, the features linked to them, deterministic findings and the comparisons: each changed statement with its previous text, next to the linked statements.",
+			"  3. Compare each pending change with its linked statements. Record the outcome per pending feature under ## Coherence Review in .walden/contracts.md, citing the compared statements as `feature#ID` in inline code; propose fixes as normal revisions of the affected specifications; update the feature sections of the view.",
+			"  4. walden consolidate open puts the view in review; present it to the user.",
+			"  5. walden consolidate approve, only after the user's explicit approval, records the checkpoint; the pending count restarts from zero.",
+			"On an existing portfolio, run walden consolidate start once before the first consolidation.",
+			"Never edit .walden/consolidation.json or the view frontmatter by hand.",
+		},
+		Subcommands: []commandSpec{
+			{
+				Path:    "consolidate report",
+				Syntax:  "consolidate report [--json]",
+				Summary: "Report pending contract changes, the review scope, findings and comparisons (read-only; also plain walden consolidate)",
+				Details: []string{
+					"Read-only: writes nothing and runs no proofs.",
+					"Shows tracking, pending changes, backlog, threshold, view state, the review scope with link reasons and widely cited files, deterministic findings (missing-file, dangling-reference, reserved-reuse, view-mismatch, coherence-review), the comparisons and each feature's identifiers.",
+					"The next action names the step to take.",
+				},
+				BoolFlags: []flagSpec{jsonFlag},
+			},
+			{
+				Path:    "consolidate start",
+				Syntax:  "consolidate start [--json]",
+				Summary: "Start consolidation tracking; approved features become the unconsolidated backlog",
+				Details: []string{
+					"Run once per repository; refused once tracking has started.",
+					"Records every approved, fresh feature as the unconsolidated backlog in .walden/consolidation.json and creates .walden/contracts.md in draft when absent.",
+					"Then consolidate the backlog in small batches when the user asks.",
+				},
+				BoolFlags: []flagSpec{jsonFlag},
+			},
+			{
+				Path:    "consolidate open",
+				Syntax:  "consolidate open [--json]",
+				Summary: "Put .walden/contracts.md in review; refused while it disagrees with the specifications or its coherence review is incomplete",
+				Details: []string{
+					"Refused, changing nothing, while the view omits a covered feature or identifier, or lists one that does not exist.",
+					"While changes are pending, also refused until ## Coherence Review holds one non-empty ### <feature> entry per pending feature, citing one of its linked statements as `feature#ID` in inline code, and no entry for other features.",
+					"Then present the view to the user; approve it only after their explicit approval.",
+				},
+				BoolFlags: []flagSpec{jsonFlag},
+			},
+			{
+				Path:    "consolidate approve",
+				Syntax:  "consolidate approve [--json]",
+				Summary: "After the user's explicit approval, seal the reviewed view and record the consolidation checkpoint",
+				Details: []string{
+					"Run only after the user's explicit approval of the view.",
+					"Requires the view in review, no mismatch, a complete coherence review and approved, fresh requirements for every covered feature; a revision still in review must be approved first.",
+					"Seals the view and records the checkpoint in .walden/consolidation.json; the pending count restarts from zero.",
+				},
+				BoolFlags: []flagSpec{jsonFlag},
 			},
 		},
 	},

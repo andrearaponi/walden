@@ -97,6 +97,7 @@ Scope is reported at `result.scope` for verify, `result.adoption.scope` for adop
 - `release.features[].criteria[]`: the existing `chain`, `validation`, `decisions`, and `evidence` names, with `passed` and optional `blockers`.
 - `release.features[].pending`: pending task IDs; `evidence` carries the shared assessment entries.
 - `release.worktree`: `blockers`, `walden_dirty`, `git_skipped`, plus `input_binding` and optional `inputs`.
+- `release.repository_warnings`: optional, additive repository-level notes such as a due contract consolidation. They never change `releasable`, blockers, completion or the exit code.
 
 `input_binding` is `not-requested` in non-strict mode, or `matched`/`blocked` in strict mode. Each `inputs[]` entry names `path`, `state`, and optional `detail`. States include `matched`, `matched-absent`, `missing`, `different`, `unreadable`, `unavailable`, and `unsupported-kind`.
 
@@ -189,6 +190,27 @@ The legacy `verified`/`failed` identifier partitions keep their accounting for f
 An entry failure creates no task result. A fatal planning error after apply begins can carry invocation time without a scope or workload; argument errors before apply begins carry no invented timing. JSON mode emits one final envelope without text progress on stdout. Existing stderr warnings retain their behavior.
 
 All additions remain optional for consumers of older compatible CLIs: missing fields are not zero measurements or proof of success. Diagnostics may contain existing verifier command output; there is no automatic redaction or log capture. Document/evidence formats and assurance semantics are unchanged.
+
+## Consolidation (`consolidate --json`)
+
+`walden consolidate` (and `consolidate start`, `open`, `approve`, with command names `consolidate`, `consolidate-start`, `consolidate-open`, `consolidate-approve`) reports `result.consolidation`. `status --json` carries the same object without the report-only fields; a consolidation problem never changes the status exit code or its other fields.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `tracking` | string | `not-started`, `tracking`, or `unknown`. |
+| `pending` | array | `{feature, kind}` with kind `new`, `revised`, or `removed`. |
+| `backlog` | string[] | Features recorded at start and not yet consolidated. |
+| `unconsolidated` | int | Approved features while tracking has not started. |
+| `threshold` | string | `none`, `suggested` (two pending), or `due` (three or more). |
+| `view` | string | `absent`, `draft`, `in-review`, `approved`, or `stale`. |
+| `problem`, `remedy` | string | Present when `tracking` is `unknown`. |
+| `scope` | array | Report only: `{feature, pending, hub_only, links}`; `links[]` are `{kind, feature, path}` with kind `cited-by`, `cites`, or `shared-file`. |
+| `hubs` | array | Report only: `{path, features}` for files cited by at least five features. |
+| `findings` | array | Report only: `{kind, feature, id, subject, message}` with kind `missing-file`, `dangling-reference`, `reserved-reuse`, `view-mismatch`, or `coherence-review`. Advisory, except that `consolidate open` and `consolidate approve` refuse while `view-mismatch` or `coherence-review` findings remain. |
+| `identifiers` | object | Report only: defined criterion, NFR and constraint identifiers per scoped feature. |
+| `comparisons` | array | Report only: per pending feature `{feature, kind, statements, linked}`. `statements[]` are `{id, text, mark, previous}` with mark `added`, `changed`, `unchanged`, `unverified` (recorded without text) or `removed` (with the recorded text); `previous` carries the recorded text of a `changed` statement and is omitted otherwise. `linked[]` are `{feature, hub_only, links, statements}`; hub-only features carry no statements. |
+
+Warnings about a suggested or due consolidation, a stale view or an unknown state appear in `result.warnings` of `status` and the report; `feature init` adds only the due warning, and `release check` uses `release.repository_warnings`.
 
 ## Error paths and stability
 

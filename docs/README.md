@@ -16,6 +16,7 @@ Walden is a spec-driven delivery kernel: a deterministic CLI that takes a featur
 
 - **[The Daily Workflow](workflow.md)** — the command loop for authoring, approving, executing, reconciling, and certifying, phase by phase.
 - **[Brownfield Adoption](adoption.md)** — bringing a repository with existing specs into the current contract: `walden adopt`, triaging the partition, and retiring superseded eras.
+- **[Contract Consolidation](consolidation.md)** — keeping a growing portfolio consistent in small steps: pending contract changes, the bounded review scope, and the approved current-contract view.
 - **[CI Integration](ci.md)** — the generated validation workflow, evidence in pipelines, and gating releases on the certification verdict.
 
 ## Reference

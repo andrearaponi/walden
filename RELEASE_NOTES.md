@@ -1,3 +1,37 @@
+## Walden v0.13.0
+
+Contract consolidation: a growing portfolio stays coherent through small, regular steps instead of an audit after dozens of specifications. Each change is still reviewed against the requirements it touches; `walden consolidate` adds the step nobody could hold in mind — comparing what changed with the contracts linked to it — in a scope the CLI bounds and with an outcome the CLI checks.
+
+### Count and remind
+
+A feature whose approved requirements differ from the version recorded at the last consolidation is a pending change. With two pending changes `walden status` suggests a consolidation; with three or more it reports one as due, `walden feature init` says so before a new specification is opened, and `walden release check` adds a repository note. All of them are warnings: no verdict, blocker, completion class or exit code changes.
+
+### Review a bounded scope with both sides in view
+
+`walden consolidate` is read-only. It lists the pending features and every feature linked to them in either direction by a `feature#ID` reference or a shared cited file, with widely cited files listed apart; the deterministic findings — cited files that do not exist, references to missing features or identifiers, identifiers defined again after being reserved — and, for each pending feature, its criteria, NFRs and constraints marked added, changed, unchanged or removed, each changed one with its recorded text beside the current one.
+
+### Record the outcome where the CLI can check it
+
+The reviewing agent writes the outcome per pending feature under `## Coherence Review` in `.walden/contracts.md`, the current-contract view: one section per consolidated feature with its purpose, active and reserved identifiers, sources and related features. The CLI checks the view against the specifications and the review for presence, coverage and citations, never for correctness, which stays with the reviewer. `walden consolidate open` refuses while the view disagrees with the specifications or the review is incomplete; `walden consolidate approve`, only after the user's explicit approval, seals the view and records the checkpoint in `.walden/consolidation.json`. A reserved identifier stays reserved: a specification that defines it again is reported.
+
+### Existing portfolios
+
+`walden consolidate start` records today's approved features as an unconsolidated backlog and counts pending changes from that point. The backlog is consolidated in batches when the user asks, never all at once.
+
+### Compatibility and distribution
+
+- New command group `walden consolidate` (`report`, `start`, `open`, `approve`). No existing command, flag, document status, proof kind, evidence state or release guarantee changes; the reminders are warnings.
+- JSON grows additively within `v0beta1`: `result.consolidation` on the consolidate commands, consolidation warnings in `result.warnings` of `status` and the report, and `release.repository_warnings` on `release check`. Document schema `v1alpha1` and ledger schema `v1alpha2` are unchanged. `.walden/consolidation.json` and the view's frontmatter are written only by the CLI.
+- The guide carries the consolidation procedure and its four command rows, which need v0.13.0; everything else in the guide still works with CLI v0.10.4 or newer. The guide remains distributed independently through the Skills CLI.
+- Update the binary with `walden update` on supported systems and the guide with `npx skills update walden`. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 19 tasks of the approved `contract-consolidation` specification re-proven against the release tree, including the full suite with real temporary Git repositories and the end-to-end consolidation cycle.
+- Behavioral acceptance on held-out variants with blind review: with an explicit coherence request 22 of 27 inconsistencies found against 20 of 27 for the v0.12.0 workflow; with a plain request 24 of 27; discovery of the linked specifications 6 of 6; median specifications read in full 3 against 5; no unauthorized action in any session.
+- Field use on this repository with the release candidate: tracking started on 32 approved features; a first batch of five adoption and evidence specifications consolidated, opened and approved through the CLI; a false positive found in the field — a model identifier read as a cited file — fixed under task 19 with a regression test.
+- `go vet ./...`, `go build ./...`, `go test ./...`, `go mod tidy -diff`.
+
 ## Walden v0.12.0
 
 Adoption becomes observable before, during and after execution. This release makes `walden adopt` explain its workload, preserve the verifier's diagnosis and report measured durations, without changing which proofs run or which evidence is accepted.

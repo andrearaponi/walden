@@ -94,7 +94,7 @@ func WriteFileAtomic(path string, content []byte) error {
 
 func orderedFrontmatterKeys(path string) ([]string, error) {
 	switch filepath.Base(path) {
-	case "requirements.md":
+	case "requirements.md", "contracts.md":
 		return []string{"status", "approved_at", "last_modified", "approved_fingerprint"}, nil
 	case "design.md":
 		return []string{"status", "approved_at", "last_modified", "approved_fingerprint", "source_requirements_approved_at", "source_requirements_fingerprint"}, nil

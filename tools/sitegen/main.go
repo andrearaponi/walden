@@ -31,6 +31,7 @@ var nav = []page{
 	{"boundaries.md", "boundaries.html", "Product Boundaries", "Understand"},
 	{"workflow.md", "workflow.html", "The Daily Workflow", "Operate"},
 	{"adoption.md", "adoption.html", "Brownfield Adoption", "Operate"},
+	{"consolidation.md", "consolidation.html", "Contract Consolidation", "Operate"},
 	{"ci.md", "ci.html", "CI Integration", "Operate"},
 	{"reference/cli.md", "reference/cli.html", "CLI Commands", "Reference"},
 	{"reference/json.md", "reference/json.html", "JSON Contract", "Reference"},

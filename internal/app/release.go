@@ -64,6 +64,11 @@ func runReleaseCheck(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	result := releaseCheckResult(report)
+	// The due-consolidation warning is repository-level and additive: verdict,
+	// blockers, completion class and exit status are computed above.
+	if due := dueConsolidationWarning(root); due != "" && result.Release != nil {
+		result.Release.RepositoryWarnings = append(result.Release.RepositoryWarnings, due)
+	}
 	if jsonMode {
 		return emitResult("release-check", result, jsonMode, stdout, stderr)
 	}
