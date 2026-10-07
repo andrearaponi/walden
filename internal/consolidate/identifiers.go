@@ -16,7 +16,7 @@ var (
 	constraintDefinition = regexp.MustCompile("^\\s*-\\s+`(" + spec.ConstraintIDExpr + ")`")
 	requirementHeading   = regexp.MustCompile(`^### (` + spec.RequirementIDExpr + `)\b`)
 	inlineCode           = regexp.MustCompile("`([^`\n]+)`")
-	citedPath            = regexp.MustCompile(`^(?:\.?[A-Za-z0-9_][A-Za-z0-9._-]*/)+[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$`)
+	citedPath            = regexp.MustCompile(`^(?:\.?[A-Za-z0-9_][A-Za-z0-9._-]*/)+[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z][A-Za-z0-9]*$`)
 	qualifiedReference   = regexp.MustCompile(`^([a-z0-9]+(?:-[a-z0-9]+)*)#(` + spec.RequirementIDExpr + `(?:\.AC\d+)?|` + spec.NFRIDExpr + `|` + spec.ConstraintIDExpr + `)$`)
 )
 
@@ -97,8 +97,9 @@ type Citations struct {
 
 // ParseCitations collects citations from inline code outside fenced blocks
 // and acceptance-check lines, where examples usually live. A cited file is a
-// relative path with a directory and an extension; a qualified reference is
-// `feature#ID`.
+// relative path with a directory and an extension that begins with a letter,
+// so that a version or model identifier such as `claude-opus-5.5` is not one; a
+// qualified reference is `feature#ID`.
 func ParseCitations(body string) Citations {
 	var citations Citations
 	seen := map[string]bool{}

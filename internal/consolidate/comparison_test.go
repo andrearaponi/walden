@@ -13,7 +13,7 @@ func TestStatementTexts(t *testing.T) {
 		"R2.AC1": "The system SHALL keep one record per booking.",
 		"NFR1":   "Privacy: no names in records (bridged by `R2.AC1`).",
 		"C1":     "Standard library only; run `walden consolidate`, keep `go.mod`, ignore `https://example.com/a.md`, `/abs/path.md`, `../outside.md`, `cmd/walden@v0.10.4` and `docs/decisions/`.",
-		"C2":     "Bookable hours follow decision K9 (`docs/decisions/K9-opening-hours.md`), cited again as `docs/decisions/K9-opening-hours.md`.",
+		"C2":     "Bookable hours follow decision K9 (`docs/decisions/K9-opening-hours.md`), cited again as `docs/decisions/K9-opening-hours.md`; the push key `keys/apns.p8` is a file, the model `github-copilot/claude-opus-5.5` is not.",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("statement texts =\n%#v\nwant\n%#v", got, want)

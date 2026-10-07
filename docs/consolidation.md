@@ -61,7 +61,7 @@ The report is read-only: it writes nothing, runs no proofs and no environment pr
 | `view-mismatch` | The view disagrees with the specifications. |
 | `coherence-review` | While changes are pending, the coherence review lacks an entry, has an empty, duplicated or extra entry, or an entry cites none of its linked statements. |
 
-Citations are read from inline code outside fenced blocks and outside acceptance-check lines, where examples usually live: a cited file is a relative path with a directory and an extension, and a qualified reference is `feature#ID`. These heuristics can miss a citation or flag an example; that is why findings never block anything.
+Citations are read from inline code outside fenced blocks and outside acceptance-check lines, where examples usually live: a cited file is a relative path with a directory and an extension that begins with a letter (so `github-copilot/claude-opus-5.5` is a model, not a file), and a qualified reference is `feature#ID`. These heuristics can miss a citation or flag an example; that is why findings never block anything.
 
 ## Limits
 
