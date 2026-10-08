@@ -57,7 +57,7 @@ func newFixture(t *testing.T, downloader string) *fixture {
 	}
 	// Only allow known local utilities onto the installer PATH. No real
 	// downloader can be reached when the selected fake downloader fails.
-	for _, command := range []string{"tr", "mktemp", "cp", "chmod", "mv", "rm", "mkdir", "awk", "sed", "head", "cat", "sha256sum", "shasum"} {
+	for _, command := range []string{"tr", "mktemp", "cp", "chmod", "mv", "rm", "rmdir", "mkdir", "awk", "sed", "head", "cat", "sha256sum", "shasum"} {
 		path, err := exec.LookPath(command)
 		if err != nil {
 			continue

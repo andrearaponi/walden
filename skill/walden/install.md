@@ -1,6 +1,6 @@
 # Install the Walden Skill
 
-The Walden guide is distributed through the [Skills CLI](https://skills.sh) — the same channel as the companion skills `walden-history` and `walden-soundings`. The Walden binary does not install, inspect or update the guide; the Skills CLI is the only manager of your copy.
+The Walden guide is distributed through the [Skills CLI](https://skills.sh) — the same channel as the companion skill `walden-history`. The Walden binary does not install, inspect or update the guide; the Skills CLI is the only manager of your copy.
 
 ## Prerequisite: the CLI
 
@@ -48,6 +48,10 @@ Add `--global` or `--project` to update one scope only. Update the binary separa
 ```bash
 npx skills remove walden
 ```
+
+## Copies from before v0.11.0
+
+If Walden itself placed this guide before v0.11.0, through `setup.sh` or the binary, those copies are not managed by the Skills CLI, which replaces only some of them. The README explains how to find and remove them: [Cleaning up copies from before v0.11.0](https://github.com/andrearaponi/walden#cleaning-up-copies-from-before-v0110).
 
 ## Without Node
 

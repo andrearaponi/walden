@@ -78,7 +78,7 @@ The binary no longer distributes the AI skill. The Skills CLI is the only channe
 
 ### Changed: one channel, one sentence
 
-Install the guide with `npx skills add andrearaponi/walden` (project-level by default, `--global` for user scope, `--copy` for a committable file) and update it with `npx skills update walden`. This is the same model the companion skills `walden-history` and `walden-soundings` already used. The guide's CLI Prerequisite section replaces two paragraphs of ownership protocol with one sentence naming the two update paths, and its command table loses the `skill show` / `status` row. The floor stays **v0.10.4**: nothing in the guide depends on new CLI behavior, and raising it would have forced the very users being migrated to update first. The four per-agent install pages collapse into `skill/walden/install.md`.
+Install the guide with `npx skills add andrearaponi/walden` (project-level by default, `--global` for user scope, `--copy` for a committable file) and update it with `npx skills update walden`. This is the same model the companion skill `walden-history` already used. The guide's CLI Prerequisite section replaces two paragraphs of ownership protocol with one sentence naming the two update paths, and its command table loses the `skill show` / `status` row. The floor stays **v0.10.4**: nothing in the guide depends on new CLI behavior, and raising it would have forced the very users being migrated to update first. The four per-agent install pages collapse into `skill/walden/install.md`.
 
 ### Compatibility: what a ≤ v0.10.5 user sees once
 
