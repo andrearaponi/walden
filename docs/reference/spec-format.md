@@ -133,7 +133,9 @@ Per leaf task:
   - `expect_exit:` — required exit code (default `0`).
   - `expect_output:` — substring the combined output must contain. Use it when appropriate to prevent a zero-test pass; native runner failure or structured results can also provide the anti-vacuity safeguard. Go's named PASS output needs `-v`, and `-count=1` disables test-cache reuse.
   - `timeout:` — positive Go duration (`90s`, `30m`) bounding the step; default 10 minutes. Expiry kills the step's process group and fails the proof naming the budget. A *declared* timeout participates in the task-definition fingerprint; the default does not.
-  - `covers:` — acceptance-criterion IDs the step asserts. The skill requires explicit mappings for asserted ACs; the kernel validates supplied IDs and reports reference coverage separately from task references. Declaring an ID does not prove the assertion is semantically sufficient.
+  - `covers:` — acceptance-criterion IDs the step asserts. The skill requires explicit mappings for asserted ACs; the kernel validates supplied IDs and reports reference coverage separately from task references. Declaring an ID does not prove the assertion is semantically sufficient. `covers: []` is equivalent to omitting `covers`: both declare a step that asserts no criterion and give the task the same definition fingerprint.
+
+A `Verification:` block accepts only proof steps, their attributes, blank lines and single-line HTML comments, such as an inline assumption. Any other line indented under `Verification:` is an error, and so is an attribute value outside its form (`` covers: `R1.AC1` `` instead of a JSON array, `expect_exit: zero`, an empty `timeout:`) or a proof step or attribute outside a block. Each error names the task, the line and its text; line numbers count from the first line after the frontmatter. Earlier releases ended the block silently at such a line, so the steps after it never ran.
 
 A legacy single-line form (`Verification: go test ./...`) still parses but supports no quotes, pipes, or attributes.
 

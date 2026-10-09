@@ -4,19 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 )
 
 var (
 	taskLinePattern     = regexp.MustCompile(`^( *)(- \[([ x])\] )([0-9]+(?:\.[0-9]+)*)\.? (.+?)\s*$`)
 	metadataLinePattern = regexp.MustCompile(`^( +)- (Requirements|Design|Verification):(.*)$`)
-	commandStepPattern  = regexp.MustCompile(`^( +)- (?:command|argv): (\[.+\])\s*$`)
-	expectExitPattern   = regexp.MustCompile(`^( +)expect_exit: ([0-9]+)\s*$`)
-	expectOutputPattern = regexp.MustCompile(`^( +)expect_output: (.+?)\s*$`)
-	coversPattern       = regexp.MustCompile(`^( +)covers: (\[.+\])\s*$`)
-	timeoutPattern      = regexp.MustCompile(`^( +)timeout: (.+?)\s*$`)
 	backtickRefPattern  = regexp.MustCompile("`([^`]+)`")
 )
 
@@ -148,106 +141,45 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 		if pendingVerificationTask != nil {
 			stepIndent := pendingVerificationTask.verificationIndent + 2
 			attrIndent := pendingVerificationTask.verificationIndent + 4
-			if match := commandStepPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != stepIndent {
+			proof := classifyProofLine(line)
+			switch proof.kind {
+			case proofLineBlank, proofLineComment:
+				continue
+			case proofLineStep:
+				if proof.indent != stepIndent {
 					return TaskTree{}, fmt.Errorf(
 						"line %d: invalid proof step indentation for task %q: expected %d spaces",
 						index+1, pendingVerificationTask.ID, stepIndent,
 					)
 				}
-				argv, err := parseVerificationArgv(match[2], index)
+				argv, err := parseProofArgv(proof.value, index, pendingVerificationTask.ID)
 				if err != nil {
 					return TaskTree{}, err
 				}
 				pendingVerificationTask.Proof.Steps = append(pendingVerificationTask.Proof.Steps, VerificationStep{Argv: argv})
 				pendingVerificationTask.Verification = pendingVerificationTask.Proof.Display()
 				continue
-			}
-			if match := expectExitPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != attrIndent {
+			case proofLineAttribute:
+				if proof.indent != attrIndent {
 					return TaskTree{}, fmt.Errorf(
 						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
 						index+1, pendingVerificationTask.ID, attrIndent,
 					)
 				}
-				steps := pendingVerificationTask.Proof.Steps
-				if len(steps) == 0 {
-					return TaskTree{}, fmt.Errorf("line %d: expect_exit declared before any command step for task %q", index+1, pendingVerificationTask.ID)
-				}
-				exitCode, err := strconv.Atoi(match[2])
-				if err != nil {
-					return TaskTree{}, fmt.Errorf("line %d: invalid expect_exit value: %w", index+1, err)
-				}
-				steps[len(steps)-1].ExpectExit = &exitCode
-				continue
-			}
-			if match := expectOutputPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != attrIndent {
-					return TaskTree{}, fmt.Errorf(
-						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
-						index+1, pendingVerificationTask.ID, attrIndent,
-					)
-				}
-				steps := pendingVerificationTask.Proof.Steps
-				if len(steps) == 0 {
-					return TaskTree{}, fmt.Errorf("line %d: expect_output declared before any command step for task %q", index+1, pendingVerificationTask.ID)
-				}
-				expected := strings.TrimSpace(match[2])
-				if len(expected) >= 2 && strings.HasPrefix(expected, "\"") && strings.HasSuffix(expected, "\"") {
-					expected = expected[1 : len(expected)-1]
-				}
-				if expected == "" {
-					return TaskTree{}, fmt.Errorf("line %d: expect_output requires non-empty content for task %q", index+1, pendingVerificationTask.ID)
-				}
-				steps[len(steps)-1].ExpectOutput = &expected
-				continue
-			}
-			if match := coversPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != attrIndent {
-					return TaskTree{}, fmt.Errorf(
-						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
-						index+1, pendingVerificationTask.ID, attrIndent,
-					)
-				}
-				steps := pendingVerificationTask.Proof.Steps
-				if len(steps) == 0 {
-					return TaskTree{}, fmt.Errorf("line %d: covers declared before any command step for task %q", index+1, pendingVerificationTask.ID)
-				}
-				covers, err := parseCoversField(match[2], index)
+				apply, err := parseProofAttribute(proof, index, pendingVerificationTask.ID)
 				if err != nil {
 					return TaskTree{}, err
 				}
-				steps[len(steps)-1].Covers = covers
-				continue
-			}
-			if match := timeoutPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != attrIndent {
-					return TaskTree{}, fmt.Errorf(
-						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
-						index+1, pendingVerificationTask.ID, attrIndent,
-					)
-				}
 				steps := pendingVerificationTask.Proof.Steps
 				if len(steps) == 0 {
-					return TaskTree{}, fmt.Errorf("line %d: timeout declared before any command step for task %q", index+1, pendingVerificationTask.ID)
+					return TaskTree{}, fmt.Errorf("line %d: %s declared before any command step for task %q", index+1, proof.keyword, pendingVerificationTask.ID)
 				}
-				value := strings.TrimSpace(match[2])
-				if len(value) >= 2 && strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-					value = value[1 : len(value)-1]
-				}
-				duration, err := time.ParseDuration(value)
-				if err != nil {
-					return TaskTree{}, fmt.Errorf("line %d: invalid timeout value for task %q: %v", index+1, pendingVerificationTask.ID, err)
-				}
-				if duration <= 0 {
-					return TaskTree{}, fmt.Errorf("line %d: invalid timeout value for task %q: must be positive", index+1, pendingVerificationTask.ID)
-				}
-				steps[len(steps)-1].Timeout = &value
+				apply(&steps[len(steps)-1])
 				pendingVerificationTask.Verification = pendingVerificationTask.Proof.Display()
 				continue
 			}
-			if strings.TrimSpace(line) == "" {
-				continue
+			if !isStructuralLine(line) && proof.indent > pendingVerificationTask.verificationIndent {
+				return TaskTree{}, unrecognizedProofLineError(index, pendingVerificationTask.ID, line)
 			}
 			if len(pendingVerificationTask.Proof.Steps) == 0 {
 				return TaskTree{}, fmt.Errorf(
@@ -357,6 +289,12 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				)
 			}
 			return TaskTree{}, fmt.Errorf("line %d: invalid metadata indentation", index+1)
+		case isProofKeywordText(trimmed):
+			afterTask := ""
+			if currentTask != nil {
+				afterTask = currentTask.ID
+			}
+			return TaskTree{}, outsideBlockProofLineError(index, afterTask, line)
 		default:
 			continue
 		}
@@ -578,17 +516,6 @@ func parseReferenceList(value string) []string {
 		}
 	}
 	return references
-}
-
-func parseCoversField(raw string, index int) ([]string, error) {
-	var covers []string
-	if err := json.Unmarshal([]byte(raw), &covers); err != nil {
-		return nil, fmt.Errorf("line %d: invalid covers field: %w", index+1, err)
-	}
-	if len(covers) == 0 {
-		return nil, fmt.Errorf("line %d: covers field must include at least one AC ID", index+1)
-	}
-	return covers, nil
 }
 
 func parseVerificationArgv(raw string, index int) ([]string, error) {
