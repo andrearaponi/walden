@@ -8,7 +8,8 @@ import (
 )
 
 // TestProofParsingDocs pins the proof-block rule to the format reference and
-// its consequence for existing evidence to the changelog.
+// its consequence for existing evidence to the changelog, under [Unreleased]
+// until the release that ships the change takes the entry over.
 func TestProofParsingDocs(t *testing.T) {
 	root := authoringSourceRoot(t)
 	read := func(relative string) string {
@@ -41,11 +42,11 @@ func TestProofParsingDocs(t *testing.T) {
 	if start < 0 {
 		t.Fatal("CHANGELOG.md has no [Unreleased] section")
 	}
-	unreleased := changelog[start:]
-	if end := strings.Index(unreleased[1:], "\n## ["); end >= 0 {
-		unreleased = unreleased[:end+1]
+	end := strings.Index(changelog[start:], "\n## [0.13.0]")
+	if end < 0 {
+		t.Fatal("CHANGELOG.md has no [0.13.0] section below [Unreleased]")
 	}
-	require("CHANGELOG.md [Unreleased]", unreleased,
+	require("CHANGELOG.md between [Unreleased] and [0.13.0]", changelog[start:start+end+1],
 		"`covers: []`",
 		"becomes `stale-spec` until `walden verify`",
 	)

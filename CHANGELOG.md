@@ -6,9 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-09
+
 ### Added
 
-- **`install.sh --remove-legacy-skill`.** Removes the guide copies Walden itself placed before v0.11.0 — through `setup.sh` (v0.1.0–v0.4.0) or the binary (v0.5.0–v0.10.5) — which no tool manages any more: copies ending with the version stamp, the Walden block in a Codex `AGENTS.md`, and the legacy `~/.claude/commands/walden.md`. Symbolic links, unstamped copies and copies inside the current repository are kept and reported; the Skills CLI store is never touched. Run it with `curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh -s -- --remove-legacy-skill`. It ships from `main`: no binary changes, so no release.
+- **`install.sh --remove-legacy-skill`.** Removes the guide copies Walden itself placed before v0.11.0 — through `setup.sh` (v0.1.0–v0.4.0) or the binary (v0.5.0–v0.10.5) — which no tool manages any more: copies ending with the version stamp, the Walden block in a Codex `AGENTS.md`, and the legacy `~/.claude/commands/walden.md`. Symbolic links, unstamped copies and copies inside the current repository are kept and reported; the Skills CLI store is never touched. Run it with `curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh | sh -s -- --remove-legacy-skill`. It ships from `main`, independently of the binary.
 - **Shadowing binary warning.** After an install, `install.sh` warns when the `walden` on your PATH is not the one it installed — for example an older `go install` in `~/go/bin` — naming its path and version. The other binary is never touched.
 
 ### Fixed

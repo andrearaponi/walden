@@ -124,10 +124,10 @@ On Windows the same paths live under `%USERPROFILE%`, for example `%USERPROFILE%
 The POSIX installer does not run on Windows. Install from source with Go, or download the release asset:
 
 ```powershell
-go install github.com/andrearaponi/walden/cmd/walden@v0.13.0   # then ensure %USERPROFILE%\go\bin is on PATH
+go install github.com/andrearaponi/walden/cmd/walden@v0.13.1   # then ensure %USERPROFILE%\go\bin is on PATH
 ```
 
-or grab `walden-v0.13.0-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
+or grab `walden-v0.13.1-windows-amd64.exe` (or `-arm64.exe`) from [GitHub releases](https://github.com/andrearaponi/walden/releases), rename it to `walden.exe` and place it on PATH. `walden update` refuses on Windows (a running `.exe` cannot replace itself): update with `go install` or by replacing the file.
 
 ## Quickstart
 

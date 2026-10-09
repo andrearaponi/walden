@@ -1,3 +1,33 @@
+## Walden v0.13.1
+
+Proof parsing hardening: every line of a proof block is now read or rejected. Until this release the tasks parser ended a structured `Verification:` block, without any report, at the first line it did not recognize, and read every step and attribute after it as free text. Those steps never ran, while `validate`, `task complete` and `verify` reported success. The defect dates back to v0.1.0.
+
+### Every line of a proof block counts
+
+A proof line is recognized by its keyword alone, and its value is parsed afterwards. An unrecognized line indented under `Verification:`, a value outside its form — coverage in backticks instead of a JSON array, `expect_exit: zero`, an empty `timeout:` — or a step or attribute line outside a block now fails, naming the task, the line and its text. Blank lines and single-line HTML comments, such as an inline assumption, are skipped. `covers: []` is valid and equivalent to omitting `covers`. Draft validation reads proof blocks with the same rules and messages as execution, so a draft that validates cannot hide a line the executor would drop.
+
+### What changes for existing plans
+
+- A plan whose blocks the previous parser read in full parses unchanged, with the same task-definition fingerprints: its evidence stays verified. Across 2,159 plans in the maintainer's repositories, 2,150 read identically.
+- A plan containing a line the previous parser dropped fails until the line is fixed; an approved plan then goes through `walden reconcile` and a new approval. 7 plans in that read.
+- A completed task whose proof gains the steps or attributes that were dropped, typically after `covers: []`, gets a new definition fingerprint: its evidence becomes `stale-spec` until `walden verify` runs the full proof, and a step that never ran may fail. 2 plans in that read.
+
+### Also since v0.13.0
+
+`install.sh --remove-legacy-skill` removes the guide copies Walden itself placed before v0.11.0 and reports the rest, and after an install the script warns when another `walden` on PATH shadows the one it installed. Both ship from `main`, independently of the binary. `walden-soundings` was never a published skill: the v0.11.0 texts are corrected.
+
+### Compatibility and distribution
+
+- No command, flag, JSON field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged, and error line numbers keep counting from the first line after the frontmatter; the new errors quote the line's text.
+- The guide is unchanged and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 7 tasks of the approved `proof-parsing-hardening` specification re-proven against the release tree, including a characterization test that pins what v0.13.0 reads from a well-formed plan and a negative control on task completion after `covers: []`.
+- A one-off comparison of v0.13.0 and v0.13.1 over 2,159 plans: 2,150 identical, 7 rejected at the expected lines, 2 regaining dropped steps or timeouts.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.13.0
 
 Contract consolidation: a growing portfolio stays coherent through small, regular steps instead of an audit after dozens of specifications. Each change is still reviewed against the requirements it touches; `walden consolidate` adds the step nobody could hold in mind — comparing what changed with the contracts linked to it — in a scope the CLI bounds and with an outcome the CLI checks.
