@@ -158,6 +158,9 @@ func TestPublishedSkillsCompliance(t *testing.T) {
 		if err := checkCorrectionRecorded("## [Unreleased]\n\n### Added\n\n- Something else.\n\n## [0.13.0] - 2026-10-08\n"); err == nil {
 			t.Error("an [Unreleased] section without the correction was accepted")
 		}
+		if err := checkCorrectionRecorded("## [Unreleased]\n\n## [0.13.1] - 2026-10-09\n\n### Fixed\n\n- `walden-soundings` is not a published skill.\n\n## [0.13.0] - 2026-10-08\n"); err != nil {
+			t.Errorf("a correction taken over by the release that ships it was rejected: %v", err)
+		}
 		if err := checkCorrectionRecorded(read("CHANGELOG.md")); err != nil {
 			t.Errorf("CHANGELOG.md: %v", err)
 		}
@@ -334,23 +337,27 @@ func checkSectionFreeOf(document, heading, nextPrefix, needle string) error {
 	return nil
 }
 
-// checkCorrectionRecorded requires the [Unreleased] section of the changelog
-// to carry a Fixed entry naming walden-soundings as not published (R6.AC6).
+// checkCorrectionRecorded requires the changelog between [Unreleased] and
+// [0.13.0] to carry a Fixed entry naming walden-soundings as not published
+// (R6.AC6): the entry sits under [Unreleased] until the release that ships
+// it takes it over.
 func checkCorrectionRecorded(changelog string) error {
 	start := strings.Index(changelog, "## [Unreleased]")
 	if start < 0 {
 		return fmt.Errorf("no [Unreleased] section")
 	}
 	section := changelog[start:]
-	if next := strings.Index(section[1:], "\n## ["); next >= 0 {
-		section = section[:next+1]
+	end := strings.Index(section, "\n## [0.13.0]")
+	if end < 0 {
+		return fmt.Errorf("no [0.13.0] section below [Unreleased]")
 	}
+	section = section[:end+1]
 	fixed := strings.Index(section, "### Fixed")
 	if fixed < 0 {
-		return fmt.Errorf("[Unreleased] has no Fixed entries")
+		return fmt.Errorf("no Fixed entries between [Unreleased] and [0.13.0]")
 	}
 	if !strings.Contains(section[fixed:], "walden-soundings") {
-		return fmt.Errorf("[Unreleased] Fixed entries do not record the walden-soundings correction")
+		return fmt.Errorf("the Fixed entries between [Unreleased] and [0.13.0] do not record the walden-soundings correction")
 	}
 	return nil
 }
