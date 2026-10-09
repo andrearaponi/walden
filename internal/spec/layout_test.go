@@ -112,6 +112,65 @@ func TestCheckTaskLayoutMatchesParserVerdicts(t *testing.T) {
 - Requirements: ` + "`R1`" + `
 `,
 		},
+		{
+			name: "unrecognized line in block",
+			ok:   false,
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+  - Requirements: ` + "`R1`" + `
+  - Design: Parser
+  - Verification:
+    - command: ["go", "test", "./..."]
+      expect_ouput: "ok"
+    - command: ["go", "vet", "./..."]
+`,
+		},
+		{
+			name: "malformed proof value",
+			ok:   false,
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+  - Requirements: ` + "`R1`" + `
+  - Design: Parser
+  - Verification:
+    - command: ["go", "test", "./..."]
+      covers: ` + "`R1`" + `
+    - command: ["go", "vet", "./..."]
+`,
+		},
+		{
+			name: "proof line outside block",
+			ok:   false,
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+  - Requirements: ` + "`R1`" + `
+  - Design: Parser
+  - Verification:
+    - command: ["go", "test", "./..."]
+  Note at the metadata level.
+    - command: ["go", "vet", "./..."]
+`,
+		},
+		{
+			name: "timeout empty covers and comment",
+			ok:   true,
+			body: `# Implementation Plan
+
+- [ ] 1. Flat task
+  - Requirements: ` + "`R1`" + `
+  - Design: Parser
+  - Verification:
+    - command: ["go", "test", "./..."]
+      timeout: 2m
+      covers: []
+    <!-- assumed: vet runs after the tests -->
+    - command: ["go", "vet", "./..."]
+      timeout: "90s"
+`,
+		},
 	}
 
 	for _, tc := range cases {

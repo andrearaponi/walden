@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-// CheckTaskLayout validates only the indentation structure of a tasks
-// document against the execution parser's offset rules: metadata lines at
-// their owner task's legal offsets and structured proof lines relative to
-// their Verification: line. It shares the parser's patterns and offset
-// helpers so the two verdicts cannot drift. It deliberately ignores
-// completeness — missing metadata, empty proof blocks, coverage — so
+// CheckTaskLayout validates the structure of a tasks document against the
+// execution parser's rules: metadata lines at their owner task's legal
+// offsets, and structured proof lines relative to their Verification: line,
+// read with the parser's proof-line grammar, value parsers and block rules,
+// so the two verdicts and their messages cannot drift. It deliberately
+// ignores completeness — missing metadata, empty proof blocks, coverage — so
 // incremental drafts stay legal.
 func CheckTaskLayout(body string) error {
 	lines := strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n")
@@ -26,33 +26,35 @@ func CheckTaskLayout(body string) error {
 		if verificationIndent >= 0 {
 			stepIndent := verificationIndent + 2
 			attrIndent := verificationIndent + 4
-			if match := commandStepPattern.FindStringSubmatch(line); match != nil {
-				if len(match[1]) != stepIndent {
+			proof := classifyProofLine(line)
+			switch proof.kind {
+			case proofLineBlank, proofLineComment:
+				continue
+			case proofLineStep:
+				if proof.indent != stepIndent {
 					return fmt.Errorf(
 						"line %d: invalid proof step indentation for task %q: expected %d spaces",
 						index+1, currentTask.id, stepIndent,
 					)
 				}
+				if _, err := parseProofArgv(proof.value, index, currentTask.id); err != nil {
+					return err
+				}
 				continue
-			}
-			attrMatch := expectExitPattern.FindStringSubmatch(line)
-			if attrMatch == nil {
-				attrMatch = expectOutputPattern.FindStringSubmatch(line)
-			}
-			if attrMatch == nil {
-				attrMatch = coversPattern.FindStringSubmatch(line)
-			}
-			if attrMatch != nil {
-				if len(attrMatch[1]) != attrIndent {
+			case proofLineAttribute:
+				if proof.indent != attrIndent {
 					return fmt.Errorf(
 						"line %d: invalid proof attribute indentation for task %q: expected %d spaces",
 						index+1, currentTask.id, attrIndent,
 					)
 				}
+				if _, err := parseProofAttribute(proof, index, currentTask.id); err != nil {
+					return err
+				}
 				continue
 			}
-			if strings.TrimSpace(line) == "" {
-				continue
+			if !isStructuralLine(line) && proof.indent > verificationIndent {
+				return unrecognizedProofLineError(index, currentTask.id, line)
 			}
 			verificationIndent = -1
 		}
@@ -92,6 +94,13 @@ func CheckTaskLayout(body string) error {
 				"line %d: invalid metadata indentation for task %q: expected %s",
 				index+1, currentTask.id, metadataOffsetsLabel(currentTask.level),
 			)
+		}
+		if isProofKeywordText(trimmed) {
+			afterTask := ""
+			if currentTask != nil {
+				afterTask = currentTask.id
+			}
+			return outsideBlockProofLineError(index, afterTask, line)
 		}
 	}
 

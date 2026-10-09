@@ -1018,7 +1018,7 @@ source_design_approved_at:
       - something: not a command
 `,
 			wantValid:    false,
-			wantContains: "must include at least one command step",
+			wantContains: `unrecognized line in the Verification block of task "1.1": "- something: not a command"`,
 		},
 		{
 			name: "valid structured proof passes validation",
