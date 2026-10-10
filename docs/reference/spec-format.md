@@ -84,9 +84,11 @@ Every criterion has a stable ID (`R<n>.AC<m>`) and one EARS form, classified by 
 | state-driven | `WHILE <state>, the system SHALL <response>` |
 | optional | `WHERE <feature is present>, the system SHALL <response>` |
 | unwanted | `IF <undesired condition>, THEN the system SHALL <response>` |
-| complex | combined keywords |
+| complex | `[WHERE <feature>,] [WHILE <state>,] [WHEN <trigger>,] [IF <undesired condition>, THEN] the system SHALL <response>` with clauses of two or more kinds |
 
-One `SHALL` per criterion (two SHALLs = two criteria); `IF` requires a matching `THEN` before the `SHALL`. The validator reports the form distribution and warns when no unwanted-behavior (IF/THEN) criteria exist — failure modes deserve criteria too. IDs are the traceability currency: tasks and proofs reference them, and they should never be renumbered once referenced.
+A condition keyword — `WHERE`, `WHILE` (or `DURING`), `WHEN`, `IF` — opens a clause at the start of the criterion or after a comma, in any letter case, and anywhere before `SHALL` when written in capitals. A keyword in lowercase or mixed case counts only at the start of the criterion or after a comma; anywhere else it is text of the clause around it, so `WHEN the user asks if the file exists, the system SHALL …` is event-driven. The form follows from the kinds of clause: none is ubiquitous, clauses of one kind give that kind's form, and any two or more kinds of clause form a complex criterion. EARS orders the clauses `WHERE` → `WHILE` → `WHEN`/`IF`, where `WHEN` and `IF` share the last place.
+
+One `SHALL` per criterion (two SHALLs = two criteria); every clause needs text, and `IF` requires a matching `THEN` before the `SHALL`. The validator reports the form distribution and warns when no criterion has an unwanted-behavior (IF/THEN) clause, in any form — failure modes deserve criteria too. It also warns on clauses out of the EARS order, and on a criterion whose subject, the text between its last clause and `SHALL`, is the pronoun `it` or `they`, which leaves the reader to guess the component that responds. EARS warnings never fail validation; per criterion, they appear in the `ears_validation` entries of `walden validate --json`. IDs are the traceability currency: tasks and proofs reference them, and they should never be renumbered once referenced.
 
 ## `design.md`
 

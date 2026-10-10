@@ -1,0 +1,86 @@
+# Regression fixture for the EARS classifier.
+#
+# One synthetic criterion per line:
+#   v0.13.1 verdict | expected verdict | expected warnings | criterion
+# A verdict is a form name or "invalid". Warnings are "-" or a comma-separated
+# set of after-shall, order and subject. The v0.13.1 column was printed by the
+# classifier of release v0.13.1 before the clause scan replaced it.
+
+# The six forms, letter case, DURING, words containing a keyword, Italian text.
+ubiquitous | ubiquitous | - | The system SHALL keep one draft per document
+event-driven | event-driven | - | WHEN the user saves, the system SHALL store the draft
+state-driven | state-driven | - | WHILE a sync runs, the system SHALL show a progress bar
+optional | optional | - | WHERE offline mode is enabled, the system SHALL queue edits
+unwanted | unwanted | - | IF the upload fails, THEN the system SHALL keep the local copy
+complex | complex | - | WHILE a sync runs, WHEN the user saves, the system SHALL queue the draft
+state-driven | state-driven | - | DURING an import, the system SHALL lock the catalog
+complex | complex | - | DURING an import, WHEN a record fails, the system SHALL log the record
+event-driven | event-driven | - | When the user saves, the system SHALL store the draft
+event-driven | event-driven | - | when the user saves, the system shall store the draft
+unwanted | unwanted | - | if the upload fails, then the system shall keep the local copy
+unwanted | unwanted | - | IF the upload fails THEN the system SHALL keep the local copy
+ubiquitous | ubiquitous | - | The system SHALL update the WHENEVER counter
+event-driven | event-driven | - | WHEN the elsewhere tab opens, the system SHALL list the nowhere links
+event-driven | event-driven | - | WHEN il controllo trova una versione nuova, the system SHALL registrarla come proposta
+state-driven | state-driven | - | WHILE c'è una proposta in attesa, the system SHALL mostrare la striscia
+ubiquitous | ubiquitous | - | The system SHALL accorciare l'anteprima quando il messaggio è lungo
+event-driven | event-driven | - | WHEN the token is expired, WHEN a refresh arrives, the system SHALL issue a new token
+state-driven | state-driven | - | WHILE online, WHILE the queue is empty, the system SHALL sleep
+
+# A keyword counts where it opens a clause or is written in capitals.
+invalid | event-driven | - | WHEN the user asks if the file exists, the system SHALL answer with its path
+invalid | event-driven | - | WHEN the user opens the page where the list is shown, the system SHALL load the list
+complex | event-driven | - | WHEN a download completes while offline, the system SHALL queue the upload
+complex | event-driven | - | WHEN a proof finishes during a verify run, the system SHALL record its outcome
+complex | state-driven | - | WHILE waiting between cycles or when idle, the system SHALL show the idle state
+invalid | event-driven | - | WHEN a request carries If-Modified-Since, the system SHALL compare the dates
+unwanted | unwanted | - | IF the user asks where the file went, THEN the system SHALL show its path
+invalid | state-driven | - | WHILE a client checks if the session is alive, the system SHALL keep the socket open
+unwanted | unwanted | - | IF a call fails while the user waits, THEN the system SHALL retry once
+complex | event-driven | - | WHEN the job ends While the queue drains, the system SHALL report the job
+complex | complex | - | WHILE a turn runs, when the container exits, the system SHALL report the exit
+complex | complex | order | WHEN the user submits an instruction WHILE a selection exists, the system SHALL apply the instruction
+
+# Every combination of clause kinds is complex.
+invalid | complex | - | WHERE voice replies are enabled, WHEN a turn ends, the system SHALL speak the reply
+invalid | complex | - | WHERE push is configured, WHILE the app is in background, the system SHALL deliver notifications
+unwanted | complex | - | WHILE a turn is running, IF the container exits, THEN the system SHALL report the exit
+unwanted | complex | - | WHEN the daemon starts, IF sub-agents are recorded as running, THEN the system SHALL mark them interrupted
+unwanted | complex | - | WHERE quotas apply, IF a quota is exceeded, THEN the system SHALL reject the request
+complex | complex | - | WHERE backups are enabled, WHILE a backup runs, WHEN the disk fills, the system SHALL pause the backup
+unwanted | complex | - | WHERE backups are enabled, WHILE a backup runs, IF the disk fills, THEN the system SHALL pause the backup
+unwanted | complex | - | IF the first check fails, THEN WHEN the operator retries, the system SHALL run the full check
+
+# Clauses out of the EARS order.
+complex | complex | order | WHEN a message arrives, WHILE the user is offline, the system SHALL store the message
+invalid | complex | order | WHILE a backup runs, WHERE backups are enabled, the system SHALL show the backup state
+invalid | complex | order | WHEN a turn ends, WHERE voice replies are enabled, the system SHALL speak the reply
+unwanted | complex | order | IF the disk fills, THEN WHILE a backup runs, the system SHALL pause the backup
+
+# Pronoun subjects.
+event-driven | event-driven | subject | WHEN the system assembles the export, it SHALL order the sections
+unwanted | unwanted | subject | IF the export fails, THEN they SHALL keep the previous file
+unwanted | unwanted | subject | IF the export fails THEN it SHALL keep the previous file
+ubiquitous | ubiquitous | subject | It SHALL keep one export per day
+event-driven | event-driven | subject | WHEN the projection service is built, IT SHALL expose no write operation
+event-driven | event-driven | - | WHEN the system assembles the export, the exporter SHALL order the sections
+event-driven | event-driven | - | WHEN an order ships, items SHALL leave the stock
+event-driven | event-driven | - | WHEN the export runs it SHALL log the start
+
+# Errors.
+invalid | invalid | - | WHEN the user saves, the system stores the draft
+invalid | invalid | - | The system SHALL save the draft and SHALL notify the owner
+invalid | invalid | - | IF the upload fails, the system SHALL retry
+invalid | invalid | - | WHILE a turn is running, IF the container exits, the system SHALL report the exit
+invalid | invalid | - | WHEN , the system SHALL respond
+invalid | invalid | - | WHILE , WHEN a turn ends, the system SHALL speak the reply
+invalid | invalid | - | WHERE , WHEN a turn ends, the system SHALL speak the reply
+invalid | invalid | - | IF , THEN the system SHALL respond
+invalid | invalid | - | WHEN the user saves, the system SHALL
+invalid | invalid | - | WHEN the user picks a file, if any, the system SHALL open the file
+
+# The warning for a keyword after SHALL in a ubiquitous criterion.
+ubiquitous | ubiquitous | after-shall | The system SHALL respond WHEN triggered
+ubiquitous | ubiquitous | after-shall | The system SHALL retry if the call fails
+event-driven | event-driven | - | WHEN a turn ends, the system SHALL report if the quota is exhausted
+ubiquitous | ubiquitous | after-shall,subject | It SHALL retry when the call fails
