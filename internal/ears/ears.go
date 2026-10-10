@@ -3,6 +3,7 @@ package ears
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -16,6 +17,16 @@ const (
 	FormComplex     = "complex"
 )
 
+// Kinds of condition clause: WHERE opens an optional-feature clause, WHILE or
+// DURING a state clause, WHEN an event clause, and IF an unwanted-behavior
+// clause that THEN closes.
+const (
+	ClauseOptional = "optional"
+	ClauseState    = "state"
+	ClauseEvent    = "event"
+	ClauseUnwanted = "unwanted"
+)
+
 // ParsedCriterion is the result of parsing one acceptance criterion.
 type ParsedCriterion struct {
 	ID       string
@@ -24,14 +35,69 @@ type ParsedCriterion struct {
 	Valid    bool
 	Errors   []string
 	Warnings []string
+	// Clauses lists the kinds of a valid criterion's condition clauses in
+	// text order.
+	Clauses []string
 }
 
 var acLinePattern = regexp.MustCompile("(?m)^\\d+\\.\\s+`(R\\d+\\.AC\\d+)`\\s+(.*)")
 
+// clauseKeywords maps each condition keyword to the kind of clause it opens.
+var clauseKeywords = []struct {
+	keyword string
+	kind    string
+}{
+	{"WHERE", ClauseOptional},
+	{"WHILE", ClauseState},
+	{"DURING", ClauseState},
+	{"WHEN", ClauseEvent},
+	{"IF", ClauseUnwanted},
+}
+
+// formOfKind names the form of a criterion whose clauses are all of one kind.
+var formOfKind = map[string]string{
+	ClauseOptional: FormOptional,
+	ClauseState:    FormStateDriven,
+	ClauseEvent:    FormEventDriven,
+	ClauseUnwanted: FormUnwanted,
+}
+
+// clauseRank is the place of each clause kind in the EARS order: optional
+// feature, state, then event or unwanted behavior.
+var clauseRank = map[string]int{
+	ClauseOptional: 1,
+	ClauseState:    2,
+	ClauseEvent:    3,
+	ClauseUnwanted: 3,
+}
+
+const orderWarning = "clauses out of EARS order; EARS orders them WHERE → WHILE → WHEN/IF"
+
+// pronouns are the subjects that name no component, in ASCII capitals.
+var pronouns = []string{"IT", "THEY"}
+
+// emptyClauseError names an empty clause by the keyword that opens it.
+var emptyClauseError = map[string]string{
+	"WHERE":  "empty feature slot after WHERE",
+	"WHILE":  "empty precondition slot after WHILE",
+	"DURING": "empty precondition slot after DURING",
+	"WHEN":   "empty trigger slot after WHEN",
+	"IF":     "empty trigger slot between IF and THEN",
+}
+
+// clause is one condition clause before SHALL: its keyword, its kind, and
+// the offsets where the keyword starts and ends.
+type clause struct {
+	keyword string
+	kind    string
+	start   int
+	end     int
+}
+
 // ParseAllCriteria extracts and classifies all acceptance criteria from a
 // requirements.md body. It matches lines of the form:
 //
-//	1. `R1.AC1` WHEN [trigger], the system SHALL [response]
+//  1. `R1.AC1` WHEN [trigger], the system SHALL [response]
 func ParseAllCriteria(body string) []ParsedCriterion {
 	matches := acLinePattern.FindAllStringSubmatch(body, -1)
 	results := make([]ParsedCriterion, 0, len(matches))
@@ -51,76 +117,164 @@ func ParseCriterion(id, text string) ParsedCriterion {
 		Raw: text,
 	}
 
-	upper := strings.ToUpper(text)
-
-	if !containsKeyword(upper, "SHALL") {
+	shalls := keywordOffsets(text, "SHALL")
+	if len(shalls) == 0 {
 		result.Errors = append(result.Errors, "missing required keyword SHALL")
 		return result
 	}
+	if len(shalls) > 1 {
+		result.Errors = append(result.Errors, fmt.Sprintf("criterion contains %d occurrences of SHALL; split into separate criteria", len(shalls)))
+		return result
+	}
+	prefix := text[:shalls[0]]
+	response := text[shalls[0]+len("SHALL"):]
 
-	if n := countKeyword(upper, "SHALL"); n > 1 {
-		result.Errors = append(result.Errors, fmt.Sprintf("criterion contains %d occurrences of SHALL; split into separate criteria", n))
+	clauses := scanClauses(prefix)
+	if problem := checkClauses(prefix, response, clauses); problem != "" {
+		result.Errors = append(result.Errors, problem)
 		return result
 	}
 
-	shallPos := keywordPosition(upper, "SHALL")
-
-	// Classification by keyword presence before SHALL.
-	hasWhen := hasKeywordBefore(upper, "WHEN", shallPos)
-	hasWhile := hasKeywordBefore(upper, "WHILE", shallPos) || hasKeywordBefore(upper, "DURING", shallPos)
-	hasWhere := hasKeywordBefore(upper, "WHERE", shallPos)
-	hasIfThen := hasIfThenBefore(upper, shallPos)
-	hasIf := hasKeywordBefore(upper, "IF", shallPos)
-
-	switch {
-	case hasWhile && hasWhen:
-		result.Form = FormComplex
-		result.Valid = true
-	case hasWhen && !hasWhile && !hasWhere && !hasIf:
-		result.Form = FormEventDriven
-		result.Valid = true
-	case hasWhile && !hasWhen && !hasWhere && !hasIf:
-		result.Form = FormStateDriven
-		result.Valid = true
-	case hasWhere && !hasWhen && !hasWhile && !hasIf:
-		result.Form = FormOptional
-		result.Valid = true
-	case hasIf:
-		if !hasIfThen {
-			result.Errors = append(result.Errors, "IF keyword requires matching THEN before SHALL")
-			return result
-		}
-		result.Form = FormUnwanted
-		result.Valid = true
-	case !hasWhen && !hasWhile && !hasWhere && !hasIf:
-		result.Form = FormUbiquitous
-		result.Valid = true
-	default:
-		result.Errors = append(result.Errors, "ambiguous keyword combination; does not match a supported EARS form")
+	result.Valid = true
+	result.Form = formOf(clauses)
+	for _, c := range clauses {
+		result.Clauses = append(result.Clauses, c.kind)
 	}
+	if result.Form == FormUbiquitous {
+		result.Warnings = append(result.Warnings, keywordsAfterShall(response)...)
+	}
+	if outOfOrder(clauses) {
+		result.Warnings = append(result.Warnings, orderWarning)
+	}
+	if subject := subjectOf(prefix); isPronoun(subject) {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("subject %q is a pronoun; name the component that must respond", subject))
+	}
+	return result
+}
 
-	if result.Valid {
-		if err := validateSlots(upper, result.Form, shallPos); err != "" {
-			result.Valid = false
-			result.Form = ""
-			result.Errors = append(result.Errors, err)
+// subjectOf returns the text between a criterion's last clause and SHALL:
+// the last comma-separated part of the prefix, after its last THEN.
+func subjectOf(prefix string) string {
+	subject := prefix
+	if comma := strings.LastIndex(subject, ","); comma >= 0 {
+		subject = subject[comma+1:]
+	}
+	if then := keywordOffsets(subject, "THEN"); len(then) > 0 {
+		subject = subject[then[len(then)-1]+len("THEN"):]
+	}
+	return strings.TrimSpace(subject)
+}
+
+func isPronoun(subject string) bool {
+	for _, pronoun := range pronouns {
+		if len(subject) == len(pronoun) && equalFoldASCII(subject, pronoun) {
+			return true
 		}
 	}
+	return false
+}
 
-	// Post-SHALL keyword warning: only for ubiquitous-classified criteria.
-	if result.Valid && result.Form == FormUbiquitous {
-		postShall := upper[shallPos+len("SHALL"):]
-		for _, kw := range []string{"WHEN", "WHILE", "DURING", "WHERE", "IF"} {
-			if containsKeyword(postShall, kw) {
-				result.Warnings = append(result.Warnings, fmt.Sprintf(
-					"keyword %s appears after SHALL; the criterion may be an inverted %s form",
-					kw, formForKeyword(kw),
-				))
+// outOfOrder reports whether a clause comes after one that the EARS order
+// places behind it.
+func outOfOrder(clauses []clause) bool {
+	highest := 0
+	for _, c := range clauses {
+		rank := clauseRank[c.kind]
+		if rank < highest {
+			return true
+		}
+		highest = max(highest, rank)
+	}
+	return false
+}
+
+// scanClauses finds the condition keywords that open a clause: at the start
+// of the prefix or after a comma in any letter case, or written in capitals
+// at any position. Any other occurrence is text of the clause around it.
+func scanClauses(prefix string) []clause {
+	var clauses []clause
+	for _, candidate := range clauseKeywords {
+		for _, start := range keywordOffsets(prefix, candidate.keyword) {
+			end := start + len(candidate.keyword)
+			before := strings.TrimRight(prefix[:start], " \t")
+			opensClause := before == "" || strings.HasSuffix(before, ",")
+			if opensClause || prefix[start:end] == candidate.keyword {
+				clauses = append(clauses, clause{keyword: candidate.keyword, kind: candidate.kind, start: start, end: end})
 			}
 		}
 	}
+	sort.Slice(clauses, func(i, j int) bool { return clauses[i].start < clauses[j].start })
+	return clauses
+}
 
-	return result
+// checkClauses returns the first structural error in the order the
+// classifier has always reported them, or "" when there is none: an
+// unwanted-behavior clause without THEN, an empty response, an empty clause.
+func checkClauses(prefix, response string, clauses []clause) string {
+	for _, c := range clauses {
+		if c.kind != ClauseUnwanted {
+			continue
+		}
+		if len(keywordOffsets(prefix[c.end:], "THEN")) == 0 {
+			return "IF keyword requires matching THEN before SHALL"
+		}
+		break
+	}
+
+	if strings.TrimSpace(response) == "" {
+		return "empty response slot after SHALL"
+	}
+
+	for i, c := range clauses {
+		limit := len(prefix)
+		if i+1 < len(clauses) {
+			limit = clauses[i+1].start
+		}
+		text := prefix[c.end:limit]
+		if c.kind == ClauseUnwanted {
+			if then := keywordOffsets(text, "THEN"); len(then) > 0 {
+				text = text[:then[0]]
+			}
+		} else if comma := strings.Index(text, ","); comma >= 0 {
+			text = text[:comma]
+		}
+		if strings.Trim(text, " \t,") == "" {
+			return emptyClauseError[c.keyword]
+		}
+	}
+	return ""
+}
+
+// formOf names the form given by the kinds of a criterion's clauses: none is
+// ubiquitous, one kind gives that kind's form, two or more kinds are complex.
+func formOf(clauses []clause) string {
+	kinds := map[string]bool{}
+	for _, c := range clauses {
+		kinds[c.kind] = true
+	}
+	switch len(kinds) {
+	case 0:
+		return FormUbiquitous
+	case 1:
+		return formOfKind[clauses[0].kind]
+	default:
+		return FormComplex
+	}
+}
+
+// keywordsAfterShall warns about condition keywords in the response of a
+// ubiquitous criterion, which may be an inverted conditional form.
+func keywordsAfterShall(response string) []string {
+	var warnings []string
+	for _, kw := range []string{"WHEN", "WHILE", "DURING", "WHERE", "IF"} {
+		if len(keywordOffsets(response, kw)) > 0 {
+			warnings = append(warnings, fmt.Sprintf(
+				"keyword %s appears after SHALL; the criterion may be an inverted %s form",
+				kw, formForKeyword(kw),
+			))
+		}
+	}
+	return warnings
 }
 
 func formForKeyword(kw string) string {
@@ -138,142 +292,38 @@ func formForKeyword(kw string) string {
 	}
 }
 
-func validateSlots(upper, form string, shallPos int) string {
-	// Response slot: text after SHALL must be non-empty for all forms.
-	response := strings.TrimSpace(upper[shallPos+len("SHALL"):])
-	if response == "" {
-		return "empty response slot after SHALL"
+// keywordOffsets returns the offsets of keyword in text as a whole word,
+// matching ASCII letters in any case. Keywords are ASCII capitals, so the
+// offsets index text itself.
+func keywordOffsets(text, keyword string) []int {
+	var offsets []int
+	for i := 0; i+len(keyword) <= len(text); i++ {
+		if !equalFoldASCII(text[i:i+len(keyword)], keyword) {
+			continue
+		}
+		end := i + len(keyword)
+		if (i > 0 && isLetter(text[i-1])) || (end < len(text) && isLetter(text[end])) {
+			continue
+		}
+		offsets = append(offsets, i)
+		i = end - 1
 	}
-
-	prefix := upper[:shallPos]
-
-	switch form {
-	case FormEventDriven:
-		whenPos := keywordPosition(prefix, "WHEN")
-		slot := extractSlotAfterKeyword(prefix, "WHEN", whenPos)
-		if slot == "" {
-			return "empty trigger slot after WHEN"
-		}
-	case FormStateDriven:
-		whilePos := keywordPosition(prefix, "WHILE")
-		if whilePos < 0 {
-			whilePos = keywordPosition(prefix, "DURING")
-			if whilePos >= 0 {
-				slot := extractSlotAfterKeyword(prefix, "DURING", whilePos)
-				if slot == "" {
-					return "empty precondition slot after DURING"
-				}
-			}
-		} else {
-			slot := extractSlotAfterKeyword(prefix, "WHILE", whilePos)
-			if slot == "" {
-				return "empty precondition slot after WHILE"
-			}
-		}
-	case FormOptional:
-		wherePos := keywordPosition(prefix, "WHERE")
-		slot := extractSlotAfterKeyword(prefix, "WHERE", wherePos)
-		if slot == "" {
-			return "empty feature slot after WHERE"
-		}
-	case FormUnwanted:
-		ifPos := keywordPosition(prefix, "IF")
-		thenPos := keywordPosition(prefix[ifPos:], "THEN")
-		if thenPos >= 0 {
-			slot := strings.TrimSpace(prefix[ifPos+len("IF") : ifPos+thenPos])
-			slot = strings.TrimRight(slot, ", ")
-			if slot == "" {
-				return "empty trigger slot between IF and THEN"
-			}
-		}
-	case FormComplex:
-		whenPos := keywordPosition(prefix, "WHEN")
-		whilePos := keywordPosition(prefix, "WHILE")
-		if whilePos < 0 {
-			whilePos = keywordPosition(prefix, "DURING")
-			if whilePos >= 0 && whenPos > whilePos+len("DURING") {
-				preslot := strings.TrimSpace(prefix[whilePos+len("DURING") : whenPos])
-				preslot = strings.TrimRight(preslot, ", ")
-				if preslot == "" {
-					return "empty precondition slot after DURING"
-				}
-			}
-		} else if whenPos > whilePos+len("WHILE") {
-			preslot := strings.TrimSpace(prefix[whilePos+len("WHILE") : whenPos])
-			preslot = strings.TrimRight(preslot, ", ")
-			if preslot == "" {
-				return "empty precondition slot after WHILE"
-			}
-		}
-		if whenPos >= 0 {
-			trigslot := extractSlotAfterKeyword(prefix, "WHEN", whenPos)
-			if trigslot == "" {
-				return "empty trigger slot after WHEN"
-			}
-		}
-	}
-
-	return ""
+	return offsets
 }
 
-func extractSlotAfterKeyword(text, keyword string, kwPos int) string {
-	after := text[kwPos+len(keyword):]
-	// The slot is the text between the keyword and the next comma or end of prefix.
-	if commaIdx := strings.Index(after, ","); commaIdx >= 0 {
-		after = after[:commaIdx]
-	}
-	return strings.TrimSpace(after)
-}
-
-func countKeyword(upper, keyword string) int {
-	count := 0
-	remaining := upper
-	for {
-		pos := keywordPosition(remaining, keyword)
-		if pos < 0 {
-			return count
+// equalFoldASCII reports whether s spells keyword, a word in ASCII capitals,
+// in any letter case.
+func equalFoldASCII(s, keyword string) bool {
+	for i := 0; i < len(keyword); i++ {
+		c := s[i]
+		if 'a' <= c && c <= 'z' {
+			c -= 'a' - 'A'
 		}
-		count++
-		remaining = remaining[pos+len(keyword):]
-	}
-}
-
-func containsKeyword(upper, keyword string) bool {
-	return keywordPosition(upper, keyword) >= 0
-}
-
-func keywordPosition(upper, keyword string) int {
-	pos := 0
-	remaining := upper
-	for {
-		idx := strings.Index(remaining, keyword)
-		if idx < 0 {
-			return -1
+		if c != keyword[i] {
+			return false
 		}
-		absPos := pos + idx
-		before := absPos == 0 || !isLetter(remaining[idx-1])
-		after := idx+len(keyword) >= len(remaining) || !isLetter(remaining[idx+len(keyword)])
-		if before && after {
-			return absPos
-		}
-		pos += idx + len(keyword)
-		remaining = remaining[idx+len(keyword):]
 	}
-}
-
-func hasKeywordBefore(upper, keyword string, shallPos int) bool {
-	prefix := upper[:shallPos]
-	return keywordPosition(prefix, keyword) >= 0
-}
-
-func hasIfThenBefore(upper string, shallPos int) bool {
-	prefix := upper[:shallPos]
-	ifPos := keywordPosition(prefix, "IF")
-	if ifPos < 0 {
-		return false
-	}
-	thenPos := keywordPosition(prefix[ifPos:], "THEN")
-	return thenPos >= 0
+	return true
 }
 
 func isLetter(b byte) bool {

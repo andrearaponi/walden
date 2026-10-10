@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Added
+
+- **Two EARS wording warnings.** `walden validate` warns on a criterion whose clauses are out of the EARS order — `WHERE`, then `WHILE`, then `WHEN` or `IF` — and on a criterion whose subject is the pronoun `it` or `they`. Both appear in the criterion's `ears_validation` entry of `walden validate --json`; neither fails validation.
+
+### Fixed
+
+- **EARS keywords count where they open a clause.** The classifier read `if`, `where`, `while`, `when` and `during` anywhere before `SHALL`, in any letter case: `WHEN the user asks if the file exists, …` failed for a missing `THEN`, a trigger containing "where" failed as an ambiguous combination, and one containing "while" counted as complex. A keyword now opens a clause at the start of the criterion or after a comma, in any case, or anywhere when written in capitals; elsewhere it is text of its clause.
+- **Every combination of EARS clauses is complex.** `WHERE …, WHEN …` and `WHERE …, WHILE …` no longer fail as an ambiguous combination, and a `WHILE` or `WHEN` clause together with an `IF … THEN` clause is complex instead of unwanted; an `IF` clause inside a complex criterion counts as failure handling. Every clause needs text. Criteria counted complex or unwanted by mistake change form, so `ears_distribution` can change for documents that validated before. No criterion valid before becomes invalid, except one with an empty or unclosed clause that the old classifier never checked.
+- **A doubled keyword no longer crashes `walden validate`.** A word such as `WHENWHEN` or `IFIF` made the classifier index before the start of the criterion and panic; it is now ordinary text.
+
 ## [0.13.1] - 2026-10-09
 
 ### Added

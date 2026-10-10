@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -78,6 +79,8 @@ type EARSCriterion struct {
 	Valid    bool     `json:"valid"`
 	Errors   []string `json:"errors,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
+	// Clauses lists the criterion's clause kinds for in-process checks.
+	Clauses []string `json:"-"`
 }
 
 // Scope controls which parts of a feature spec are validated.
@@ -217,7 +220,7 @@ func collectQualitySignals(feature spec.Feature, plan validationPlan, earsResult
 
 func signalMissingFailureMode(body string, earsResults []EARSCriterion) []string {
 	for _, c := range earsResults {
-		if c.Form == ears.FormUnwanted {
+		if slices.Contains(c.Clauses, ears.ClauseUnwanted) {
 			return nil
 		}
 	}
@@ -244,6 +247,7 @@ func collectEARSResults(feature spec.Feature, plan validationPlan) []EARSCriteri
 			Valid:    c.Valid,
 			Errors:   c.Errors,
 			Warnings: c.Warnings,
+			Clauses:  c.Clauses,
 		})
 	}
 	return results
