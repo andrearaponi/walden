@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.13.1
+## Current Release: v0.14.0
 
 The open source core today includes:
 

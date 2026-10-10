@@ -1,3 +1,37 @@
+## Walden v0.14.0
+
+EARS canonical grammar: the validator reads acceptance criteria the way EARS writes them. Until this release the classifier looked for the condition keywords anywhere before `SHALL`, in any letter case, and accepted as a combined form only a `WHILE` clause with a `WHEN` clause. An ordinary word inside a condition could fail validation or change a criterion's form, and combinations that EARS defines were rejected or misclassified.
+
+### A keyword counts where it opens a clause
+
+`WHERE`, `WHILE` (or `DURING`), `WHEN` and `IF` open a clause at the start of the criterion or after a comma, in any letter case, and anywhere before `SHALL` when written in capitals. Anywhere else they are text of the clause around them: `WHEN the user asks if the file exists, the system SHALL …` is event-driven instead of failing for a missing `THEN`, and `WHEN a download completes while offline, …` is no longer counted as complex.
+
+### Every EARS combination is a complex criterion
+
+The form follows from the kinds of clause: none is ubiquitous, one kind gives that kind's form, and any two or more kinds form a complex criterion. `WHERE …, WHEN …` and `WHERE …, WHILE …` no longer fail as an ambiguous combination, and `WHILE …, IF …, THEN …` is complex instead of unwanted; an `IF` clause inside a complex criterion counts as failure handling for the "no unwanted-behavior" warning. Every clause needs text, and `IF` still needs its `THEN`.
+
+### Two wording warnings
+
+`walden validate --json` warns, on the criterion, when its clauses are out of the EARS order `WHERE` → `WHILE` → `WHEN`/`IF`, and when its subject is the pronoun `it` or `they`, which leaves the reader to guess the component that responds. Neither fails validation.
+
+### What changes for existing requirements
+
+- No criterion that v0.13.1 validates becomes invalid, except one with an empty or unclosed clause that the old classifier never checked. Across 27,127 distinct criteria in the maintainer's repositories, none changes validity.
+- Criteria counted in the wrong form change form: 91 in that read, mostly criteria counted complex because of a word inside an event clause. `ears_distribution` can change for documents that validated before; approvals and evidence do not, because forms are derived at each validation and stored nowhere.
+- A doubled keyword such as `WHENWHEN` no longer crashes `walden validate`.
+
+### Compatibility and distribution
+
+- No command, flag, JSON field, document status, proof keyword, evidence state or release guarantee changes. `ears_validation` and `ears_distribution` keep their fields, and the new warnings appear in each criterion's existing `warnings`. Approval fingerprints are unchanged.
+- The guide and the requirements template are unchanged and still work with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 8 tasks of the approved `ears-canonical-grammar` specification re-proven against the release tree, including a regression fixture of 65 synthetic criteria whose v0.13.1 verdicts were recorded before the change and an end-to-end cycle from validation to task completion.
+- A one-off comparison of v0.13.1 and v0.14.0 over 27,127 criteria: no validity change, 91 form changes, 7 order and 119 subject warnings.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.13.1
 
 Proof parsing hardening: every line of a proof block is now read or rejected. Until this release the tasks parser ended a structured `Verification:` block, without any report, at the first line it did not recognize, and read every step and attribute after it as free text. Those steps never ran, while `validate`, `task complete` and `verify` reported success. The defect dates back to v0.1.0.
