@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-10
+
 ### Added
 
 - **Two EARS wording warnings.** `walden validate` warns on a criterion whose clauses are out of the EARS order — `WHERE`, then `WHILE`, then `WHEN` or `IF` — and on a criterion whose subject is the pronoun `it` or `they`. Both appear in the criterion's `ears_validation` entry of `walden validate --json`; neither fails validation.
