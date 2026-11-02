@@ -171,6 +171,10 @@ func printCommandHelp(w io.Writer, spec commandSpec) {
 
 var jsonFlag = flagSpec{Name: "--json", Description: "Emit machine-readable JSON instead of text"}
 
+// emptyRunDetail is the help line of the commands whose proofs can warn about
+// an empty test run.
+const emptyRunDetail = "A proof that passes while go test ran no test warns and keeps its exit code: assert the test by name with -v and expect_output."
+
 // commandRegistry declares every walden command. Dispatch paths, help output,
 // and flag parsing all derive from this table.
 var commandRegistry = []commandSpec{
@@ -271,12 +275,14 @@ var commandRegistry = []commandSpec{
 				Path:      "task complete",
 				Syntax:    "task complete <feature> <task-id> [--json]",
 				Summary:   "Run a task's proofs and mark it complete",
+				Details:   []string{emptyRunDetail},
 				BoolFlags: []flagSpec{jsonFlag},
 			},
 			{
 				Path:      "task complete-all",
 				Syntax:    "task complete-all <feature> [--json]",
 				Summary:   "Complete all runnable tasks in order",
+				Details:   []string{emptyRunDetail},
 				BoolFlags: []flagSpec{jsonFlag},
 			},
 		},
@@ -289,6 +295,7 @@ var commandRegistry = []commandSpec{
 			"--task re-proves one completed leaf task for a repair and leaves every other record as it is.",
 			"Refused, running nothing, with --all, when repeated or empty, or for an id that is not a completed leaf task.",
 			"It proves nothing about the feature: release check still judges every task, so finish with walden verify <feature>.",
+			emptyRunDetail,
 		},
 		BoolFlags: []flagSpec{
 			{Name: "--all", Description: "Re-prove every completed task, not just stale ones"},

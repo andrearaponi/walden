@@ -41,7 +41,7 @@ func TestExecuteProofDefaultTimeout(t *testing.T) {
 		return shell.Response{ExitCode: 0}, nil
 	})
 
-	if _, _, err := executeProof(context.Background(), runner, timeoutTask("")); err != nil {
+	if _, err := executeProof(context.Background(), runner, timeoutTask("")); err != nil {
 		t.Fatalf("executeProof returned error: %v", err)
 	}
 	if remaining <= 9*time.Minute || remaining > 10*time.Minute {
@@ -57,7 +57,7 @@ func TestExecuteProofDeclaredTimeoutHonored(t *testing.T) {
 		return shell.Response{ExitCode: 0}, nil
 	})
 
-	if _, _, err := executeProof(context.Background(), runner, timeoutTask("30s")); err != nil {
+	if _, err := executeProof(context.Background(), runner, timeoutTask("30s")); err != nil {
 		t.Fatalf("executeProof returned error: %v", err)
 	}
 	if remaining <= 0 || remaining > 30*time.Second {
@@ -71,7 +71,7 @@ func TestExecuteProofTimeoutFailure(t *testing.T) {
 		return shell.Response{ExitCode: -1}, nil
 	})
 
-	_, _, err := executeProof(context.Background(), runner, timeoutTask("50ms"))
+	_, err := executeProof(context.Background(), runner, timeoutTask("50ms"))
 	if err == nil {
 		t.Fatal("expected a timeout failure")
 	}
@@ -90,7 +90,7 @@ func TestExecuteProofInvalidTimeoutRefused(t *testing.T) {
 		return shell.Response{ExitCode: 0}, nil
 	})
 
-	_, _, err := executeProof(context.Background(), runner, timeoutTask("banana"))
+	_, err := executeProof(context.Background(), runner, timeoutTask("banana"))
 	if err == nil || !strings.Contains(err.Error(), "invalid timeout value") {
 		t.Fatalf("expected invalid-timeout refusal, got %v", err)
 	}
