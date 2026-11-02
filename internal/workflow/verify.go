@@ -223,7 +223,8 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 			}
 			started = options.Now()
 		}
-		stepResults, _, proofErr := executeProof(ctx, runner, toExecutableTask(task))
+		run, proofErr := executeProof(ctx, runner, toExecutableTask(task))
+		result.Warnings = append(result.Warnings, run.warnings...)
 		if options != nil {
 			duration := options.Now().Sub(started)
 			elapsed = &duration
@@ -274,7 +275,7 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 			TaskFingerprint: spec.TaskDefinitionFingerprint(task), TaskFingerprintScheme: spec.TaskFingerprintScheme,
 			RequirementsFingerprint: current.Requirements, DesignFingerprint: current.Design,
 			TasksFingerprint: feature.Tasks.ApprovedFingerprint, CodeIdentity: facts.BeforeCodeIdentity,
-			Profile: profile, Steps: stepResults, Result: evidence.ResultPassed, VerifiedAt: verifiedAt, Execution: facts,
+			Profile: profile, Steps: run.steps, Result: evidence.ResultPassed, VerifiedAt: verifiedAt, Execution: facts,
 		}
 		outcome := VerifyOutcome{TaskID: task.ID, Passed: true, Profile: profile, Elapsed: elapsed}
 		if proofErr != nil {

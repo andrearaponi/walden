@@ -1142,6 +1142,7 @@ func taskCompleteAllSuccessResult(result workflow.BatchCompletionResult) output.
 		CompletedTasks: append([]string(nil), result.CompletedLeafTasks...),
 		AutoCompleted:  append([]string(nil), result.AutoCompletedParentIDs...),
 		NextAction:     result.NextAction,
+		Warnings:       result.Warnings,
 		ExitCode:       0,
 	}
 	if len(result.CompletedTasks) > 0 {
@@ -1174,6 +1175,7 @@ func taskCompleteAllErrorResult(featureName string, batch workflow.BatchCompleti
 		CompletedTasks: append([]string(nil), batch.CompletedLeafTasks...),
 		AutoCompleted:  append([]string(nil), batch.AutoCompletedParentIDs...),
 		NextAction:     batch.NextAction,
+		Warnings:       batch.Warnings,
 		ExitCode:       1,
 	}
 	if len(batch.CompletedTasks) > 0 {

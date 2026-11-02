@@ -75,6 +75,7 @@ type BatchCompletionResult struct {
 	FailedTask             string
 	Failure                string
 	NextAction             string
+	Warnings               []string
 }
 
 // LoadExecutionReadiness loads and resolves execution readiness for a feature.
@@ -317,7 +318,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		return TaskCompletionResult{}, err
 	}
 
-	stepResults, proofCommand, err := executeProof(ctx, runner, startContext.Task)
+	run, err := executeProof(ctx, runner, startContext.Task)
 	if err != nil {
 		return TaskCompletionResult{}, err
 	}
@@ -332,7 +333,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 	// Evidence is recorded before the checkbox moves: a completion the
 	// ledger cannot remember is a completion that did not happen.
 	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
-	warnings := []string{}
+	warnings := append([]string{}, run.warnings...)
 	if !identityOK {
 		warnings = append(warnings, "code identity unavailable (git not usable here); evidence recorded without it")
 	}
@@ -358,7 +359,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
 		CodeIdentity:            identity,
 		Profile:                 profile,
-		Steps:                   stepResults,
+		Steps:                   run.steps,
 		Result:                  evidence.ResultPassed,
 		VerifiedAt:              completedAt,
 	}
@@ -384,7 +385,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		CurrentPhase:   startContext.CurrentPhase,
 		Task:           startContext.Task,
 		CompletedTasks: completedTasks,
-		ProofCommand:   proofCommand,
+		ProofCommand:   run.display,
 		NextAction:     readiness.NextAction,
 		Warnings:       warnings,
 	}, nil
@@ -399,6 +400,7 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 	completedTasks := []string{}
 	completedLeafTasks := []string{}
 	autoCompletedParentIDs := []string{}
+	var warnings []string
 
 	for {
 		readiness, err := LoadExecutionReadiness(root, featureName)
@@ -414,6 +416,7 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 					CompletedLeafTasks:     completedLeafTasks,
 					AutoCompletedParentIDs: autoCompletedParentIDs,
 					NextAction:             readiness.NextAction,
+					Warnings:               warnings,
 				}, fmt.Errorf("%s", readiness.Blockers[0])
 			}
 			return BatchCompletionResult{
@@ -423,6 +426,7 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 				CompletedLeafTasks:     completedLeafTasks,
 				AutoCompletedParentIDs: autoCompletedParentIDs,
 				NextAction:             readiness.NextAction,
+				Warnings:               warnings,
 			}, nil
 		}
 
@@ -437,11 +441,13 @@ func CompleteAllTasks(ctx context.Context, root, featureName string, runner shel
 				FailedTask:             readiness.NextTask.ID,
 				Failure:                err.Error(),
 				NextAction:             fmt.Sprintf("Fix failing proof for task %s and rerun batch completion", readiness.NextTask.ID),
+				Warnings:               warnings,
 			}, err
 		}
 
 		completedTasks = append(completedTasks, result.CompletedTasks...)
 		completedLeafTasks = append(completedLeafTasks, result.Task.ID)
+		warnings = append(warnings, result.Warnings...)
 		for _, completedTaskID := range result.CompletedTasks {
 			if completedTaskID != result.Task.ID {
 				autoCompletedParentIDs = append(autoCompletedParentIDs, completedTaskID)
@@ -534,16 +540,24 @@ func executableTaskFingerprint(task ExecutableTask) string {
 	})
 }
 
+// proofRun is what executing a proof yields. Steps go to the evidence record;
+// warnings are diagnosis and go to the command's result, never to the record.
+type proofRun struct {
+	steps    []evidence.StepResult
+	display  string
+	warnings []string
+}
+
 // executeProof runs every proof step in order, enforcing exit-code and
-// output expectations, and returns per-step outcomes for the evidence
-// record along with the human-readable proof command.
-func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask) ([]evidence.StepResult, string, error) {
+// output expectations. A failure returns the steps run so far and no warning.
+func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask) (proofRun, error) {
 	proofCommands, display, err := resolveProofCommands(task)
 	if err != nil {
-		return nil, "", err
+		return proofRun{}, err
 	}
 
-	results := make([]evidence.StepResult, 0, len(proofCommands))
+	run := proofRun{steps: make([]evidence.StepResult, 0, len(proofCommands)), display: display}
+	var warnings []string
 	for _, proofStep := range proofCommands {
 		stepCtx, cancel := context.WithTimeout(ctx, proofStep.Timeout)
 		response, err := runner.Run(stepCtx, proofStep.Name, proofStep.Args...)
@@ -551,23 +565,23 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 		cancel()
 		combined := response.Stdout + response.Stderr
 		if timedOut {
-			results = append(results, evidence.StepResult{
+			run.steps = append(run.steps, evidence.StepResult{
 				Command:      append([]string{proofStep.Name}, proofStep.Args...),
 				ExpectedExit: proofStep.ExpectExit,
 				ActualExit:   response.ExitCode,
 				OutputDigest: evidence.DigestOutput(combined),
 			})
-			return results, display, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s%s", task.ID, proofStep.Display, proofStep.TimeoutLabel, outputExcerpt(combined))
+			return run, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s%s", task.ID, proofStep.Display, proofStep.TimeoutLabel, outputExcerpt(combined))
 		}
 		if err != nil {
 			hint := ""
 			if strings.Contains(err.Error(), "executable file not found") {
 				hint = " (hint: shell operators require command: [\"sh\", \"-c\", \"...\"])"
 			}
-			return results, display, fmt.Errorf("verification failed for task %q: %w%s", task.ID, err, hint)
+			return run, fmt.Errorf("verification failed for task %q: %w%s", task.ID, err, hint)
 		}
 
-		results = append(results, evidence.StepResult{
+		run.steps = append(run.steps, evidence.StepResult{
 			Command:      append([]string{proofStep.Name}, proofStep.Args...),
 			ExpectedExit: proofStep.ExpectExit,
 			ActualExit:   response.ExitCode,
@@ -575,13 +589,17 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 		})
 
 		if response.ExitCode != proofStep.ExpectExit {
-			return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)%s", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, outputExcerpt(combined))
+			return run, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)%s", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, outputExcerpt(combined))
 		}
 		if proofStep.ExpectOutput != "" && !strings.Contains(combined, proofStep.ExpectOutput) {
-			return results, display, fmt.Errorf("verification failed for task %q: command %q output does not contain expected content %q%s", task.ID, proofStep.Display, proofStep.ExpectOutput, outputExcerpt(combined))
+			return run, fmt.Errorf("verification failed for task %q: command %q output does not contain expected content %q%s", task.ID, proofStep.Display, proofStep.ExpectOutput, outputExcerpt(combined))
+		}
+		if warning := emptyRunWarning(task.ID, proofStep, combined); warning != "" {
+			warnings = append(warnings, warning)
 		}
 	}
-	return results, display, nil
+	run.warnings = warnings
+	return run, nil
 }
 
 // failureOutputLimit is the largest output excerpt a failure diagnostic carries.

@@ -49,7 +49,11 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	result := verifyOutputResult(verifyResult)
-	return emitResult("verify", result, jsonMode, stdout, stderr)
+	code = emitResult("verify", result, jsonMode, stdout, stderr)
+	if code != 0 && !jsonMode {
+		output.PrintWarnings(stderr, result.Warnings)
+	}
+	return code
 }
 
 // selectedTask returns the id passed with --task, or "" without the flag. It

@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Added
+
+- **A passing proof that ran no test warns.** `task complete`, `task complete-all`, `verify` and `adopt --apply` add a warning naming the task and the step when every package line of `go test` says `[no tests to run]` or `[no test files]`. A step that declares its empty run stays quiet: the compile-only selector `-run '^$'`, or an `expect_output` naming the marker. The warning changes no exit code, evidence record or release verdict, and it travels in the existing `warnings` array.
+
+### Changed
+
+- **No warning gets lost on the way out.** `task complete-all` reports the warnings of its tasks, also when a later proof fails, including the code identity warning it used to drop. `verify` prints its warnings on stderr when a text run fails.
+
 ## [0.14.2] - 2026-11-02
 
 ### Added

@@ -18,7 +18,7 @@ import (
 // returns the failure text.
 func proofDiagnostic(t *testing.T, task ExecutableTask, response testutil.Response) string {
 	t.Helper()
-	_, _, err := executeProof(context.Background(), testutil.NewFakeRunner(response), task)
+	_, err := executeProof(context.Background(), testutil.NewFakeRunner(response), task)
 	if err == nil {
 		t.Fatal("expected the proof to fail")
 	}
@@ -33,7 +33,7 @@ func timeoutDiagnostic(t *testing.T, stdout string) string {
 		<-ctx.Done()
 		return shell.Response{Stdout: stdout, ExitCode: -1}, nil
 	})
-	_, _, err := executeProof(context.Background(), runner, timeoutTask("10ms"))
+	_, err := executeProof(context.Background(), runner, timeoutTask("10ms"))
 	if err == nil {
 		t.Fatal("expected a timeout failure")
 	}
@@ -123,7 +123,7 @@ func TestProofFailureShowsOutputBeforeTimeout(t *testing.T) {
 	}}}
 	task := ExecutableTask{ID: "1.1", Title: "Step", Verification: proof.Display(), Proof: proof}
 
-	_, _, err := executeProof(context.Background(), shell.NewExecRunner(), task)
+	_, err := executeProof(context.Background(), shell.NewExecRunner(), task)
 	if err == nil {
 		t.Fatal("expected a timeout failure")
 	}
@@ -226,11 +226,11 @@ func TestProofFailureExcerptLeavesAssessmentUntouched(t *testing.T) {
 	t.Run("expected content before the excerpt still passes", func(t *testing.T) {
 		output := "wanted\n" + filler
 		runner := testutil.NewFakeRunner(testutil.Response{Stdout: output})
-		results, _, err := executeProof(context.Background(), runner, expectOutputTask("wanted"))
+		run, err := executeProof(context.Background(), runner, expectOutputTask("wanted"))
 		if err != nil {
 			t.Fatalf("proof failed: %v", err)
 		}
-		if results[0].OutputDigest != evidence.DigestOutput(output) {
+		if run.steps[0].OutputDigest != evidence.DigestOutput(output) {
 			t.Fatal("digest does not cover the complete output")
 		}
 	})
@@ -238,11 +238,11 @@ func TestProofFailureExcerptLeavesAssessmentUntouched(t *testing.T) {
 	t.Run("a failed step digests its complete output", func(t *testing.T) {
 		output := filler + "\ntail-of-output\n"
 		runner := testutil.NewFakeRunner(testutil.Response{Stdout: output})
-		results, _, err := executeProof(context.Background(), runner, expectOutputTask("wanted"))
+		run, err := executeProof(context.Background(), runner, expectOutputTask("wanted"))
 		if err == nil || !strings.Contains(err.Error(), "tail-of-output") {
 			t.Fatalf("expected a failure showing the tail, got %v", err)
 		}
-		if results[0].OutputDigest != evidence.DigestOutput(output) {
+		if run.steps[0].OutputDigest != evidence.DigestOutput(output) {
 			t.Fatal("digest does not cover the complete output")
 		}
 	})

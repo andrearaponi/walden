@@ -452,14 +452,21 @@ func PrintText(w io.Writer, result Result) {
 		_, _ = fmt.Fprintf(w, "Next action: %s\n", result.NextAction)
 	}
 
-	if len(result.Warnings) > 0 {
-		_, _ = fmt.Fprintln(w, "Warnings:")
-		for _, warning := range result.Warnings {
-			_, _ = fmt.Fprintf(w, "- %s\n", warning)
-		}
-	}
+	PrintWarnings(w, result.Warnings)
 
 	_, _ = fmt.Fprintf(w, "Exit code: %d\n", result.ExitCode)
+}
+
+// PrintWarnings renders the warnings section of a text result, or nothing when
+// there is no warning.
+func PrintWarnings(w io.Writer, warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintln(w, "Warnings:")
+	for _, warning := range warnings {
+		_, _ = fmt.Fprintf(w, "- %s\n", warning)
+	}
 }
 
 // Envelope is the versioned JSON wrapper for machine-readable CLI output.

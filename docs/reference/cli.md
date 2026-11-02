@@ -65,9 +65,11 @@ Resolves normalized execution context for a task (the next runnable one when no 
 
 Runs the task's proof steps; on pass, records the complete proof fingerprint, chain bindings, post-proof code identity, profile and completion-policy facts, then checks the box. On failure the box stays unchecked and the failing step is named. Every step runs under its declared `timeout:` or the 10-minute default; expiry kills the step's process group and fails the proof.
 
+A proof that passes without running any test adds a warning to the result and keeps the exit code, in this command and in every command that runs proofs: see [Spec File Format § tasks.md](spec-format.md#tasksmd).
+
 ### `walden task complete-all <feature> [--json]`
 
-Completes all runnable tasks in order, stopping at the first failing proof while preserving earlier completions.
+Completes all runnable tasks in order, stopping at the first failing proof while preserving earlier completions. The warnings of the completed tasks stay in the result when a later proof fails.
 
 ## Evidence
 
@@ -77,7 +79,7 @@ Derives `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecor
 
 ### `walden verify <feature> [--all] [--check] [--task <id>] [--json]`
 
-Re-executes the proofs of completed tasks against the current tree: those no longer `verified` by default, every one with `--all`. Fresh evidence replaces each task's record; `--check` reports without persisting anything. A failing proof never aborts the run — every selected task is re-proven and failures are collected. Exit `1` if any proof failed.
+Re-executes the proofs of completed tasks against the current tree: those no longer `verified` by default, every one with `--all`. Fresh evidence replaces each task's record; `--check` reports without persisting anything. A failing proof never aborts the run — every selected task is re-proven and failures are collected. Exit `1` if any proof failed; in text mode such a run prints its warnings on stderr.
 
 Re-verification is **pure by contract**: each task records its captured before/after identities. Mutation or a missing required identity creates sticky contamination; later executed tasks cannot earn verified evidence in that invocation, even after source restoration. Assertion and policy outcomes remain distinct. An unavailable initial identity rejects execution, and no source rollback occurs automatically. `--check` prevents ledger writes, not command side effects. Detection is manifest-based boundary sampling, not a sandbox. Normal verify prunes orphaned records only in the selected feature; default selection and `--all` never expand to other features.
 

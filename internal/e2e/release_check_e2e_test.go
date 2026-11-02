@@ -13,6 +13,21 @@ import (
 // tree, clean worktree.
 func releasableRepo(t *testing.T) string {
 	t.Helper()
+	dir := approvedRepo(t, markerPlan)
+
+	writeFile(t, dir, "src.txt", "MARKER-A\nMARKER-B\n")
+	mustCLI(t, dir, "task", "complete-all", "gate-demo")
+
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-qm", "gate-demo: code, specs, evidence")
+	return dir
+}
+
+// approvedRepo bootstraps a real git repository holding the feature gate-demo
+// with its whole chain approved under the given plan, which must implement
+// R1.AC1 and R1.AC2. Nothing is committed and no task is completed.
+func approvedRepo(t *testing.T, plan string) string {
+	t.Helper()
 	dir := t.TempDir()
 	gitIn(t, dir, "init", "-q", "-b", "main")
 	gitIn(t, dir, "config", "user.email", "e2e@walden.dev")
@@ -103,7 +118,16 @@ Shell exit codes.
 | --- | --- |
 | `+"`R1`"+` | src.txt |
 `)
-	writeFile(t, dir, ".walden/specs/gate-demo/tasks.md", `---
+	writeFile(t, dir, ".walden/specs/gate-demo/tasks.md", plan)
+
+	for _, phase := range []string{"requirements", "design", "tasks"} {
+		mustCLI(t, dir, "review", "open", "gate-demo", "--phase", phase)
+		mustCLI(t, dir, "review", "approve", "gate-demo", "--phase", phase)
+	}
+	return dir
+}
+
+const markerPlan = `---
 status: draft
 approved_at:
 last_modified: 2026-07-11T10:00:00Z
@@ -116,31 +140,18 @@ source_design_fingerprint:
 
 - [ ] 1. Markers
   - [ ] 1.1 Place marker A
-    - Requirements: `+"`R1.AC1`"+`
+    - Requirements: ` + "`R1.AC1`" + `
     - Design: Overview
     - Verification:
       - command: ["sh", "-c", "grep -q MARKER-A src.txt"]
         covers: ["R1.AC1"]
   - [ ] 1.2 Place marker B
-    - Requirements: `+"`R1.AC2`"+`
+    - Requirements: ` + "`R1.AC2`" + `
     - Design: Overview
     - Verification:
       - command: ["sh", "-c", "grep -q MARKER-B src.txt"]
         covers: ["R1.AC2"]
-`)
-
-	for _, phase := range []string{"requirements", "design", "tasks"} {
-		mustCLI(t, dir, "review", "open", "gate-demo", "--phase", phase)
-		mustCLI(t, dir, "review", "approve", "gate-demo", "--phase", phase)
-	}
-
-	writeFile(t, dir, "src.txt", "MARKER-A\nMARKER-B\n")
-	mustCLI(t, dir, "task", "complete-all", "gate-demo")
-
-	gitIn(t, dir, "add", "-A")
-	gitIn(t, dir, "commit", "-qm", "gate-demo: code, specs, evidence")
-	return dir
-}
+`
 
 func TestE2EReleaseCheckCertifiesGreenRepository(t *testing.T) {
 	requireGit(t)
