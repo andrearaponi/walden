@@ -42,7 +42,7 @@ Task evidence views use a shared ordered entry shape. It appears under `result.e
 | `task_id` | string | Leaf task identifier. |
 | `state` | string | `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, or `pending`. |
 | `passed` | bool | Accepted outcome in this verify run, or stored record result in a read view. Omitted when no record exists. **Not a substitute for current state/assurance.** |
-| `failure` | string | Current verify failure detail, including assertion/policy distinctions. |
+| `failure` | string | Current verify failure detail, including assertion/policy distinctions. Proof output in it is limited to the last 4096 bytes of the step's combined output, preceded by the number of bytes omitted. |
 | `recorded_identity`, `current_identity` | string | Available code identities; absent observations are not proof of equality. |
 | `binding` | object | `state`, optional `source`, `effective_fingerprint`, `plan_fingerprint`, `path`, `commit`, `detail`. |
 | `code_freshness` | string | `current`, `stale`, or `unavailable`. |

@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Changed
+
+- **A failed proof shows what it printed.** An output mismatch and a timeout now end with the tail of the step's combined output, as an exit-code mismatch already did. An exit-code mismatch reads the combined output instead of standard error alone, where a linker warning could hide a failing Go test. The excerpt is limited to the last 4096 bytes and states how many it omits, so a step printing 2 MB no longer produces a 2 MB summary. It stays in the failure text: no JSON field is added and nothing new reaches the ledger.
+
+### Fixed
+
+- **`walden feature init` is proposed only for a missing feature.** `task complete` and `task complete-all` proposed it whenever an error held the words `does not exist` and `feature`, so a failing proof that printed them was told to initialize a feature that already existed.
+
 ## [0.14.0] - 2026-10-10
 
 ### Added
