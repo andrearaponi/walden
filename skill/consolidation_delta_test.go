@@ -28,6 +28,9 @@ var approvedGuideDelta = []guideReplacement{
 		New: "citing the linked statements you compared as `feature#ID` in inline code;"},
 	{Old: "Run `walden consolidate open`, present the view, and run `walden consolidate approve` only after the user's explicit approval.",
 		New: "Run `walden consolidate open`, present the view, and run `walden consolidate approve` only after the user's explicit approval. If `status` reports the view stale, review it and run `walden consolidate open` again."},
+	// Approved separately, for CLI v0.14.2: no evaluation measured this row.
+	{Old: "| `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |",
+		New: "| `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |\n| `walden verify <feature> --task <id>` | On CLI v0.14.2 or newer, re-prove one completed leaf task after a targeted repair; `release check` still judges every task, so finish with `walden verify <feature>`. |"},
 }
 
 // applyGuideDelta applies the replacements, or reverts them, requiring each
