@@ -51,6 +51,7 @@ type commandArgs struct {
 	Positionals []string
 	bools       map[string]bool
 	values      map[string]string
+	counts      map[string]int
 }
 
 // Bool reports whether a declared bool flag was passed.
@@ -58,6 +59,9 @@ func (a commandArgs) Bool(name string) bool { return a.bools[name] }
 
 // Value returns the argument a declared value flag consumed, or "".
 func (a commandArgs) Value(name string) string { return a.values[name] }
+
+// Count reports how many times a value flag was passed; Value keeps the last.
+func (a commandArgs) Count(name string) int { return a.counts[name] }
 
 // parseOutcome is the triage verdict for one invocation. Exactly one of the
 // three states holds: help requested, unusable arguments (Err), or parsed.
@@ -103,6 +107,7 @@ func parseCommandArgs(spec commandSpec, args []string) (commandArgs, parseOutcom
 		Positionals: []string{},
 		bools:       map[string]bool{},
 		values:      map[string]string{},
+		counts:      map[string]int{},
 	}
 
 	for index := 0; index < len(args); index++ {
@@ -116,6 +121,7 @@ func parseCommandArgs(spec commandSpec, args []string) (commandArgs, parseOutcom
 				return commandArgs{}, outcome
 			}
 			parsed.values[arg] = args[index+1]
+			parsed.counts[arg]++
 			index++
 		case strings.HasPrefix(arg, "-"):
 			outcome.Err = fmt.Errorf("unknown flag %s for %q: run 'walden %s --help'", arg, spec.Path, spec.Path)
@@ -277,12 +283,20 @@ var commandRegistry = []commandSpec{
 	},
 	{
 		Path:    "verify",
-		Syntax:  "verify <feature> [--all] [--check] [--json]",
+		Syntax:  "verify <feature> [--all] [--check] [--task <id>] [--json]",
 		Summary: "Re-prove completed tasks against the current code and refresh evidence",
+		Details: []string{
+			"--task re-proves one completed leaf task for a repair and leaves every other record as it is.",
+			"Refused, running nothing, with --all, when repeated or empty, or for an id that is not a completed leaf task.",
+			"It proves nothing about the feature: release check still judges every task, so finish with walden verify <feature>.",
+		},
 		BoolFlags: []flagSpec{
 			{Name: "--all", Description: "Re-prove every completed task, not just stale ones"},
 			{Name: "--check", Description: "Report without persisting evidence"},
 			jsonFlag,
+		},
+		ValueFlags: []flagSpec{
+			{Name: "--task", Description: "Re-prove one completed task, whatever its state", Placeholder: "<id>"},
 		},
 	},
 	{
