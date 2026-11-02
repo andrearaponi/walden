@@ -1,3 +1,44 @@
+## Walden v0.14.3
+
+Empty proofs now say so: a proof that passes without running any test warns. `go test` exits 0 when its selector matches nothing, so until this release a proof without `expect_output` stayed green after its test was renamed or removed, and the evidence read `verified` for code no test exercised.
+
+### A passing proof that ran no test warns
+
+When every package line of a `go test` step says `[no tests to run]` or `[no test files]`, the command adds a warning naming the task and the step, and proposing the fix: assert the test by name with `-v` and `expect_output`. `task complete`, `task complete-all`, `verify` with every selection and `adopt --apply` all report it.
+
+The warning decides nothing. The task completes, the exit code stays, the evidence record is that of any passing proof, the task reads `verified` and `release check` judges it as any other. A proof that fails gives no warning, because the failure already stops it.
+
+### Declaring an empty run
+
+A step that means to run no test stays quiet in two ways: the compile-only selector `-run '^$'`, or an `expect_output` naming `no tests to run` or `no test files`. `expect_output: "ok"` does not silence it, because `ok` also matches an empty run.
+
+### What it found
+
+The built binary replayed real proofs from this repository and three others, on isolated copies: 726 tasks executed, 679 passed. 8 steps warned, in 6 tasks, and all 8 were true: no test matched their selector. Three are in this repository, on tasks whose tests were removed in v0.11.0. No warning was false.
+
+### Limits
+
+- A package that ran a test clears the step, so a selector that misses in one of several packages goes unnoticed.
+- The check reads only the plain output of `go test` that the step prints: `-json`, other test runners and a step that drops the package lines get no warning.
+- A pipeline that keeps only the line of an empty package warns even when another package ran a test, as `go test ./... | tail -1` does when the last package has no test files. None of the measured proofs has that form.
+
+An `expect_output` on the named `--- PASS:` line remains the safeguard, because it fails the proof.
+
+### Compatibility and distribution
+
+- A run with no empty test run keeps its behavior, output and exit code, with two exceptions. `task complete-all` now reports the warnings of its tasks, also when a later proof fails, including the code identity warning it used to drop. `verify` prints its warnings on stderr when a text run fails.
+- JSON stays additive within `v0beta1`: no new field, the warning travels in the existing `warnings` array. `task complete-all` keeps `warnings: null` with nothing to report.
+- No ledger field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged.
+- The guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 5 tasks of the approved `vacuous-proof-warning` specification re-proven against the release tree, including an end-to-end cycle with the compiled CLI, the real `go test` and a real Git repository: a proof completes silently, its test is renamed and committed, `verify` warns and exits 0, `evidence status` reads `verified`, `release check` passes.
+- Recognition tested on real `go test` output from a temporary module, beside literal cases.
+- Four targeted mutations of the implementation, all caught by the tests meant to catch them.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.2
 
 Single-task verification: a targeted repair no longer pays for the whole feature. Until this release `walden verify` selected completed tasks by state, or all of them with `--all`, and `task complete` refused a completed task, so re-proving one repaired task meant running the proofs of the whole feature. `walden verify <feature> --task <id>` runs the proof of that task alone.
