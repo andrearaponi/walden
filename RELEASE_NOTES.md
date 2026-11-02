@@ -1,3 +1,36 @@
+## Walden v0.14.1
+
+Proof failure tail: a failed proof now shows what it printed. Until this release an output mismatch and a timeout reported no output at all, so the cause could only be found by running the proof again by hand, and an exit-code mismatch showed standard error alone, or standard output when standard error was empty, with no limit.
+
+### A failed proof ends with its output
+
+An output mismatch, a timeout and an exit-code mismatch now end with the last 4096 bytes of the step's combined output, standard output first, preceded by the number of bytes omitted. A Go test that fails on standard output next to a linker warning on standard error now shows the failure, where it used to show only the warning. A step that prints 2 MB no longer produces a 2 MB JSON result.
+
+The excerpt is diagnosis, never evidence. `expect_output` and the output digest still read the complete output, and the ledger stores only the digest.
+
+### `walden feature init` is proposed only for a missing feature
+
+`task complete` and `task complete-all` looked for the words `does not exist` and `feature` in the error text, which can hold proof output, so a failing proof that printed both was told to initialize a feature that already existed. A missing feature keeps its message and its hint.
+
+### What changes for existing proofs
+
+- Nothing changes in what passes or fails: assessment, evidence states and the ledger are as they were.
+- The failure text carries an excerpt where it carried none, and gets shorter where a step printed more than 4096 bytes.
+- Standard output and standard error are concatenated, not interleaved: standard error longer than 4096 bytes fills the excerpt.
+- Proof output is not sanitized. Output mismatch and timeout diagnostics gain the exposure exit-code mismatch diagnostics already had, bounded to 4096 bytes, and nothing new is persisted. Whoever redirects CLI output remains responsible for its confidentiality.
+
+### Compatibility and distribution
+
+- No command, flag, JSON field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged.
+- The guide is unchanged and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 3 tasks of the approved `proof-failure-tail` specification re-proven against the release tree, including a real runner test for the output printed before a timeout and a check that the excerpt stays out of the ledger.
+- A one-off comparison of v0.14.0 and v0.14.1 on real failures: a step printing 2 MB, whose JSON result drops from 2,000,347 to 4,467 bytes, an output mismatch, a timeout, a proof printing the misleading words, and a cgo test package in one of the maintainer's repositories.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.0
 
 EARS canonical grammar: the validator reads acceptance criteria the way EARS writes them. Until this release the classifier looked for the condition keywords anywhere before `SHALL`, in any letter case, and accepted as a combined form only a `WHILE` clause with a `WHEN` clause. An ordinary word inside a condition could fail validation or change a criterion's form, and combinations that EARS defines were rejected or misclassified.
