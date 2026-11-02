@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-02
+
 ### Changed
 
 - **A failed proof shows what it printed.** An output mismatch and a timeout now end with the tail of the step's combined output, as an exit-code mismatch already did. An exit-code mismatch reads the combined output instead of standard error alone, where a linker warning could hide a failing Go test. The excerpt is limited to the last 4096 bytes and states how many it omits, so a step printing 2 MB no longer produces a 2 MB summary. It stays in the failure text: no JSON field is added and nothing new reaches the ledger.
