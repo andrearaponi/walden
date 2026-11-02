@@ -102,6 +102,7 @@ walden evidence status user-auth   # evidence view; includes diagnostic profile 
 walden verify user-auth            # needed completed proofs in this feature only
 walden verify user-auth --all      # explicitly force every completed proof in this feature
 walden verify user-auth --check    # execute selected proofs without persisting evidence
+walden verify user-auth --task 2.3 # re-prove one completed task, for a repair
 ```
 
 Establish the current contract and applicable feature scope before replaying old work; requirements can survive obsolete delivery tasks, and uncertain business intent needs a decision. At batch/feature/delivery closure, refresh the selected applicable evidence and report residual gaps. Code-only maintenance need not create a new spec, but raw tests alone do not refresh Walden evidence.

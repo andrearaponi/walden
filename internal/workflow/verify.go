@@ -28,6 +28,8 @@ type VerifyOutcome struct {
 
 type VerifyResult struct {
 	Feature           string
+	Task              string   // the selected id; empty without a selection
+	Open              []string // completed tasks outside the selection not verified, in plan order
 	Outcomes          []VerifyOutcome
 	Failed            []string
 	Checked           bool
@@ -59,6 +61,13 @@ type VerifyTaskFinish struct {
 	Elapsed         time.Duration
 }
 
+// verifySelection decides which completed tasks one invocation re-proves:
+// those not verified by default, every one with all, exactly one with task.
+type verifySelection struct {
+	all  bool
+	task string
+}
+
 // VerifyOptions configures observation, never proof selection or policy.
 // Now is invocation-local; production time.Time values retain monotonic time.
 type VerifyOptions struct {
@@ -72,7 +81,18 @@ type VerifyOptions struct {
 // source bytes within the invocation. Check mode has identical judgments but
 // no Walden writes. Commands themselves are not sandboxed or rolled back.
 func Verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner) (VerifyResult, error) {
-	result, err := verify(ctx, root, featureName, all, check, runner, nil)
+	result, err := verify(ctx, root, featureName, verifySelection{all: all}, check, runner, nil)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	return result, nil
+}
+
+// VerifyTask re-proves one completed leaf task. Records outside the selection,
+// orphans included, stay as they are, and the result claims nothing about the
+// rest of the feature.
+func VerifyTask(ctx context.Context, root, featureName, taskID string, check bool, runner shell.Runner) (VerifyResult, error) {
+	result, err := verify(ctx, root, featureName, verifySelection{task: taskID}, check, runner, nil)
 	if err != nil {
 		return VerifyResult{}, err
 	}
@@ -85,10 +105,10 @@ func VerifyWithOptions(ctx context.Context, root, featureName string, all, check
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	return verify(ctx, root, featureName, all, check, runner, &options)
+	return verify(ctx, root, featureName, verifySelection{all: all}, check, runner, &options)
 }
 
-func verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner, options *VerifyOptions) (VerifyResult, error) {
+func verify(ctx context.Context, root, featureName string, selection verifySelection, check bool, runner shell.Runner, options *VerifyOptions) (VerifyResult, error) {
 	if runner == nil {
 		return VerifyResult{}, fmt.Errorf("proof runner is required")
 	}
@@ -107,6 +127,11 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 	if err != nil {
 		return VerifyResult{}, err
 	}
+	if selection.task != "" {
+		if err := checkTaskSelection(tree, feature.Name, selection.task); err != nil {
+			return VerifyResult{}, err
+		}
+	}
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
 		return VerifyResult{}, err
@@ -124,30 +149,35 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 		identity = initial.Digest()
 	}
 	selected := map[string]bool{}
-	result := VerifyResult{Feature: feature.Name, Checked: check}
+	result := VerifyResult{Feature: feature.Name, Task: selection.task, Checked: check}
 	for _, entry := range evidence.Derive(ledger, current, identity, initialOK, leafs) {
-		if entry.State == evidence.StatePending {
-			continue
-		}
-		if !all && entry.State == evidence.StateVerified {
+		switch {
+		case entry.State == evidence.StatePending:
+		case selection.task != "":
+			if entry.TaskID == selection.task {
+				selected[entry.TaskID] = true
+			}
+		case !selection.all && entry.State == evidence.StateVerified:
 			result.Skipped = append(result.Skipped, entry.TaskID)
-		} else {
+		default:
 			selected[entry.TaskID] = true
 		}
 	}
 	if len(selected) > 0 && !initialOK {
 		return VerifyResult{}, fmt.Errorf("verification requires a usable initial code identity; no proofs executed — restore usable Git and retry walden verify %s", feature.Name)
 	}
-	planIDs := map[string]bool{}
-	for _, leaf := range leafs {
-		planIDs[leaf.ID] = true
-	}
-	for id := range ledger.Tasks {
-		if !planIDs[id] {
-			result.Pruned = append(result.Pruned, id)
+	if selection.task == "" {
+		planIDs := map[string]bool{}
+		for _, leaf := range leafs {
+			planIDs[leaf.ID] = true
 		}
+		for id := range ledger.Tasks {
+			if !planIDs[id] {
+				result.Pruned = append(result.Pruned, id)
+			}
+		}
+		sort.Strings(result.Pruned)
 	}
-	sort.Strings(result.Pruned)
 
 	previous, previousOK := initial, initialOK
 	causeTask := ""
@@ -173,7 +203,7 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 			boundaryPaths = evidence.DiffPaths(previous, pre)
 		}
 		if len(boundaryPaths) > 0 {
-			policyProblems = append(policyProblems, "code changed before this proof: "+formatChangedPaths(boundaryPaths))
+			policyProblems = append(policyProblems, "code changed before this proof: "+formatBounded(boundaryPaths))
 			if causeTask == "" {
 				causeTask, causePaths = task.ID, boundaryPaths
 			}
@@ -210,7 +240,7 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 			}
 		}
 		if len(changed) > 0 {
-			policyProblems = append(policyProblems, fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatChangedPaths(changed)))
+			policyProblems = append(policyProblems, fmt.Sprintf("working tree changed while task %s proof ran: modified paths: %s", task.ID, formatBounded(changed)))
 			if causeTask == "" {
 				causeTask, causePaths = task.ID, changed
 			}
@@ -286,6 +316,9 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 	assessments := map[string]evidence.TaskEvidence{}
 	for _, entry := range evidence.Derive(ledger, current, finalIdentity, previousOK, leafs) {
 		assessments[entry.TaskID] = entry
+		if selection.task != "" && entry.TaskID != selection.task && entry.State != evidence.StatePending && entry.State != evidence.StateVerified {
+			result.Open = append(result.Open, entry.TaskID)
+		}
 	}
 	for i := range result.Outcomes {
 		entry := assessments[result.Outcomes[i].TaskID]
@@ -297,13 +330,16 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 	if causeTask != "" {
 		warning := "verification integrity unavailable after task " + causeTask
 		if len(causePaths) > 0 {
-			warning = "proof side effects modified the repository: " + formatChangedPaths(causePaths)
+			warning = "proof side effects modified the repository: " + formatBounded(causePaths)
 		}
 		warning += "; run contamination remains until a new valid invocation"
 		if len(poisoned) > 0 {
 			warning += "; tasks re-proven on the modified tree: " + strings.Join(poisoned, ", ")
 		}
 		result.Warnings = append(result.Warnings, warning)
+	}
+	if len(result.Open) > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("%d other completed task(s) not verified: %s", len(result.Open), formatBounded(result.Open)))
 	}
 	if !check && (len(result.Outcomes) > 0 || len(result.Pruned) > 0) {
 		for _, id := range result.Pruned {
@@ -319,6 +355,21 @@ func verify(ctx context.Context, root, featureName string, all, check bool, runn
 	return result, nil
 }
 
+// checkTaskSelection accepts only a completed leaf of the plan. It runs ahead
+// of the first effect of the path, so a wrong id executes nothing.
+func checkTaskSelection(tree spec.TaskTree, feature, id string) error {
+	for _, task := range tree.LeafTasks() {
+		if task.ID != id {
+			continue
+		}
+		if !task.Completed {
+			return fmt.Errorf("task %q is not completed: run walden task complete %s %s", id, feature, id)
+		}
+		return nil
+	}
+	return fmt.Errorf("task %q is not a leaf task of %s", id, feature)
+}
+
 func formatProfileDrift(drifts []evidence.ProfileDrift) string {
 	parts := make([]string, 0, len(drifts))
 	for _, drift := range drifts {
@@ -327,12 +378,12 @@ func formatProfileDrift(drifts []evidence.ProfileDrift) string {
 	return strings.Join(parts, ", ")
 }
 
-func formatChangedPaths(paths []string) string {
+func formatBounded(items []string) string {
 	const maxListed = 10
-	if len(paths) <= maxListed {
-		return strings.Join(paths, ", ")
+	if len(items) <= maxListed {
+		return strings.Join(items, ", ")
 	}
-	return fmt.Sprintf("%s, +%d more", strings.Join(paths[:maxListed], ", "), len(paths)-maxListed)
+	return fmt.Sprintf("%s, +%d more", strings.Join(items[:maxListed], ", "), len(items)-maxListed)
 }
 
 func toExecutableTask(task *spec.Task) ExecutableTask {

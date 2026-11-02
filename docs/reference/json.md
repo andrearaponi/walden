@@ -87,7 +87,7 @@ Scope is reported at `result.scope` for verify, `result.adoption.scope` for adop
 }
 ```
 
-`kind` is `feature` for a named selection or `portfolio` for an unqualified portfolio request. Feature names are sorted. A selected-feature pass is not a repository-wide certificate; the kernel does not silently remove features based on age, guessed obsolescence or missing fingerprints.
+`kind` is `feature` for a named selection, `portfolio` for an unqualified portfolio request, or `task` for `verify --task`, which adds the selected id in `tasks`, a field every other scope omits. Feature names are sorted. A selected-task pass says nothing about the other tasks, and `warnings` names those not verified. A selected-feature pass is not a repository-wide certificate; the kernel does not silently remove features based on age, guessed obsolescence or missing fingerprints.
 
 ## Certification (`release check --json`)
 

@@ -75,11 +75,13 @@ Completes all runnable tasks in order, stopping at the first failing proof while
 
 Derives `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, or `pending`, reporting proof binding, code freshness and execution provenance separately. Profiles are diagnostic and do not gate state. This command executes declared profile probes but does not write evidence; use `adopt <feature>` for a probe-free legacy assessment. Successful inspection exits `0` even for non-verified states; unreadable inputs are errors.
 
-### `walden verify <feature> [--all] [--check] [--json]`
+### `walden verify <feature> [--all] [--check] [--task <id>] [--json]`
 
 Re-executes the proofs of completed tasks against the current tree: those no longer `verified` by default, every one with `--all`. Fresh evidence replaces each task's record; `--check` reports without persisting anything. A failing proof never aborts the run — every selected task is re-proven and failures are collected. Exit `1` if any proof failed.
 
 Re-verification is **pure by contract**: each task records its captured before/after identities. Mutation or a missing required identity creates sticky contamination; later executed tasks cannot earn verified evidence in that invocation, even after source restoration. Assertion and policy outcomes remain distinct. An unavailable initial identity rejects execution, and no source rollback occurs automatically. `--check` prevents ledger writes, not command side effects. Detection is manifest-based boundary sampling, not a sandbox. Normal verify prunes orphaned records only in the selected feature; default selection and `--all` never expand to other features.
+
+`--task <id>` re-proves one completed leaf task, whatever its state, under the same purity rules, and leaves every other record as it is, orphaned ones included. It serves a repair, not a release: the code identity still covers the whole tree, the run warns with the completed tasks left unverified, and `release check` still judges every task. `--task` cannot be combined with `--all`. A repeated or empty `--task`, or an id that is not a completed leaf task, is rejected before any environment probe or proof runs. Its exit code follows the selected task alone.
 
 ### `walden adopt [<feature>] [--apply] [--json]`
 
