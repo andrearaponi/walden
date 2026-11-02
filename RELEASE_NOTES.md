@@ -1,3 +1,39 @@
+## Walden v0.14.2
+
+Single-task verification: a targeted repair no longer pays for the whole feature. Until this release `walden verify` selected completed tasks by state, or all of them with `--all`, and `task complete` refused a completed task, so re-proving one repaired task meant running the proofs of the whole feature. `walden verify <feature> --task <id>` runs the proof of that task alone.
+
+### Re-prove one completed task
+
+`--task <id>` selects one completed leaf task, whatever its state, and runs its proof through the path a plain `verify` uses: the same purity rules, the same record. Every other record stays as it is, a `failed` one included, and orphaned entries wait for the next feature-level run. `--check` works as it does without the flag.
+
+A wrong selection is refused before any environment probe or proof runs: an id that is not a completed leaf task, a repeated or empty `--task`, or `--task` together with `--all`. An empty variable in `--task "$ID"` is an error, not a run of the whole feature.
+
+### A green run is a repair step, not a verified feature
+
+The result states what it covers. `scope.kind` is `task` with the id in `scope.tasks`, the summary names the task and the feature, and the run warns about the completed tasks left unverified, with their number and the first ten ids. The next action points to `walden verify <feature>`, and the exit status follows the selected task alone.
+
+The code identity still covers the whole tree, so any later change can stale the other tasks, and `release check` still judges every task.
+
+### What it saves
+
+On a real feature of 14 proofs, `verify --all` took 37.5 s. A selected run took 21.8 s on the proof running `go test ./...` and 0.4 s on a proof running one test. The saving is the cost of the proofs skipped, so it depends on which proof you repeat. Environment probes and identity captures still run.
+
+### Compatibility and distribution
+
+- Every invocation without `--task` keeps its behavior, output and exit code. `verify --help` gains the flag and three lines.
+- JSON stays additive within `v0beta1`: `scope.kind` gains the value `task` and `scope` gains `tasks`, both only under a selection. A client that switches exhaustively on `kind` must handle the new value.
+- No ledger field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged.
+- In text mode a failing command prints only its summary and next action, so on a failing selected run the warning about open tasks and the scope line appear in JSON alone.
+- The guide still works with CLI v0.10.4 or newer, and its command table names `--task` for CLI v0.14.2 or newer. No evaluation measured that row. Update the guide with `npx skills update walden`.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 4 tasks of the approved `verify-task` specification re-proven against the release tree, including an end-to-end cycle with the compiled CLI in a real Git repository: a commit stales two tasks, `--task` proves one, `release check` blocks on the other, `verify` proves it, and `release check` passes.
+- Each rejection checked on a repository whose environment probe creates a sentinel file, with a valid selection on the same fixture as the positive control.
+- Ten targeted mutations of the implementation, all caught by the tests meant to catch them.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.1
 
 Proof failure tail: a failed proof now shows what it printed. Until this release an output mismatch and a timeout reported no output at all, so the cause could only be found by running the proof again by hand, and an exit-code mismatch showed standard error alone, or standard output when standard error was empty, with no limit.

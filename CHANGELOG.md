@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-02
+
 ### Added
 
 - **`walden verify <feature> --task <id>` re-proves one completed task.** It runs that task's proof alone, whatever its state, and leaves every other record as it is, so a targeted repair no longer pays for the whole feature. A wrong selection is refused before any environment probe or proof runs: an id that is not a completed leaf task, a repeated or empty `--task`, or `--task` together with `--all`. The JSON result reports `task` as `scope.kind` and the id in `scope.tasks`, and the run warns about the completed tasks left unverified. The code identity still covers the whole tree and `release check` still judges every task, so a green selected run is a repair step, not a verified feature. The ledger format does not change.
