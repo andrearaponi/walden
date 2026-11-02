@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/shell"
@@ -548,14 +549,15 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 		response, err := runner.Run(stepCtx, proofStep.Name, proofStep.Args...)
 		timedOut := stepCtx.Err() == context.DeadlineExceeded
 		cancel()
+		combined := response.Stdout + response.Stderr
 		if timedOut {
 			results = append(results, evidence.StepResult{
 				Command:      append([]string{proofStep.Name}, proofStep.Args...),
 				ExpectedExit: proofStep.ExpectExit,
 				ActualExit:   response.ExitCode,
-				OutputDigest: evidence.DigestOutput(response.Stdout + response.Stderr),
+				OutputDigest: evidence.DigestOutput(combined),
 			})
-			return results, display, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s", task.ID, proofStep.Display, proofStep.TimeoutLabel)
+			return results, display, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s%s", task.ID, proofStep.Display, proofStep.TimeoutLabel, outputExcerpt(combined))
 		}
 		if err != nil {
 			hint := ""
@@ -565,7 +567,6 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 			return results, display, fmt.Errorf("verification failed for task %q: %w%s", task.ID, err, hint)
 		}
 
-		combined := response.Stdout + response.Stderr
 		results = append(results, evidence.StepResult{
 			Command:      append([]string{proofStep.Name}, proofStep.Args...),
 			ExpectedExit: proofStep.ExpectExit,
@@ -574,20 +575,36 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 		})
 
 		if response.ExitCode != proofStep.ExpectExit {
-			detail := strings.TrimSpace(response.Stderr)
-			if detail == "" {
-				detail = strings.TrimSpace(response.Stdout)
-			}
-			if detail != "" {
-				return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d): %s", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, detail)
-			}
-			return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit)
+			return results, display, fmt.Errorf("verification failed for task %q: command %q exited with code %d (expected %d)%s", task.ID, proofStep.Display, response.ExitCode, proofStep.ExpectExit, outputExcerpt(combined))
 		}
 		if proofStep.ExpectOutput != "" && !strings.Contains(combined, proofStep.ExpectOutput) {
-			return results, display, fmt.Errorf("verification failed for task %q: command %q output does not contain expected content %q", task.ID, proofStep.Display, proofStep.ExpectOutput)
+			return results, display, fmt.Errorf("verification failed for task %q: command %q output does not contain expected content %q%s", task.ID, proofStep.Display, proofStep.ExpectOutput, outputExcerpt(combined))
 		}
 	}
 	return results, display, nil
+}
+
+// failureOutputLimit is the largest output excerpt a failure diagnostic carries.
+const failureOutputLimit = 4096
+
+// outputExcerpt renders the end of a step's output as a diagnostic suffix. The
+// excerpt is diagnosis, never evidence: assessment reads the complete output
+// and nothing records the excerpt. A cut inside a UTF-8 character starts at the
+// next one; the scan stops at the longest character, so binary output keeps an
+// excerpt too.
+func outputExcerpt(combined string) string {
+	text := strings.TrimSpace(combined)
+	if text == "" {
+		return ""
+	}
+	if len(text) <= failureOutputLimit {
+		return ": " + text
+	}
+	start := len(text) - failureOutputLimit
+	for skipped := 0; skipped < utf8.UTFMax-1 && !utf8.RuneStart(text[start]); skipped++ {
+		start++
+	}
+	return fmt.Sprintf(": [%d bytes omitted] %s", start, text[start:])
 }
 
 func parseVerificationCommand(verification string) (string, []string, string, error) {

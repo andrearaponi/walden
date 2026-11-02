@@ -12,6 +12,10 @@ import (
 
 var featureNamePattern = regexp.MustCompile(`[^a-z0-9]+`)
 
+// ErrFeatureNotFound marks a feature with no specification directory. Callers
+// test it with errors.Is: an error's text can carry proof output.
+var ErrFeatureNotFound = errors.New("does not exist")
+
 // Document models a spec document loaded from disk.
 type Document struct {
 	Path                          string
@@ -78,7 +82,7 @@ func LoadFeature(root, rawName string) (Feature, error) {
 	featureRoot := filepath.Join(root, ".walden", "specs", name)
 	if _, err := os.Stat(featureRoot); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Feature{}, fmt.Errorf("feature %q does not exist", name)
+			return Feature{}, fmt.Errorf("feature %q %w", name, ErrFeatureNotFound)
 		}
 
 		return Feature{}, fmt.Errorf("inspect feature directory: %w", err)

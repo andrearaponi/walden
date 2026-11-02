@@ -1159,7 +1159,7 @@ func taskCompleteErrorResult(featureName string, err error) output.Result {
 		ExitCode: 1,
 	}
 
-	if strings.Contains(err.Error(), "does not exist") && strings.Contains(err.Error(), "feature") {
+	if errors.Is(err, spec.ErrFeatureNotFound) {
 		result.Summary = fmt.Sprintf("%s; run `walden feature init %s` to initialize it", err.Error(), featureName)
 		result.NextAction = fmt.Sprintf("Run walden feature init %s", featureName)
 	}
@@ -1179,7 +1179,7 @@ func taskCompleteAllErrorResult(featureName string, batch workflow.BatchCompleti
 	if len(batch.CompletedTasks) > 0 {
 		result.ChangedFiles = []string{".walden/specs/" + batch.Feature + "/tasks.md"}
 	}
-	if strings.Contains(err.Error(), "does not exist") && strings.Contains(err.Error(), "feature") {
+	if errors.Is(err, spec.ErrFeatureNotFound) {
 		result.Summary = fmt.Sprintf("%s; run `walden feature init %s` to initialize it", err.Error(), featureName)
 		result.NextAction = fmt.Sprintf("Run walden feature init %s", featureName)
 	}
