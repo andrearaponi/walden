@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-11-04
+
 ### Changed
 
 - **The review gates refuse unresolved content.** `walden review open` and `walden review approve` refuse a document that still holds an open `[decision: …]` marker or an HTML comment that never closes, before changing anything. The refusal names the document, the body line of each finding and how to clear it: resolve the marker or close the comment, or quote it in a code span. Only the document under review is read, and drafts stay free to hold open checkpoints: `walden validate` and `walden status` do not report them. A document left in review by an earlier release is approved once its findings are gone, with no new `review open`.

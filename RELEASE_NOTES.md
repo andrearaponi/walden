@@ -1,3 +1,48 @@
+## Walden v0.14.4
+
+A decision checkpoint can no longer be sealed unresolved. Until this release `review open` and `review approve` accepted a document still holding an open `[decision: …]` marker, and only `release check` noticed it, after approval. `release check` in turn read the marker literally, so a document that only quoted it could not be certified.
+
+### The review gates refuse unresolved content
+
+`walden review open` and `walden review approve` refuse a document that still holds an open `[decision: …]` marker or an HTML comment that never closes, before changing anything. The refusal names the document, the body line of each finding and how to clear it:
+
+```
+review refused: design.md holds unresolved content at body line 51 (unresolved [decision:] marker). To clear an unresolved [decision:] marker, resolve it, or quote it in a code span.
+```
+
+Only the document under review is read, and drafts stay free to hold open checkpoints: `walden validate` and `walden status` do not report them. A document left in review by an earlier release is approved once its findings are gone, with no new `review open`.
+
+### A quoted marker no longer blocks
+
+The review gates and `walden release check` read a document with the same scan, in order. A code span between two equal runs of backticks on one line, a fenced code block, a proof step or attribute of `tasks.md` and a terminated HTML comment are quotations, so a document that explains the marker can be certified. A comment, a fence or a code span that never closes hides nothing. `release check` reports each finding as a `decisions` blocker of its own, with its body line and remedy.
+
+### What it found
+
+The scan read 948 specification documents from this repository and 32 others, on isolated copies, and reported one: a draft holding six open checkpoints. A literal reading of the same documents reports four, three of which only quote the marker. Across the 40 features of this repository, one loses its three `decisions` blockers, because its approved documents only quote the marker, and none gains one.
+
+### Limits
+
+- The scan is textual, not a Markdown parser. Indented code blocks and code spans that cross a line are ordinary text, which can only add a finding, and a backslash before a backtick does not escape it.
+- The marker is matched as written: `[Decision:` is ordinary text.
+- The gates check that no checkpoint is left open, not how it was settled.
+
+### Compatibility and distribution
+
+- A document with no finding keeps its review behavior and output.
+- A document under review that holds an open marker or a comment that never closes is now refused, where v0.14.3 opened or approved it. The refusal changes nothing on disk: resolve or quote the finding and run the command again.
+- `release check`: a marker quoted in a code span, a fenced block or a proof line of `tasks.md` no longer blocks. A comment opener quoted in a code span no longer hides the text after it, so a marker there now blocks.
+- JSON stays additive within `v0beta1`: no new field, the refusal travels in the `summary` of the failure envelope.
+- No ledger field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged.
+- The guide does not change and still works with CLI v0.10.4 or newer: it already keeps unresolved checkpoints in draft.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 5 tasks of the approved `review-marker-gate` specification re-proven against the release tree, including an end-to-end cycle with the compiled CLI: `review open` and `review approve` refuse a document holding unresolved content and leave it unchanged, then accept it once the content is cleared, with no new `review open` before the approval.
+- The scan tested with one subtest per criterion, and on the field corpus above with the same result as a prototype written for the design.
+- Three targeted mutations of the implementation, all caught by the tests meant to catch them.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.3
 
 Empty proofs now say so: a proof that passes without running any test warns. `go test` exits 0 when its selector matches nothing, so until this release a proof without `expect_output` stayed green after its test was renamed or removed, and the evidence read `verified` for code no test exercised.
