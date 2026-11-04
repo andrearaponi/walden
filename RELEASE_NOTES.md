@@ -29,8 +29,8 @@ The scan read 948 specification documents from this repository and 32 others, on
 ### Compatibility and distribution
 
 - A document with no finding keeps its review behavior and output.
-- A document under review that holds an open marker or a comment that never closes is now refused, where v0.14.3 opened or approved it. The refusal changes nothing on disk: resolve or quote the finding and run the command again.
-- `release check`: a marker quoted in a code span, a fenced block or a proof line of `tasks.md` no longer blocks. A comment opener quoted in a code span no longer hides the text after it, so a marker there now blocks.
+- **Breaking (approval contract):** a document under review that holds an open marker or a comment that never closes is now refused, where v0.14.3 opened or approved it. The refusal changes nothing on disk: resolve or quote the finding and run the command again.
+- **Breaking (gate criteria contract):** a marker quoted in a code span, a fenced block or a proof line of `tasks.md` no longer blocks `release check`. A comment opener quoted in a code span no longer hides the text after it, so a marker there now blocks.
 - JSON stays additive within `v0beta1`: no new field, the refusal travels in the `summary` of the failure envelope.
 - No ledger field, document status, proof keyword, evidence state or release guarantee changes. Approval fingerprints are unchanged.
 - The guide does not change and still works with CLI v0.10.4 or newer: it already keeps unresolved checkpoints in draft.

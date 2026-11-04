@@ -222,8 +222,8 @@ func TestReviewGateDocs(t *testing.T) {
 		t.Fatal("CHANGELOG.md has no [0.14.3] section below [Unreleased]")
 	}
 	require("CHANGELOG.md above [0.14.3]", changelog[start:start+end+1],
-		"**The review gates refuse unresolved content.**",
-		"**A quoted marker no longer blocks.**",
+		"**Breaking (approval contract): the review gates refuse unresolved content.**",
+		"**Breaking (gate criteria contract): a quoted marker no longer blocks.**",
 	)
 }
 
