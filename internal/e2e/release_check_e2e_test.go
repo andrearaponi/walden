@@ -224,14 +224,12 @@ func TestE2EReleaseCheckDecisionMarkerBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read design: %v", err)
 	}
+	// The review gates refuse to seal an open checkpoint, so the marker
+	// arrives after approval, as a release before the gates could leave it:
+	// the decisions criterion reads approved documents, fresh or not.
 	writeFile(t, dir, ".walden/specs/gate-demo/design.md", string(content)+"\n[decision: which backend stays?]\n")
-	mustCLI(t, dir, "reconcile", "gate-demo")
-	for _, phase := range []string{"design", "tasks"} {
-		mustCLI(t, dir, "review", "open", "gate-demo", "--phase", phase)
-		mustCLI(t, dir, "review", "approve", "gate-demo", "--phase", phase)
-	}
 	gitIn(t, dir, "add", "-A")
-	gitIn(t, dir, "commit", "-qm", "approve a design carrying an open checkpoint")
+	gitIn(t, dir, "commit", "-qm", "an approved design carrying an open checkpoint")
 
 	out, code := cli(t, dir, "release", "check")
 	if code == 0 {

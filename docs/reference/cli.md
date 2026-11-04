@@ -41,11 +41,11 @@ Structural validation: frontmatter contract, EARS criteria shape, traceability (
 
 ### `walden review open <feature> --phase <requirements|design|tasks> [--json]`
 
-Opens the review gate: moves the phase document to `in-review`. Refuses out-of-order phases.
+Opens the review gate: moves the phase document to `in-review`. Refuses out-of-order phases and a document holding unresolved content: an open `[decision: …]` marker or an HTML comment that never closes. The refusal names the document, the body line of each finding and how to clear it; quoting the text in a code span, a fenced block or a proof line of `tasks.md` is one way ([spec format](spec-format.md#unresolved-content)).
 
 ### `walden review approve <feature> --phase <phase> [--json]`
 
-Runs full phase validation, then seals the approval: `status: approved`, `approved_at`, and the body's `approved_fingerprint`; downstream documents record the upstream fingerprint as their `source_*_fingerprint` when they are approved in turn. Nothing invalid can be sealed.
+Runs full phase validation, then seals the approval: `status: approved`, `approved_at`, and the body's `approved_fingerprint`; downstream documents record the upstream fingerprint as their `source_*_fingerprint` when they are approved in turn. Nothing invalid can be sealed. Refuses a document holding unresolved content, as `review open` does: a document that gained a finding while in review is approved once it is fixed, with no new `review open`.
 
 ### `walden reconcile <feature> [--json]`
 

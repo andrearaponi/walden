@@ -44,6 +44,9 @@ func OpenReview(root, featureName string, phase Phase) (ReviewContext, error) {
 	if document == nil || !document.Exists {
 		return ReviewContext{}, fmt.Errorf("%s.md does not exist", phase)
 	}
+	if err := refuseUnresolved(*document); err != nil {
+		return ReviewContext{}, err
+	}
 
 	if document.Status != "in-review" {
 		document.Status = "in-review"
@@ -85,6 +88,9 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 	document := documentForPhase(&feature, phase)
 	if document == nil || !document.Exists {
 		return ApprovalResult{}, fmt.Errorf("%s.md does not exist", phase)
+	}
+	if err := refuseUnresolved(*document); err != nil {
+		return ApprovalResult{}, err
 	}
 
 	approvedAt := time.Now().UTC().Format("2006-01-02T15:04:05Z")
@@ -128,6 +134,30 @@ func ApproveReview(root, featureName string, phase Phase) (ApprovalResult, error
 		CurrentPhase: nextState.CurrentPhase,
 		NextAction:   nextState.NextAction,
 	}, nil
+}
+
+// refuseUnresolved refuses a review command on a document that still holds
+// unresolved content: an open decision marker, or a comment opener with no
+// terminator after it. The error names the document, every finding's body
+// line in document order and the remedy of each kind present, once. Nothing
+// bypasses it: the remedy is always in the document.
+func refuseUnresolved(document spec.Document) error {
+	findings := spec.ScanUnresolved(document.Path, document.Body)
+	if len(findings) == 0 {
+		return nil
+	}
+	located := make([]string, 0, len(findings))
+	var remedies []string
+	stated := map[spec.UnresolvedKind]bool{}
+	for _, finding := range findings {
+		located = append(located, fmt.Sprintf("body line %d (%s)", finding.Line, finding.Kind.Label()))
+		if !stated[finding.Kind] {
+			stated[finding.Kind] = true
+			remedies = append(remedies, fmt.Sprintf("To clear an %s, %s.", finding.Kind.Label(), finding.Kind.Remedy()))
+		}
+	}
+	return fmt.Errorf("review refused: %s holds unresolved content at %s. %s",
+		filepath.Base(document.Path), strings.Join(located, ", "), strings.Join(remedies, " "))
 }
 
 func validateOpenReview(state FeatureState, report spec.FreshnessReport, phase Phase) error {

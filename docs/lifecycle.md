@@ -30,7 +30,7 @@ Phases are ordered and enforced: you cannot approve a design before its requirem
 
 ## The seal
 
-Approval is a two-step gate — `walden review open --phase <phase>` moves a document to `in-review`, `walden review approve` moves it to `approved` — and the approve step runs full phase validation first: nothing structurally invalid can be sealed.
+Approval is a two-step gate — `walden review open --phase <phase>` moves a document to `in-review`, `walden review approve` moves it to `approved` — and the approve step runs full phase validation first: nothing structurally invalid can be sealed. Both steps refuse a document that still holds an open `[decision: …]` marker or an HTML comment that never closes, naming the body line of each, so an open checkpoint is caught before the seal rather than at release. Quoted text does not count ([spec format](reference/spec-format.md#unresolved-content)).
 
 At approval, the CLI records `approved_fingerprint`: a SHA-256 over the document **body**. Three properties make this seal precise rather than brittle:
 
@@ -134,7 +134,7 @@ Profiles are diagnostic by design — they never change a derived state or estab
 | --- | --- |
 | `chain` | Every document approved, every fingerprint intact, the chain fresh |
 | `validation` | Full-spec structural validation passes |
-| `decisions` | No unresolved `[decision: …]` markers in approved documents |
+| `decisions` | No open `[decision: …]` marker and no HTML comment that never closes in approved documents, read as the review gates read it; this still catches a document sealed by an earlier release |
 | `evidence` | Every completed task's evidence derives `verified`; every planned task executed — or explicitly waived |
 | worktree | No uncommitted changes outside `.walden/` — what you certify is what you tag |
 

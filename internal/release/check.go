@@ -19,11 +19,6 @@ import (
 // tests control worktree and identity outcomes.
 var gitRunner shell.Runner = shell.NewExecRunner()
 
-// decisionMarker is the skill protocol's open-checkpoint marker. The gate
-// treats it as a deterministic substring in approved documents — a textual
-// lint, never an interpretation of the protocol itself.
-const decisionMarker = "[decision:"
-
 // CriterionResult is one certification criterion's outcome for a feature.
 type CriterionResult struct {
 	Name     string
@@ -259,8 +254,10 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 	valid.Passed = len(valid.Blockers) == 0
 	certification.Criteria = append(certification.Criteria, valid)
 
-	// Criterion 3: no unresolved decision markers in approved documents.
-	// Drafts of in-flight features may legitimately carry open checkpoints.
+	// Criterion 3: no unresolved content in approved documents, read by the
+	// scan the review gates share, one blocker per finding. Drafts of
+	// in-flight features may legitimately carry open checkpoints; an approved
+	// document can still hold one when an earlier release sealed it.
 	decisions := CriterionResult{Name: "decisions"}
 	if loadErr == nil {
 		for _, doc := range []struct {
@@ -274,14 +271,8 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 			if !doc.document.Exists || doc.document.Status != "approved" {
 				continue
 			}
-			stripped, terminated := stripHTMLComments(doc.document.Body)
-			if !terminated {
-				// The dangling opener would swallow the rest of the document
-				// from the scan — and any marker hidden inside it.
-				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("unterminated HTML comment in %s — close it with --> and re-approve", doc.name))
-			}
-			if strings.Contains(stripped, decisionMarker) {
-				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("unresolved %s] marker in %s — resolve it and re-approve", decisionMarker, doc.name))
+			for _, finding := range spec.ScanUnresolved(doc.document.Path, doc.document.Body) {
+				decisions.Blockers = append(decisions.Blockers, fmt.Sprintf("%s in %s at body line %d — %s, then reconcile and re-approve", finding.Kind.Label(), doc.name, finding.Line, finding.Kind.Remedy()))
 			}
 		}
 	}
@@ -323,28 +314,6 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 	certification.Criteria = append(certification.Criteria, evidenceCriterion)
 
 	return certification
-}
-
-// stripHTMLComments removes well-formed `<!-- ... -->` spans before the
-// decision scan: assumed markers live in comments by skill convention and
-// legitimately mention the decision marker in prose. The boolean is false
-// when an opener never terminates — the caller must fail closed rather than
-// trust a scan that cannot see the swallowed remainder.
-func stripHTMLComments(body string) (string, bool) {
-	var kept strings.Builder
-	for {
-		start := strings.Index(body, "<!--")
-		if start < 0 {
-			kept.WriteString(body)
-			return kept.String(), true
-		}
-		kept.WriteString(body[:start])
-		end := strings.Index(body[start:], "-->")
-		if end < 0 {
-			return kept.String(), false
-		}
-		body = body[start+end+len("-->"):]
-	}
 }
 
 // worktreeCriterion partitions uncommitted paths once per run: code outside

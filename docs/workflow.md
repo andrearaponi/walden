@@ -46,7 +46,7 @@ walden review open user-auth --phase design
 walden review approve user-auth --phase design
 ```
 
-Unresolved forks can be parked as `[decision: which store backs this?]` markers — but they must be resolved before certification: the release gate blocks on decision markers in approved documents.
+Unresolved forks can be parked as `[decision: which store backs this?]` markers while a document is a draft. `review open` and `review approve` refuse a document that still holds one, naming its body line. To mention a marker without opening a checkpoint, quote it in a code span.
 
 ## 4. Tasks
 

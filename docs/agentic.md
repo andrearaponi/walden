@@ -43,7 +43,7 @@ From there the skill drives, and the CLI keeps score:
 
 1. **Context first.** The skill reads `.walden/constitution.md` (your stack, conventions, hard rules) and `.walden/lessons.md` (past corrections) so it doesn't rediscover or repeat.
 2. **Requirements.** It asks its clarifying questions, drafts `requirements.md` as EARS criteria, runs `walden validate` until clean — then **stops and presents the document to you**. Approval is yours: on your word it runs `walden review open` / `review approve`, and the CLI seals your decision with a fingerprint.
-3. **Design, then tasks.** Same rhythm at each gate: draft, validate, present, wait, seal. Unresolved forks are parked as `[decision: …]` markers for you to settle — the release gate will not let them ship unresolved.
+3. **Design, then tasks.** Same rhythm at each gate: draft, validate, present, wait, seal. Unresolved forks are parked as `[decision: …]` markers for you to settle: the review gates refuse a document that still holds one, so a checkpoint cannot be sealed unresolved.
 4. **Execution.** The skill implements task by task and completes each through `walden task complete`, which runs the proof and refuses anything that doesn't pass. Checkboxes are earned, not typed; evidence records land in the ledger with fingerprints, code identity, and the machine's profile.
 5. **Certification.** `walden release check` renders the verdict. If it blocks, the blockers name their remedies and the skill works through them.
 

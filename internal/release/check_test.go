@@ -2,12 +2,14 @@ package release
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/andrearaponi/walden/internal/spec"
 	"github.com/andrearaponi/walden/internal/testutil"
 	"github.com/andrearaponi/walden/internal/workflow"
 )
@@ -228,8 +230,10 @@ func TestReleaseCheckDecisionMarkerBlocksOnlyWhenApproved(t *testing.T) {
 	gitIn(t, root, "config", "user.email", "g@g")
 	gitIn(t, root, "config", "user.name", "G")
 
-	// Approved design carrying an unresolved checkpoint.
-	addFeature(t, root, "marked", certifiableRequirements(), certifiableDesign("\n\n[decision: which store backs this?]"), certifiableTasks())
+	// Approved design carrying an unresolved checkpoint, as a release before
+	// the review gates could seal it.
+	addFeature(t, root, "marked", certifiableRequirements(), certifiableDesign(""), certifiableTasks())
+	restampDesign(t, root, "marked", "\n\n[decision: which store backs this?]\n")
 
 	report, err := ReleaseCheck(context.Background(), root, "marked", Options{})
 	if err != nil {
@@ -277,7 +281,8 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 	// An unterminated comment would swallow the rest of the document from
 	// the scan — the malformed comment itself blocks certification.
 	unterminated := "\n\n<!-- assumed: still drafting\n\n[decision: which store?]"
-	addFeature(t, root, "unterminated", certifiableRequirements(), certifiableDesign(unterminated), certifiableTasks())
+	addFeature(t, root, "unterminated", certifiableRequirements(), certifiableDesign(""), certifiableTasks())
+	restampDesign(t, root, "unterminated", unterminated)
 	report, err = ReleaseCheck(context.Background(), root, "unterminated", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck unterminated: %v", err)
@@ -293,7 +298,8 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 
 	// A real marker beside a commented one still blocks.
 	mixed := "\n\n<!-- assumed: none open -->\n\n[decision: pick a queue]"
-	addFeature(t, root, "mixed", certifiableRequirements(), certifiableDesign(mixed), certifiableTasks())
+	addFeature(t, root, "mixed", certifiableRequirements(), certifiableDesign(""), certifiableTasks())
+	restampDesign(t, root, "mixed", mixed)
 	report, err = ReleaseCheck(context.Background(), root, "mixed", Options{})
 	if err != nil {
 		t.Fatalf("ReleaseCheck mixed: %v", err)
@@ -301,6 +307,111 @@ func TestReleaseCheckDecisionMarkerIgnoresHTMLComments(t *testing.T) {
 	if decisions := criterion(t, report.Features[0], "decisions"); decisions.Passed {
 		t.Fatal("marker outside the comment did not block")
 	}
+}
+
+func TestReleaseCheckDecisionMarkerReadsQuotations(t *testing.T) {
+	requireGit(t)
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q", "-b", "main")
+	gitIn(t, root, "config", "user.email", "g@g")
+	gitIn(t, root, "config", "user.name", "G")
+
+	// Documents that explain the marker and the comment opener quote them
+	// in code spans, fenced blocks and the proof lines of tasks.md.
+	requirements := certifiableRequirements() + "\nA checkpoint reads `[decision: which store?]` and an assumption opens with ``<!--``.\n"
+	design := certifiableDesign("\n\n```markdown\n[decision: which store backs this?]\n<!-- assumed: a quoted opener\n```\n\n~~~\n[decision: inside a tilde fence]\n~~~")
+	tasks := certifiableTasks() + "  - [ ] 1.3 Quoting proof\n    - Requirements: `R1.AC1`\n    - Design: Overview\n    - Verification:\n      - command: [\"grep\", \"-c\", \"[decision:\", \"notes.md\"]\n        expect_output: \"<!-- generated\"\n        covers: [\"R1.AC1\"]\n"
+	addFeature(t, root, "quoted", requirements, design, tasks)
+
+	report, err := ReleaseCheck(context.Background(), root, "quoted", Options{})
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	if decisions := criterion(t, report.Features[0], "decisions"); !decisions.Passed || len(decisions.Blockers) != 0 {
+		t.Fatalf("quotations blocked certification: %+v", decisions)
+	}
+}
+
+func TestReleaseCheckDecisionMarkerSealedEarlier(t *testing.T) {
+	requireGit(t)
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q", "-b", "main")
+	gitIn(t, root, "config", "user.email", "g@g")
+	gitIn(t, root, "config", "user.name", "G")
+
+	addFeature(t, root, "sealed", certifiableRequirements(), certifiableDesign(""), certifiableTasks())
+	restampDesign(t, root, "sealed", "\nA bare [decision: which store backs this?] stays open.\n\n<!-- assumed: a comment that never closes\n")
+
+	feature, err := spec.LoadFeature(root, "sealed")
+	if err != nil {
+		t.Fatalf("load feature: %v", err)
+	}
+	markerLine := bodyLineOf(t, feature.Design.Body, "A bare")
+	commentLine := bodyLineOf(t, feature.Design.Body, "assumed: a comment")
+
+	report, err := ReleaseCheck(context.Background(), root, "sealed", Options{})
+	if err != nil {
+		t.Fatalf("ReleaseCheck: %v", err)
+	}
+	cert := report.Features[0]
+	if chain := criterion(t, cert, "chain"); !chain.Passed {
+		t.Fatalf("the re-stamped chain is not fresh: %+v", chain)
+	}
+	decisions := criterion(t, cert, "decisions")
+	if decisions.Passed || len(decisions.Blockers) != 2 {
+		t.Fatalf("want one blocker per finding, got %+v", decisions)
+	}
+	for i, want := range [][]string{
+		{"unresolved [decision:] marker in design.md", fmt.Sprintf("body line %d ", markerLine), "resolve it, or quote it in a code span", "reconcile and re-approve"},
+		{"unterminated HTML comment in design.md", fmt.Sprintf("body line %d ", commentLine), "close it with -->, or quote it in a code span", "reconcile and re-approve"},
+	} {
+		if !strings.HasPrefix(decisions.Blockers[i], want[0]) {
+			t.Errorf("blocker %d does not open with %q: %s", i, want[0], decisions.Blockers[i])
+		}
+		for _, fragment := range want[1:] {
+			if !strings.Contains(decisions.Blockers[i], fragment) {
+				t.Errorf("blocker %d does not mention %q: %s", i, fragment, decisions.Blockers[i])
+			}
+		}
+	}
+}
+
+// restampDesign appends text to the approved design of a feature and
+// re-stamps its fingerprint and the source design fingerprint of the tasks:
+// the state a release before the review gates could leave, which the gates
+// now refuse to produce.
+func restampDesign(t *testing.T, root, name, extra string) {
+	t.Helper()
+	feature, err := spec.LoadFeature(root, name)
+	if err != nil {
+		t.Fatalf("load %s: %v", name, err)
+	}
+	design := feature.Design
+	design.Body += extra
+	design.ApprovedFingerprint = spec.Fingerprint(design.Path, design.Body)
+	design.Fields["approved_fingerprint"] = design.ApprovedFingerprint
+	if err := spec.SaveDocument(design); err != nil {
+		t.Fatalf("save design: %v", err)
+	}
+	tasks := feature.Tasks
+	tasks.SourceDesignFingerprint = design.ApprovedFingerprint
+	tasks.Fields["source_design_fingerprint"] = tasks.SourceDesignFingerprint
+	if err := spec.SaveDocument(tasks); err != nil {
+		t.Fatalf("save tasks: %v", err)
+	}
+}
+
+// bodyLineOf returns the body line, counted from 1, of the first line
+// holding fragment.
+func bodyLineOf(t *testing.T, body, fragment string) int {
+	t.Helper()
+	for index, line := range strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n") {
+		if strings.Contains(line, fragment) {
+			return index + 1
+		}
+	}
+	t.Fatalf("no body line holds %q", fragment)
+	return 0
 }
 
 func TestReleaseCheckEvidenceBlockerNamesStateAndRemedy(t *testing.T) {
