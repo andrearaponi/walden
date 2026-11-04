@@ -105,7 +105,7 @@ The coverage table must map every `R*`/`NFR*` ID to what covers it. These are th
 
 The skill asks for a real alternative or a concise reason that none is meaningful. A non-applicable discussion may use one line rather than invented detail, but coverage and verification must remain substantive. Structural validation cannot establish the semantic quality of the design.
 
-Open forks can be parked as `[decision: which store backs this?]` markers — visible, greppable, and blocking at the release gate while unresolved in an approved document. HTML comments (`<!-- assumed: … -->`) are the place for recorded assumptions; an *unterminated* HTML comment in an approved document blocks certification, because it would blind the decision scan.
+Open forks are parked as decision markers and recorded assumptions go in HTML comments: see [Unresolved content](#unresolved-content).
 
 ## `tasks.md`
 
@@ -144,6 +144,24 @@ A `Verification:` block accepts only proof steps, their attributes, blank lines 
 A legacy single-line form (`Verification: go test ./...`) still parses but supports no quotes, pipes, or attributes.
 
 Checkbox flips are workflow state, not content: they are excluded from the tasks fingerprint, and `task complete` is the intended way to flip them (proof first, checkbox second).
+
+## Unresolved content
+
+Open forks can be parked as `[decision: which store backs this?]` markers, visible and greppable, and HTML comments (`<!-- assumed: … -->`) hold recorded assumptions. A draft may hold both freely. Two conditions leave a document unresolved:
+
+- a decision marker, the text `[decision:`;
+- a comment opener `<!--` with no `-->` after it, which would hide everything that follows.
+
+`walden review open` and `walden review approve` refuse a document holding either one, before changing anything. The refusal names the document and the body line of each finding, counted from the first line after the frontmatter, and how to clear each kind: resolve the marker or close the comment, or quote it. Only the document under review is read. A document that gains a finding while in review is approved once the finding is gone, with no new `review open`. `walden release check` reads approved documents the same way, one `decisions` blocker per finding, so a document sealed by an earlier release still blocks certification. `walden validate` and `walden status` do not report these conditions.
+
+The scan reads the document in order, and the construct that opens first governs the text until it closes. It ignores:
+
+- text between two equal runs of backticks on one line, a code span;
+- fenced code blocks, opened by three or more backticks or tildes, indented or not, and closed by a line holding only a run of the same character at least as long;
+- the proof steps and attributes of `tasks.md`, which a proof may need to hold verbatim;
+- decision markers inside a terminated HTML comment, such as an inline assumption.
+
+A comment, a fence or a code span that never closes hides nothing: the scan reads the text after its opening as ordinary text. Indented code blocks and code spans that cross a line are ordinary text too, which can only add a finding, and a backslash before a backtick does not escape it.
 
 ## `constitution.md`
 

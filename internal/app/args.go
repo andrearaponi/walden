@@ -175,6 +175,10 @@ var jsonFlag = flagSpec{Name: "--json", Description: "Emit machine-readable JSON
 // an empty test run.
 const emptyRunDetail = "A proof that passes while go test ran no test warns and keeps its exit code: assert the test by name with -v and expect_output."
 
+// unresolvedContentDetail is the help line of the review commands, which
+// refuse a document holding unresolved content.
+const unresolvedContentDetail = "An open [decision: …] marker or an HTML comment that never closes refuses the command, naming its body line: resolve the marker or close the comment, or quote it in a code span, a fenced block or a proof line of tasks.md."
+
 // commandRegistry declares every walden command. Dispatch paths, help output,
 // and flag parsing all derive from this table.
 var commandRegistry = []commandSpec{
@@ -366,6 +370,7 @@ var commandRegistry = []commandSpec{
 				Path:      "review open",
 				Syntax:    "review open <feature> --phase <phase> [--json]",
 				Summary:   "Open the review gate (move to in-review)",
+				Details:   []string{unresolvedContentDetail},
 				BoolFlags: []flagSpec{jsonFlag},
 				ValueFlags: []flagSpec{
 					{Name: "--phase", Description: "Target requirements|design|tasks", Placeholder: "<phase>"},
@@ -375,6 +380,7 @@ var commandRegistry = []commandSpec{
 				Path:      "review approve",
 				Syntax:    "review approve <feature> --phase <phase> [--json]",
 				Summary:   "Approve the review gate (move to approved)",
+				Details:   []string{unresolvedContentDetail},
 				BoolFlags: []flagSpec{jsonFlag},
 				ValueFlags: []flagSpec{
 					{Name: "--phase", Description: "Target requirements|design|tasks", Placeholder: "<phase>"},
