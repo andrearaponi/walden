@@ -108,7 +108,7 @@ Pair every gap with the smallest design change that closes it, trying the contro
 2. **One seam.** A single seam carrying the missing role: a clock, a random source, a configuration value, or a port to the network, the filesystem or a service; for an observability gap, a returned result or an emitted event.
 3. **Restructuring.** Separating decision from effect, only when neither of the above reaches the stimulus or the response.
 
-No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. When the repository's language is identified, show the change in that language's idiomatic form, taken from the seams reference.
+No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. When the repository's language is identified, show the change in that language's idiomatic form, taken from [references/seams.md](references/seams.md).
 
 **Unverifiable criteria are not gaps.** When an acceptance check states no observable distinction between success and failure, such as a judgment nobody stated, report the criterion as unverifiable, propose no design change, and route it to the walden skill's requirements phase.
 

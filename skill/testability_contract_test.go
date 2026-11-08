@@ -410,3 +410,156 @@ func TestTestabilitySkillCeremony(t *testing.T) {
 		assertTestabilityRules(t, testabilityCeremonyRules, readTestabilityFile(t, testabilitySkillPath))
 	})
 }
+
+// The ambient sources of R2.AC3, one seams entry each.
+var testabilitySources = []string{"Clock", "Randomness", "Environment", "Network", "Filesystem", "Concurrency", "Global State", "External Service"}
+
+// The language label each fenced example must carry, by info string.
+var testabilityExampleLabels = map[string]string{
+	"go": "Go", "ts": "TypeScript", "typescript": "TypeScript", "js": "JavaScript", "javascript": "JavaScript",
+	"python": "Python", "py": "Python", "java": "Java", "csharp": "C#", "cs": "C#",
+}
+
+// labeledExamples counts the fenced blocks in a programming language whose
+// nearest non-blank line above starts with that language's bold label.
+func labeledExamples(section string) int {
+	lines := strings.Split(section, "\n")
+	count, fenced := 0, false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "```") {
+			continue
+		}
+		if fenced {
+			fenced = false
+			continue
+		}
+		fenced = true
+		label, known := testabilityExampleLabels[strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))]
+		if !known {
+			continue
+		}
+		for j := i - 1; j >= 0; j-- {
+			if above := strings.TrimSpace(lines[j]); above != "" {
+				if strings.HasPrefix(above, "**"+label) && !strings.HasPrefix(above, "**"+label+"Script") {
+					count++
+				}
+				break
+			}
+		}
+	}
+	return count
+}
+
+// checkTestabilitySeams requires one entry per ambient source with a platform
+// control, a seam role, search hints and a labeled example (R2.AC6, NFR5).
+func checkTestabilitySeams(content string) error {
+	for _, source := range testabilitySources {
+		section, err := testabilitySection(content, source)
+		if err != nil {
+			return err
+		}
+		if err := requireTestabilityFragments(section, "**Platform control.**", "**Seam role.**", "**Search hints.**"); err != nil {
+			return fmt.Errorf("%s: %w", source, err)
+		}
+		if labeledExamples(section) == 0 {
+			return fmt.Errorf("%s: no example under a language label", source)
+		}
+	}
+	return nil
+}
+
+// checkTestabilitySkillCode requires SKILL.md to link the seams reference by
+// a relative path and to hold no code block in a programming language: code
+// lives in the reference, as labeled examples (NFR5).
+func checkTestabilitySkillCode(content string) error {
+	if !strings.Contains(content, "](references/seams.md)") {
+		return fmt.Errorf("SKILL.md does not link references/seams.md")
+	}
+	fenced := false
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "```") {
+			continue
+		}
+		if fenced {
+			fenced = false
+			continue
+		}
+		fenced = true
+		switch info := strings.TrimSpace(strings.TrimPrefix(trimmed, "```")); info {
+		case "markdown", "md", "text":
+		default:
+			return fmt.Errorf("SKILL.md holds a code block labeled %q", info)
+		}
+	}
+	return nil
+}
+
+// TestTestabilitySeamsReference holds the seams reference and keeps code out
+// of the always-loaded guide (R2.AC6, NFR5).
+func TestTestabilitySeamsReference(t *testing.T) {
+	entry := func(source, example string) string {
+		return "## " + source + "\n\n- **Platform control.** A control.\n- **Seam role.** A role.\n- **Search hints.** Hints.\n\n" + example + "\n"
+	}
+	const goExample = "**Go**, a function value:\n\n```go\nvar now = time.Now\n```"
+	reference := func(skip string, example string) string {
+		var b strings.Builder
+		b.WriteString("# Seams\n\n")
+		for _, source := range testabilitySources {
+			switch source {
+			case skip:
+			case testabilitySources[0]:
+				b.WriteString(entry(source, example))
+			default:
+				b.WriteString(entry(source, goExample))
+			}
+		}
+		return b.String()
+	}
+
+	t.Run("seams", func(t *testing.T) {
+		if err := checkTestabilitySeams(reference("", goExample)); err != nil {
+			t.Fatalf("a complete reference was rejected: %v", err)
+		}
+		for _, source := range testabilitySources {
+			if checkTestabilitySeams(reference(source, goExample)) == nil {
+				t.Errorf("a reference without %q was accepted", source)
+			}
+		}
+		for name, fixture := range map[string]string{
+			"no seam role":        strings.Replace(reference("", goExample), "- **Seam role.** A role.\n", "", 1),
+			"no platform control": strings.Replace(reference("", goExample), "- **Platform control.** A control.\n", "", 1),
+			"no search hints":     strings.Replace(reference("", goExample), "- **Search hints.** Hints.\n", "", 1),
+			"unlabeled example":   reference("", "```go\nvar now = time.Now\n```"),
+			"mislabeled example":  reference("", "**Java**, a function value:\n\n```go\nvar now = time.Now\n```"),
+			"unlabeled language":  reference("", "**Go**, a function value:\n\n```\nvar now = time.Now\n```"),
+		} {
+			if checkTestabilitySeams(fixture) == nil {
+				t.Errorf("a reference with %s was accepted", name)
+			}
+		}
+		if err := checkTestabilitySeams(readTestabilityFile(t, testabilitySeamsPath)); err != nil {
+			t.Errorf("%s: %v", testabilitySeamsPath, err)
+		}
+	})
+	t.Run("guide holds no code", func(t *testing.T) {
+		const linked = "# Guide\n\nShow the idiom from [references/seams.md](references/seams.md).\n"
+		if err := checkTestabilitySkillCode(linked + "\n```markdown\n| Criterion |\n```\n"); err != nil {
+			t.Fatalf("a guide with a Markdown template was rejected: %v", err)
+		}
+		for name, fixture := range map[string]string{
+			"Go code block":      linked + "\n```go\nvar now = time.Now\n```\n",
+			"unlabeled block":    linked + "\n```\nnow := time.Now()\n```\n",
+			"no reference link":  "# Guide\n\nShow the idiom from the seams reference.\n",
+			"link leaving skill": "# Guide\n\nShow the idiom from [seams](../references/seams.md).\n",
+		} {
+			if checkTestabilitySkillCode(fixture) == nil {
+				t.Errorf("a guide with a %s was accepted", name)
+			}
+		}
+		if err := checkTestabilitySkillCode(readTestabilityFile(t, testabilitySkillPath)); err != nil {
+			t.Errorf("%s: %v", testabilitySkillPath, err)
+		}
+	})
+}
