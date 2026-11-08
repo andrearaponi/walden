@@ -563,3 +563,49 @@ func TestTestabilitySeamsReference(t *testing.T) {
 		}
 	})
 }
+
+// The documented install command of the companion (R7.AC2).
+const testabilityInstallCommand = "npx skills add andrearaponi/walden --skill walden-testability"
+
+// checkTestabilityDocsEntry requires one list item of the Companions and
+// internals section to name the companion, its install command and the
+// design phase it serves.
+func checkTestabilityDocsEntry(doc string) error {
+	section, err := testabilitySection(doc, "Companions and internals")
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(section, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "- ") || !strings.Contains(line, "walden-testability") {
+			continue
+		}
+		return requireTestabilityFragments(line, "`walden-testability`", testabilityInstallCommand, "design phase")
+	}
+	return fmt.Errorf("the Companions and internals section has no walden-testability entry")
+}
+
+// TestTestabilityDocsEntry holds the companion's entry in the agent
+// documentation (R7.AC2).
+func TestTestabilityDocsEntry(t *testing.T) {
+	const entry = "- **`walden-testability`** reviews a draft design at the design phase. Install it with `" + testabilityInstallCommand + "`."
+	wrap := func(item string) string {
+		return "# Agents\n\n## Companions and internals\n\n- **`walden-history`** narrates history.\n" + item + "\n\n## Next\n"
+	}
+	if err := checkTestabilityDocsEntry(wrap(entry)); err != nil {
+		t.Fatalf("a complete entry was rejected: %v", err)
+	}
+	for name, fixture := range map[string]string{
+		"no entry":                  wrap(""),
+		"no install command":        wrap(strings.Replace(entry, testabilityInstallCommand, "npx skills add andrearaponi/walden", 1)),
+		"no design phase":           wrap(strings.Replace(entry, "at the design phase", "on request", 1)),
+		"no skill name":             wrap(strings.Replace(entry, "**`walden-testability`**", "**the companion** (walden-testability)", 1)),
+		"entry outside the section": "# Agents\n\n## Companions and internals\n\n- **`walden-history`** narrates history.\n\n## Next\n\n" + entry + "\n",
+	} {
+		if checkTestabilityDocsEntry(fixture) == nil {
+			t.Errorf("documentation with %s was accepted", name)
+		}
+	}
+	if err := checkTestabilityDocsEntry(readTestabilityFile(t, "docs/agentic.md")); err != nil {
+		t.Errorf("docs/agentic.md: %v", err)
+	}
+}

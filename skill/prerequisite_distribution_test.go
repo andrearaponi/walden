@@ -76,7 +76,7 @@ func TestPrerequisiteSkillsCLIDistribution(t *testing.T) {
 	repo := authoringRoot(t)
 	export, workspace, home := t.TempDir(), t.TempDir(), t.TempDir()
 	// Export only intended public skill resources, not local benchmark trees.
-	for _, dir := range []string{"skill/walden", "skill/walden-history"} {
+	for _, dir := range []string{"skill/walden", "skill/walden-history", "skill/walden-testability"} {
 		err := filepath.WalkDir(filepath.Join(repo, dir), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -108,6 +108,9 @@ func TestPrerequisiteSkillsCLIDistribution(t *testing.T) {
 	list := bootstrapProcess(t, workspace, home, tool, "add", export, "--list")
 	if !strings.Contains(list, "walden") {
 		t.Fatalf("canonical guide not discovered: %s", list)
+	}
+	if !strings.Contains(list, "walden-testability") {
+		t.Fatalf("the testability companion was not discovered: %s", list)
 	}
 	// Check the CLI's ordinary link installation and explicit copy mode.
 	for _, copyMode := range []bool{false, true} {
@@ -144,8 +147,10 @@ func TestPrerequisiteSkillsCLIDistribution(t *testing.T) {
 				t.Fatal("unrelated agent instructions changed")
 			}
 			for _, base := range []string{".claude/skills", ".agents/skills"} {
-				if _, err := os.Stat(filepath.Join(project, base, "walden-history")); !os.IsNotExist(err) {
-					t.Fatal("unselected companion was installed")
+				for _, companion := range []string{"walden-history", "walden-testability"} {
+					if _, err := os.Stat(filepath.Join(project, base, companion)); !os.IsNotExist(err) {
+						t.Fatalf("unselected companion %s was installed", companion)
+					}
 				}
 				data, err := os.ReadFile(filepath.Join(project, base, "unrelated-sentinel", "SKILL.md"))
 				if err != nil || string(data) != sentinel {

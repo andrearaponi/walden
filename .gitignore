@@ -40,7 +40,7 @@ IDEAS.md
 # Agent session exports (never part of the public source)
 pi-session-*.html
 
-# Private experimental skill drafts (only skill/walden and skill/walden-history are published)
+# Private experimental skill drafts (only skill/walden, skill/walden-history and skill/walden-testability are published)
 skill/walden-soundings/
 skill/walden-soundings.zip
 
