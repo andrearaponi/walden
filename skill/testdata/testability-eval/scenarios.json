@@ -1,0 +1,203 @@
+[
+  {
+    "id": "S1",
+    "title": "design input",
+    "setup": {
+      "repository": "seed",
+      "go": "1.22",
+      "requirements": "approved",
+      "design": "scaffold",
+      "design_status": "draft",
+      "walden_on_path": true,
+      "notes": "Seed with go-1.22.mod as go.mod. Requirements body replaced and approved through the CLI; design and tasks keep their scaffolds."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"],
+      "baseline": ["skill/walden"]
+    },
+    "prompt": "In this Walden repository the requirements of the loans feature are approved, and its design is still the empty scaffold. Before anyone drafts the design, I want to know whether each acceptance criterion can be proven cheaply, what each proof would need, and what the design has to provide so that the proofs stay cheap.",
+    "follow_ups": [],
+    "criteria": ["R1.AC1", "R1.AC5", "R2.AC1", "R2.AC2", "R2.AC3", "R2.AC4", "R2.AC5", "R2.AC6", "R3.AC1", "R3.AC2", "R4.AC1", "R4.AC2", "R4.AC3", "R4.AC4", "R7.AC1"],
+    "expect": [
+      "The companion is read without being named in the prompt (R7.AC1).",
+      "walden status loans --json is read before any entry; the review is labeled design input and its entries cite requirements only (R1.AC5).",
+      "Exactly one entry for each of the nine criteria, each citing its ID (R1.AC1).",
+      "Every entry names a stimulus read off its EARS form, an observation point that is not a private field, one oracle, one proof kind and one loop class (R2.AC1, R2.AC2, R3.AC1, R4.AC1, R4.AC3).",
+      "P1: a controllability gap naming the clock for R2.AC1, with a Go seam and no construct of another language (R2.AC3, R2.AC5, R2.AC6).",
+      "P2 and P3: a controllability gap naming the mail server for R2.AC2 and an observability gap for the attempts of R2.AC3, each with one smallest change (R2.AC3, R2.AC4, R2.AC5).",
+      "P4: an oracle gap for R3.AC1 with an independent oracle or a question for the requirements phase (R3.AC2).",
+      "P5: a property proof for R1.AC2, or examples with the stated reason (R4.AC1).",
+      "P6: R4.AC1 observed through an in-process render, with the reason why the color needs a browser for any end-to-end or manual proof (R4.AC2).",
+      "P7: R4.AC2 reported unverifiable and routed to the requirements phase, with no design change (R4.AC4).",
+      "N3: R1.AC1 shows no gap and gets no seam.",
+      "No file is written."
+    ]
+  },
+  {
+    "id": "S2",
+    "title": "drafted design",
+    "setup": {
+      "repository": "seed",
+      "go": "1.25",
+      "requirements": "approved",
+      "design": "drafted",
+      "design_status": "draft",
+      "walden_on_path": true,
+      "notes": "Seed with go-1.25.mod as go.mod. Requirements approved through the CLI; the design body replaced with seed/design.md and left in draft. loans/audit.go and cmd/lending/main.go are the decoy: the design names neither."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"],
+      "baseline": ["skill/walden"]
+    },
+    "prompt": "In this Walden repository the design of the loans feature is drafted and still a draft. Before I open its review, review it for testability against the approved requirements: can each criterion be proven cheaply, and what would you change in the design? Propose the changes; I will tell you which ones I accept.",
+    "follow_ups": [
+      "I accept the review. Of the proposed changes, I accept the ones for R2.AC2 and R2.AC3. I reject the one for R3.AC1: the late-fee rule belongs to the finance office, which will not settle it this quarter, so the fee stays as the code computes it and that gap stays open."
+    ],
+    "criteria": ["R1.AC4", "R2.AC5", "R5.AC1", "R5.AC2", "R5.AC3", "R6.AC1", "R6.AC2", "R6.AC3", "NFR1", "NFR2", "NFR3"],
+    "expect": [
+      "The review is labeled a review of the drafted design; every entry cites a design section or a file#symbol anchor (R1.AC4).",
+      "N2: R2.AC1 gets testing/synctest on Go 1.25 and no clock seam.",
+      "P2: the controllability gap of R2.AC2 is anchored to loans/reminders.go and its symbol, with one smallest change citing a section or a location (R2.AC5, R6.AC1).",
+      "P8: characterization proofs for MonthlyStatement before the change, naming the search behind the claim that nothing exercises it (R6.AC2).",
+      "N1: no finding cites loans/audit.go or cmd/lending/main.go, and no file outside the named locations and their direct callees is opened (R6.AC3, NFR2).",
+      "After the follow-up: a Testability Matrix sub-heading at the end of Verification Plan with one row per criterion, in requirements order, with the fixed columns (R5.AC1, NFR3).",
+      "Each accepted change appears in the section it cites (R5.AC2).",
+      "The rejected R3.AC1 change leaves one Failure Modes And Tradeoffs entry with the criterion, the gap and the stated reason (R5.AC3).",
+      "The design frontmatter is byte-identical, requirements.md, tasks.md and the constitution are unchanged, and walden validate loans runs after writing (NFR1)."
+    ]
+  },
+  {
+    "id": "S3",
+    "title": "sealed design",
+    "setup": {
+      "repository": "seed",
+      "go": "1.25",
+      "requirements": "approved",
+      "design": "drafted",
+      "design_status": "approved",
+      "walden_on_path": true,
+      "notes": "As S2, with the design opened for review and approved through the CLI."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"]
+    },
+    "prompt": "The design of the loans feature in this Walden repository is already approved. Review it for testability and tell me what you would change.",
+    "follow_ups": [],
+    "criteria": ["R5.AC4", "NFR1"],
+    "expect": [
+      "design.md is byte-identical after the session (R5.AC4, NFR1).",
+      "The findings are presented as a proposed revision that names the walden skill's reconcile and re-review path (R5.AC4).",
+      "No walden reconcile or walden review command runs."
+    ]
+  },
+  {
+    "id": "S4",
+    "title": "draft requirements",
+    "setup": {
+      "repository": "seed",
+      "go": "1.25",
+      "requirements": "draft",
+      "design": "scaffold",
+      "design_status": "draft",
+      "walden_on_path": true,
+      "notes": "Requirements body replaced with seed/requirements.md and left in draft; design and tasks keep their scaffolds."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"]
+    },
+    "prompt": "Review the loans feature of this Walden repository for testability: how will each acceptance criterion be proven, and what must the design provide?",
+    "follow_ups": [],
+    "criteria": ["R1.AC2"],
+    "expect": [
+      "The reply holds no testability entry (R1.AC2).",
+      "The reply names the requirements phase as the next step (R1.AC2).",
+      "No file is written."
+    ]
+  },
+  {
+    "id": "S5",
+    "title": "no CLI",
+    "setup": {
+      "repository": "seed",
+      "go": "1.25",
+      "requirements": "approved",
+      "design": "scaffold",
+      "design_status": "draft",
+      "walden_on_path": false,
+      "notes": "Prepared like S1 with the CLI, then run with a PATH holding node and the system tools but no walden executable."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"]
+    },
+    "prompt": "Review the loans feature of this Walden repository for testability: how will each acceptance criterion be proven, and what must the design provide?",
+    "follow_ups": [],
+    "criteria": ["R1.AC3"],
+    "expect": [
+      "The reply holds no review (R1.AC3).",
+      "The reply points to the walden install instructions and installs nothing (R1.AC3)."
+    ]
+  },
+  {
+    "id": "S6",
+    "title": "approval request",
+    "setup": {
+      "repository": "seed",
+      "go": "1.25",
+      "requirements": "approved",
+      "design": "drafted",
+      "design_status": "draft",
+      "walden_on_path": true,
+      "notes": "As S2. Only the companion is loaded, so that an approval through the walden guide cannot mask its refusal."
+    },
+    "skills": {
+      "candidate": ["skill/walden-testability"]
+    },
+    "prompt": "I have read the drafted design of the loans feature in this Walden repository and I am happy with it. Open its review and approve it, so that we can move on to the task plan.",
+    "follow_ups": [],
+    "criteria": ["R5.AC5"],
+    "expect": [
+      "No walden review command runs and design.md is byte-identical (R5.AC5).",
+      "The reply declines and names the walden skill (R5.AC5)."
+    ]
+  },
+  {
+    "id": "A1",
+    "title": "adopter A1",
+    "setup": {
+      "repository": "adopter-a1",
+      "walden_on_path": true,
+      "notes": "Read-only copy of the adopter's tracked tree in a fresh repository; the companion installed with the documented command pointed at a local export through the Skills CLI. One feature, chosen and justified in the report."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"]
+    },
+    "prompt": "Review the design of the <feature> feature in this Walden repository for testability: how will each acceptance criterion be proven, and what would you change?",
+    "follow_ups": [],
+    "criteria": ["R7.AC2"],
+    "expect": [
+      "The documented install command, pointed at the local export, installs walden-testability and nothing else (R7.AC2).",
+      "The session reads the installed companion, and its entries cite the adopter's criteria and anchors.",
+      "The source repository is never written."
+    ]
+  },
+  {
+    "id": "A2",
+    "title": "adopter A2",
+    "setup": {
+      "repository": "adopter-a2",
+      "walden_on_path": true,
+      "notes": "As A1, on a copy of the adopter's tracked tree that leaves out local data and generated analysis output."
+    },
+    "skills": {
+      "candidate": ["skill/walden", "skill/walden-testability"]
+    },
+    "prompt": "Review the design of the <feature> feature in this Walden repository for testability: how will each acceptance criterion be proven, and what would you change?",
+    "follow_ups": [],
+    "criteria": ["R7.AC2"],
+    "expect": [
+      "The documented install command, pointed at the local export, installs walden-testability and nothing else (R7.AC2).",
+      "The session reads the installed companion, and its entries cite the adopter's criteria and anchors.",
+      "The source repository is never written."
+    ]
+  }
+]
