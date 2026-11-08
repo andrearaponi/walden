@@ -41,3 +41,73 @@ Do not use it to author requirements, design or tasks, to open or approve a revi
 3. Unless `requirements.md` reads `approved` with `fresh: true`, decline the review: write no entries, say why, and route the user to the walden skill's requirements phase to finish, approve or reconcile the requirements.
 4. The design's `status` sets the write regime: `draft` allows The Anchoring Ceremony after acceptance; `in-review` or `approved` allows findings only, presented as a proposed revision.
 5. The design body sets the mode. When every required section still holds only its scaffold placeholder, the review is **design input**: its entries cite the requirements only and state what the design must provide. Otherwise it is a **review of the drafted design**: every entry cites a design section or a code location the design names.
+
+## The Five Questions
+
+Ask all five of every acceptance criterion, in requirements order. Every entry answers all five, each answer short enough for one cell of the matrix.
+
+### 1. Stimulus: what must a proof provoke?
+
+Read it off the criterion's EARS form:
+
+| Form | What the proof must produce |
+| --- | --- |
+| Ubiquitous | no trigger: the input domain over which the response must hold |
+| Event-driven | the event, from the source that raises it: a call, a message, a request, a timer |
+| State-driven | the state, established through a public path and held during the check |
+| Optional feature | the configuration that includes the feature |
+| Unwanted behavior | the undesired condition: invalid input, a failure, a timeout, an outage |
+| Complex | the state, then the event inside it |
+
+Name how the proof produces it: which call, which message, which input, which configuration. When producing it needs a source the proof does not control, that is a controllability gap.
+
+### 2. Observation point: where does the proof see the response?
+
+Take the cheapest rung that sees the response from outside, in this order:
+
+1. a returned value or output;
+2. an emitted event or message;
+3. state read back through a public interface;
+4. a persisted artifact read through its public path;
+5. a rendered element.
+
+A private field never counts as an observation point, and neither does any other internal of the implementation. A log counts only when the log is the response the criterion names. When no rung sees the response, that is an observability gap.
+
+### 3. Oracle: what decides pass or fail?
+
+Name one of five oracle kinds: a value stated by the criterion, a worked example, an invariant, a reference implementation, or a recorded fixture. The oracle must come from outside the implementation under test. A fixture recorded from the current implementation is an oracle only for characterization proofs that pin existing behavior, never for new behavior. An expected value that only the implementation's own formula could produce is an oracle gap.
+
+### 4. Proof kind: which is the cheapest proof that separates success from failure?
+
+Name exactly one, climbing the ladder only as far as the observation point requires: example, property, differential, contract, end-to-end, manual.
+
+- An invariant in ubiquitous form defaults to a property proof, unless its domain is small enough to enumerate with examples: say which, and why.
+- A rewrite with a trusted predecessor takes a differential proof.
+- An owned boundary with an external system takes a contract proof.
+- An end-to-end or manual proof always carries its reason: name the response that no cheaper kind can see.
+
+### 5. Loop class: where in the loop does the proof run?
+
+Name exactly one:
+
+- **inner loop**: deterministic, and needing nothing outside the process. It fits the verification of every task.
+- **checkpoint**: needs minutes or local services, such as a container, a database or a browser. It deserves a task of its own. A proof that starts a container is never inner loop.
+- **manual**: needs a person or a live third party. Say that no Walden proof can cover the criterion, so the hole is visible before the task plan exists.
+
+## Gaps And The Smallest Change
+
+A gap is what keeps a criterion from a cheap proof. Report three kinds, each naming its cause:
+
+- **Controllability gap**: the stimulus depends on a source the proof cannot drive: the clock, randomness, the environment, the network, the filesystem, concurrency, global state or an external service. Name the source. A source counts as controlled when the design injects it or the repository's test tooling already drives it, and then there is no gap.
+- **Observability gap**: the response is visible only inside the implementation, such as a value held in a private field or a side effect that nothing records. Name where it stays hidden.
+- **Oracle gap**: the only available expected value would be computed by the implementation under test. Propose an independent oracle. When only the requirement's owner can supply it, such as a rule nobody stated, the change is a question for the requirements phase.
+
+Pair every gap with the smallest design change that closes it, trying the controls in this order:
+
+1. **Platform control.** The control the platform's test tooling already gives, with no design change: a virtual clock in the standard test library, a local test server, a temporary directory, an environment override for one test.
+2. **One seam.** A single seam carrying the missing role: a clock, a random source, a configuration value, or a port to the network, the filesystem or a service; for an observability gap, a returned result or an emitted event.
+3. **Restructuring.** Separating decision from effect, only when neither of the above reaches the stimulus or the response.
+
+No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. When the repository's language is identified, show the change in that language's idiomatic form, taken from the seams reference.
+
+**Unverifiable criteria are not gaps.** When an acceptance check states no observable distinction between success and failure, such as a judgment nobody stated, report the criterion as unverifiable, propose no design change, and route it to the walden skill's requirements phase.

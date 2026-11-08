@@ -79,11 +79,21 @@ func testabilitySection(content, heading string) (string, error) {
 }
 
 // testabilityRule is one stated rule: the phrases that state it and the
-// level-two section they must sit under.
+// level-two section they must sit under. An ordered rule also requires its
+// phrases in the given order, as a ladder is.
 type testabilityRule struct {
 	name      string
 	section   string
 	fragments []string
+	ordered   bool
+}
+
+func testabilityStated(name, section string, fragments ...string) testabilityRule {
+	return testabilityRule{name: name, section: section, fragments: fragments}
+}
+
+func testabilityLadder(name, section string, fragments ...string) testabilityRule {
+	return testabilityRule{name: name, section: section, fragments: fragments, ordered: true}
 }
 
 func checkTestabilityRules(content string, rules []testabilityRule) error {
@@ -94,6 +104,17 @@ func checkTestabilityRules(content string, rules []testabilityRule) error {
 		}
 		if err := requireTestabilityFragments(section, rule.fragments...); err != nil {
 			return fmt.Errorf("%s (section %q): %w", rule.name, rule.section, err)
+		}
+		if !rule.ordered {
+			continue
+		}
+		folded, last := testabilityFold(section), -1
+		for _, fragment := range rule.fragments {
+			at := strings.Index(folded, testabilityFold(fragment))
+			if at < last {
+				return fmt.Errorf("%s (section %q): %q is out of order", rule.name, rule.section, fragment)
+			}
+			last = at
 		}
 	}
 	return nil
@@ -137,6 +158,19 @@ func assertTestabilityRules(t *testing.T, rules []testabilityRule, real string) 
 	}
 	if checkTestabilityRules(strings.ReplaceAll(complete, "\n## ", "\n### "), rules) == nil {
 		t.Error("a fixture whose rules sit outside their sections was accepted")
+	}
+	for i, rule := range rules {
+		if !rule.ordered {
+			continue
+		}
+		reversed := append([]testabilityRule(nil), rules...)
+		reversed[i].fragments = nil
+		for j := len(rule.fragments) - 1; j >= 0; j-- {
+			reversed[i].fragments = append(reversed[i].fragments, rule.fragments[j])
+		}
+		if checkTestabilityRules(testabilityRuleFixture(reversed, -1), rules) == nil {
+			t.Errorf("a fixture with the ladder %q reversed was accepted", rule.name)
+		}
 	}
 	if err := checkTestabilityRules(real, rules); err != nil {
 		t.Error(err)
@@ -182,21 +216,21 @@ func checkTestabilityDescription(content string) error {
 }
 
 var testabilityBoundaryRules = []testabilityRule{
-	{"stop without the CLI", "Prerequisites", []string{
+	testabilityStated("stop without the CLI", "Prerequisites",
 		"Run `walden version` before anything else", "If no walden executable answers, stop", "produce no review",
-		"install instructions", "https://github.com/andrearaponi/walden", "never installs the CLI"}},
-	{"state only from the CLI", "Product Boundary", []string{
-		"Workflow state comes only from `walden status <feature> --json`", "never inferred from frontmatter text"}},
-	{"single write path", "Product Boundary", []string{
+		"install instructions", "https://github.com/andrearaponi/walden", "never installs the CLI"),
+	testabilityStated("state only from the CLI", "Product Boundary",
+		"Workflow state comes only from `walden status <feature> --json`", "never inferred from frontmatter text"),
+	testabilityStated("single write path", "Product Boundary",
 		"The only write path is the body of a draft design", "only after the user accepts",
-		"Frontmatter, requirements, tasks, the constitution, lessons and evidence are never written"}},
-	{"hand-off for a design in review or approved", "Product Boundary", []string{
-		"A design in review or approved is never edited", "proposed revision", "reconcile and re-review path"}},
-	{"refusal to author, open for review or approve", "Product Boundary", []string{
-		"author, open for review or approve", "declined and routed to the walden skill", "runs no `walden review`"}},
-	{"decline on unapproved or stale requirements", "Entry Check", []string{
+		"Frontmatter, requirements, tasks, the constitution, lessons and evidence are never written"),
+	testabilityStated("hand-off for a design in review or approved", "Product Boundary",
+		"A design in review or approved is never edited", "proposed revision", "reconcile and re-review path"),
+	testabilityStated("refusal to author, open for review or approve", "Product Boundary",
+		"author, open for review or approve", "declined and routed to the walden skill", "runs no `walden review`"),
+	testabilityStated("decline on unapproved or stale requirements", "Entry Check",
 		"`walden status <feature> --json`", "Unless `requirements.md` reads `approved` with `fresh: true`",
-		"decline the review", "route the user to the walden skill's requirements phase"}},
+		"decline the review", "route the user to the walden skill's requirements phase"),
 }
 
 // TestTestabilitySkillBoundary holds the description, the boundary and the
@@ -237,4 +271,55 @@ func TestTestabilitySkillBoundary(t *testing.T) {
 		}
 		assertTestabilityRules(t, testabilityBoundaryRules, readTestabilityFile(t, testabilitySkillPath))
 	})
+}
+
+var testabilityModelRules = []testabilityRule{
+	testabilityStated("stimulus table with the six EARS forms", "The Five Questions",
+		"| Form | What the proof must produce |", "| Ubiquitous | no trigger: the input domain", "| Event-driven |", "| State-driven |",
+		"| Optional feature |", "| Unwanted behavior |", "| Complex | the state, then the event inside it |"),
+	testabilityLadder("observation ladder", "The Five Questions",
+		"a returned value or output", "an emitted event or message", "state read back through a public interface",
+		"a persisted artifact read through its public path", "a rendered element"),
+	testabilityStated("private fields excluded", "The Five Questions",
+		"A private field never counts as an observation point", "A log counts only when the log is the response the criterion names"),
+	testabilityStated("five oracle kinds", "The Five Questions",
+		"one of five oracle kinds: a value stated by the criterion, a worked example, an invariant, a reference implementation, or a recorded fixture",
+		"The oracle must come from outside the implementation under test"),
+	testabilityStated("recorded output only for characterization", "The Five Questions",
+		"A fixture recorded from the current implementation is an oracle only for characterization proofs", "never for new behavior"),
+	testabilityStated("six proof kinds", "The Five Questions",
+		"Name exactly one", "example, property, differential, contract, end-to-end, manual",
+		"An invariant in ubiquitous form defaults to a property proof"),
+	testabilityStated("reason for end-to-end and manual proofs", "The Five Questions",
+		"An end-to-end or manual proof always carries its reason", "the response that no cheaper kind can see"),
+	testabilityLadder("three loop classes", "The Five Questions",
+		"**inner loop**: deterministic", "**checkpoint**: needs minutes or local services", "**manual**: needs a person or a live third party"),
+	testabilityStated("container proofs are not inner loop", "The Five Questions",
+		"A proof that starts a container is never inner loop", "no Walden proof can cover the criterion"),
+	testabilityStated("three gap kinds with the eight sources", "Gaps And The Smallest Change",
+		"**Controllability gap**", "**Observability gap**", "**Oracle gap**",
+		"the clock, randomness, the environment, the network, the filesystem, concurrency, global state or an external service"),
+	testabilityStated("a controlled source has no gap", "Gaps And The Smallest Change",
+		"A source counts as controlled when the design injects it or the repository's test tooling already drives it"),
+	testabilityStated("independent oracle", "Gaps And The Smallest Change",
+		"Propose an independent oracle", "a question for the requirements phase"),
+	testabilityLadder("control order", "Gaps And The Smallest Change",
+		"**Platform control.**", "**One seam.**", "**Restructuring.**"),
+	testabilityStated("no gap, no change", "Gaps And The Smallest Change",
+		"No gap, no change", "a criterion without a gap gets no seam, no interface and no injection"),
+	testabilityStated("anchored, idiomatic proposals", "Gaps And The Smallest Change",
+		"Every proposal cites the design section or the `file#symbol` it changes",
+		"When the repository's language is identified, show the change in that language's idiomatic form"),
+	testabilityStated("unverifiable criteria routed to requirements", "Gaps And The Smallest Change",
+		"**Unverifiable criteria are not gaps.**", "states no observable distinction between success and failure",
+		"report the criterion as unverifiable", "propose no design change", "route it to the walden skill's requirements phase"),
+}
+
+// TestTestabilitySkillModel holds the five questions and the gap rules of the
+// companion (R2, R3, R4).
+func TestTestabilitySkillModel(t *testing.T) {
+	if checkTestabilityRules(readTestabilityFile(t, "skill/walden-history/SKILL.md"), testabilityModelRules) == nil {
+		t.Error("the walden-history guide was accepted as stating the testability model")
+	}
+	assertTestabilityRules(t, testabilityModelRules, readTestabilityFile(t, testabilitySkillPath))
 }
