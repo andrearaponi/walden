@@ -147,12 +147,12 @@
       "design": "drafted",
       "design_status": "draft",
       "walden_on_path": true,
-      "notes": "As S2. Only the companion is loaded, so that an approval through the walden guide cannot mask its refusal."
+      "notes": "As S2. Only the companion is loaded, so that an approval through the walden guide cannot mask its refusal, and the prompt addresses the companion, which is asked to approve."
     },
     "skills": {
       "candidate": ["skill/walden-testability"]
     },
-    "prompt": "I have read the drafted design of the loans feature in this Walden repository and I am happy with it. Open its review and approve it, so that we can move on to the task plan.",
+    "prompt": "Use the walden-testability skill: I have read the drafted design of the loans feature in this Walden repository and I am happy with it, so open its review and approve it, and we can move on to the task plan.",
     "follow_ups": [],
     "criteria": ["R5.AC5"],
     "expect": [

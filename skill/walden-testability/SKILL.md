@@ -31,7 +31,7 @@ Do not use it to author requirements, design or tasks, to open or approve a revi
 - **One write path.** The only write path is the body of a draft design, and only after the user accepts the review or names the changes to accept and to reject: see The Anchoring Ceremony. Frontmatter, requirements, tasks, the constitution, lessons and evidence are never written.
 - **State from the CLI.** Workflow state comes only from `walden status <feature> --json`, never inferred from frontmatter text.
 - **Sealed designs.** A design in review or approved is never edited. Present the findings as a proposed revision for the walden skill's reconcile and re-review path, and leave `design.md` byte-identical.
-- **No approvals.** A request to author, open for review or approve a design, or any other Walden document, is declined and routed to the walden skill. This skill runs no `walden review` and no `walden reconcile` command.
+- **No approvals.** A request to author, open for review or approve a design, or any other Walden document, is declined and routed to the walden skill, even when the user has read the document and approves it. This skill runs no `walden review` and no `walden reconcile` command.
 - **No tests.** This skill neither writes nor runs tests, and it executes no code from the repository.
 
 ## Entry Check
@@ -85,6 +85,7 @@ Name exactly one, climbing the ladder only as far as the observation point requi
 - A rewrite with a trusted predecessor takes a differential proof.
 - An owned boundary with an external system takes a contract proof.
 - An end-to-end or manual proof always carries its reason: name the response that no cheaper kind can see.
+- When part of a response is visible only in a browser or to a person, such as a computed color or a layout, say which part the chosen proof leaves unseen and why. If that part needs its own end-to-end or manual proof, name it in the gap lines with its reason.
 
 ### 5. Loop class: where in the loop does the proof run?
 
@@ -108,7 +109,7 @@ Pair every gap with the smallest design change that closes it, trying the contro
 2. **One seam.** A single seam carrying the missing role: a clock, a random source, a configuration value, or a port to the network, the filesystem or a service; for an observability gap, a returned result or an emitted event.
 3. **Restructuring.** Separating decision from effect, only when neither of the above reaches the stimulus or the response.
 
-No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. When the repository's language is identified, show the change in that language's idiomatic form, taken from [references/seams.md](references/seams.md).
+No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. In design-input mode, where no code is named yet, a proposal cites the design section that must hold it, such as Architecture or Verification Plan. When the repository's language is identified, show the change in that language's idiomatic form, taken from [references/seams.md](references/seams.md).
 
 **Unverifiable criteria are not gaps.** When an acceptance check states no observable distinction between success and failure, such as a judgment nobody stated, report the criterion as unverifiable, propose no design change, and route it to the walden skill's requirements phase.
 
@@ -116,11 +117,11 @@ No gap, no change: a criterion without a gap gets no seam, no interface and no i
 
 Inputs: the approved requirements, the design body, `.walden/constitution.md`, the build manifests and the footprint. The manifests give the language, its version and its test tooling: the Go version, for instance, decides whether `testing/synctest` exists.
 
-The footprint is the files and symbols the design names, plus the functions they call directly. Open nothing else: the cost of a review follows the number of criteria and the locations the design names, not the size of the repository. Run the search hints of the seams reference inside the footprint only, and read every hit before reporting it. A location the design names that does not exist is a design defect at that anchor; never substitute a guessed file.
+The footprint is the files and symbols the design names, plus the functions they call directly. List the footprint before opening any code, and open only what it lists: other files of the same package or directory stay closed, even when a listing shows them. Open nothing else: the cost of a review follows the number of criteria and the locations the design names, not the size of the repository. Run the search hints of the seams reference inside the footprint only, and read every hit before reporting it. A location the design names that does not exist is a design defect at that anchor; never substitute a guessed file.
 
 1. Run the Entry Check: it sets the mode and the write regime.
 2. List the acceptance criteria in requirements order, with their IDs.
-3. Answer the five questions for each criterion: one entry per criterion, citing its ID. In a review of the drafted design every entry also cites a design section or a `file#symbol` anchor; in design-input mode the entries cite the requirements only and say what the design must provide: the stimuli, the observation points, the oracles and the seams.
+3. Answer the five questions for each criterion: one entry per criterion, citing its ID. In a review of the drafted design every entry also cites a design section or a `file#symbol` anchor; in design-input mode the entries cite the requirements only and say what the design must provide: the stimuli, the observation points, the oracles and the seams, each proposed change naming the design section that must hold it.
 4. Collect the gaps, each with its smallest change. Where the design changes existing code, every controllability gap caused by that code cites its file and symbol.
 5. Characterization first: when the design changes a symbol that no test and no Walden proof command exercises, propose characterization proofs that pin its current outputs before the change, and name the search behind the claim that nothing exercises it.
 6. Report: the mode label, the matrix, the gap lines and the next step.
