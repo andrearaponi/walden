@@ -111,3 +111,44 @@ Pair every gap with the smallest design change that closes it, trying the contro
 No gap, no change: a criterion without a gap gets no seam, no interface and no injection. Every proposal cites the design section or the `file#symbol` it changes. When the repository's language is identified, show the change in that language's idiomatic form, taken from the seams reference.
 
 **Unverifiable criteria are not gaps.** When an acceptance check states no observable distinction between success and failure, such as a judgment nobody stated, report the criterion as unverifiable, propose no design change, and route it to the walden skill's requirements phase.
+
+## Recipe: Review
+
+Inputs: the approved requirements, the design body, `.walden/constitution.md`, the build manifests and the footprint. The manifests give the language, its version and its test tooling: the Go version, for instance, decides whether `testing/synctest` exists.
+
+The footprint is the files and symbols the design names, plus the functions they call directly. Open nothing else: the cost of a review follows the number of criteria and the locations the design names, not the size of the repository. Run the search hints of the seams reference inside the footprint only, and read every hit before reporting it. A location the design names that does not exist is a design defect at that anchor; never substitute a guessed file.
+
+1. Run the Entry Check: it sets the mode and the write regime.
+2. List the acceptance criteria in requirements order, with their IDs.
+3. Answer the five questions for each criterion: one entry per criterion, citing its ID. In a review of the drafted design every entry also cites a design section or a `file#symbol` anchor; in design-input mode the entries cite the requirements only and say what the design must provide: the stimuli, the observation points, the oracles and the seams.
+4. Collect the gaps, each with its smallest change. Where the design changes existing code, every controllability gap caused by that code cites its file and symbol.
+5. Characterization first: when the design changes a symbol that no test and no Walden proof command exercises, propose characterization proofs that pin its current outputs before the change, and name the search behind the claim that nothing exercises it.
+6. Report: the mode label, the matrix, the gap lines and the next step.
+
+## The Testability Matrix
+
+One row per acceptance criterion, in requirements order, always with exactly these columns:
+
+| Criterion | Stimulus | Observation | Oracle | Proof | Loop | Gap |
+| --- | --- | --- | --- | --- | --- | --- |
+
+Below the table, one line per gap: the criterion, the gap, the proposed change with its anchor, and its state: proposed, accepted, or rejected with the user's reason. Keep the cells short; the detail belongs to the gap lines. Use only criterion IDs present in the requirements: the validator rejects unknown IDs.
+
+## The Anchoring Ceremony
+
+The only write. Preconditions: the CLI reads the design as `draft`, and the user accepted the review or named which changes are accepted and which are rejected. Silence is not acceptance.
+
+1. Write the matrix and its gap lines under the sub-heading `### Testability Matrix` at the end of the Verification Plan section. If the sub-heading exists, replace everything under it: a new run replaces the matrix and never appends a second one.
+2. Write each accepted change into the design section it cites.
+3. Record each rejected change as one entry in Failure Modes And Tradeoffs naming the criterion, the open gap and the user's reason.
+4. Leave the frontmatter byte-identical: edit the body only, never `status`, timestamps or fingerprints.
+5. Run `walden validate <feature>`, which is read-only. If it fails, show the error and repair the written text before handing off; never leave an invalid design behind.
+6. Hand the design back to the walden skill's review loop: designs are opened for review and approved there, never here.
+
+## Output Standards
+
+- Open every review with its mode label: **design input**, **review of the drafted design**, or **proposed revision** for a design in review or approved.
+- One entry per acceptance criterion, each citing its ID; every gap with its anchor and one proposed change; unverifiable criteria listed apart.
+- Name the language and version the proposals assume, and the files of the footprint.
+- Testability is not correctness: the matrix says what can be proven cheaply, not that the proofs written later will be good.
+- End with the next step and who takes it: accepting or rejecting the proposed changes, the walden skill's review loop, its reconcile and re-review path, or its requirements phase.

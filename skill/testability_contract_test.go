@@ -323,3 +323,90 @@ func TestTestabilitySkillModel(t *testing.T) {
 	}
 	assertTestabilityRules(t, testabilityModelRules, readTestabilityFile(t, testabilitySkillPath))
 }
+
+// The fixed column set of the testability matrix (NFR3).
+var testabilityMatrixColumns = []string{"Criterion", "Stimulus", "Observation", "Oracle", "Proof", "Loop", "Gap"}
+
+// checkTestabilityMatrix requires the first table of The Testability Matrix
+// section to have exactly the fixed columns, in order.
+func checkTestabilityMatrix(content string) error {
+	section, err := testabilitySection(content, "The Testability Matrix")
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(section, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") {
+			continue
+		}
+		var cells []string
+		for _, cell := range strings.Split(strings.Trim(line, "|"), "|") {
+			cells = append(cells, strings.TrimSpace(cell))
+		}
+		if strings.Join(cells, "|") != strings.Join(testabilityMatrixColumns, "|") {
+			return fmt.Errorf("matrix columns %q, want exactly %q", cells, testabilityMatrixColumns)
+		}
+		return nil
+	}
+	return fmt.Errorf("The Testability Matrix holds no table")
+}
+
+var testabilityCeremonyRules = []testabilityRule{
+	testabilityStated("footprint", "Recipe: Review",
+		"the files and symbols the design names, plus the functions they call directly", "Open nothing else",
+		"not the size of the repository", "never substitute a guessed file"),
+	testabilityStated("one entry per criterion, anchored by mode", "Recipe: Review",
+		"one entry per criterion, citing its ID", "every entry also cites a design section or a `file#symbol` anchor",
+		"in design-input mode the entries cite the requirements only"),
+	testabilityStated("anchors in the footprint", "Recipe: Review",
+		"every controllability gap caused by that code cites its file and symbol"),
+	testabilityStated("characterization before changing untested code", "Recipe: Review",
+		"no test and no Walden proof command exercises", "propose characterization proofs that pin its current outputs before the change",
+		"name the search behind the claim"),
+	testabilityStated("requirements order", "The Testability Matrix", "One row per acceptance criterion, in requirements order"),
+	testabilityStated("gap lines", "The Testability Matrix", "one line per gap", "proposed, accepted, or rejected with the user's reason"),
+	testabilityStated("draft only, on acceptance", "The Anchoring Ceremony", "the CLI reads the design as `draft`", "Silence is not acceptance"),
+	testabilityStated("level-three sub-heading replaced on every run", "The Anchoring Ceremony",
+		"under the sub-heading `### Testability Matrix` at the end of the Verification Plan section",
+		"replace everything under it", "never appends a second one"),
+	testabilityStated("accepted changes in their sections", "The Anchoring Ceremony", "Write each accepted change into the design section it cites"),
+	testabilityStated("rejected changes in Failure Modes And Tradeoffs", "The Anchoring Ceremony",
+		"Record each rejected change as one entry in Failure Modes And Tradeoffs", "naming the criterion, the open gap and the user's reason"),
+	testabilityStated("frontmatter untouched", "The Anchoring Ceremony", "Leave the frontmatter byte-identical"),
+	testabilityStated("read-only validate after writing", "The Anchoring Ceremony",
+		"Run `walden validate <feature>`, which is read-only", "never leave an invalid design behind"),
+	testabilityStated("hand-back to the walden skill", "The Anchoring Ceremony", "Hand the design back to the walden skill's review loop"),
+	testabilityStated("mode label on every review", "Output Standards",
+		"Open every review with its mode label", "**design input**", "**review of the drafted design**", "**proposed revision**"),
+	testabilityStated("next step", "Output Standards", "End with the next step and who takes it"),
+}
+
+// TestTestabilitySkillCeremony holds the review recipe, the matrix and the
+// anchoring ceremony (R1.AC1, R1.AC4, R1.AC5, R5.AC1-AC3, R6, NFR2, NFR3).
+func TestTestabilitySkillCeremony(t *testing.T) {
+	t.Run("matrix columns", func(t *testing.T) {
+		const header = "| Criterion | Stimulus | Observation | Oracle | Proof | Loop | Gap |"
+		wrap := func(table string) string {
+			return "# Fixture\n\n## The Testability Matrix\n\nOne row per criterion.\n\n" + table + "\n\n## Next\n\n| Other | Table |\n"
+		}
+		if err := checkTestabilityMatrix(wrap(header + "\n| --- | --- | --- | --- | --- | --- | --- |")); err != nil {
+			t.Fatalf("the fixed column set was rejected: %v", err)
+		}
+		for name, table := range map[string]string{
+			"missing column":   "| Criterion | Stimulus | Observation | Oracle | Proof | Gap |",
+			"extra column":     "| Criterion | Stimulus | Observation | Oracle | Proof | Loop | Gap | Notes |",
+			"reordered column": "| Criterion | Stimulus | Oracle | Observation | Proof | Loop | Gap |",
+			"no table":         "Columns: Criterion, Stimulus, Observation, Oracle, Proof, Loop, Gap.",
+		} {
+			if checkTestabilityMatrix(wrap(table)) == nil {
+				t.Errorf("a matrix template with a %s was accepted", name)
+			}
+		}
+		if err := checkTestabilityMatrix(readTestabilityFile(t, testabilitySkillPath)); err != nil {
+			t.Errorf("%s: %v", testabilitySkillPath, err)
+		}
+	})
+	t.Run("recipe and ceremony", func(t *testing.T) {
+		assertTestabilityRules(t, testabilityCeremonyRules, readTestabilityFile(t, testabilitySkillPath))
+	})
+}
