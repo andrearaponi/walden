@@ -1,7 +1,7 @@
 // Package selfupdate resolves, downloads, verifies, and installs Walden
-// release binaries, then re-syncs installed skills through the new binary.
-// It is the only package in the module that talks to the network, and only
-// on explicit invocation of the update command.
+// release binaries. It replaces one file, the executable. It is the only
+// package in the module that talks to the network, and only on explicit
+// invocation of the update command.
 package selfupdate
 
 import (
@@ -18,7 +18,8 @@ type releaseTag struct {
 }
 
 // parseReleaseTag parses a strict vMAJOR.MINOR.PATCH tag. Pseudo-versions,
-// pre-release suffixes, and bare version numbers are rejected.
+// pre-release suffixes, bare version numbers, and numbers written with a sign
+// or a leading zero are rejected.
 func parseReleaseTag(tag string) (releaseTag, error) {
 	formatErr := fmt.Errorf("invalid release tag %q: expected vMAJOR.MINOR.PATCH (e.g. v0.7.0)", tag)
 
@@ -32,13 +33,32 @@ func parseReleaseTag(tag string) (releaseTag, error) {
 
 	numbers := make([]int, 3)
 	for i, part := range parts {
+		if !isReleaseNumber(part) {
+			return releaseTag{}, formatErr
+		}
 		value, err := strconv.Atoi(part)
-		if err != nil || value < 0 {
+		if err != nil {
 			return releaseTag{}, formatErr
 		}
 		numbers[i] = value
 	}
 	return releaseTag{numbers[0], numbers[1], numbers[2]}, nil
+}
+
+// isReleaseNumber reports whether part is one number of a release tag: ASCII
+// digits only, with no leading zero unless it is zero itself. strconv.Atoi
+// alone would also take a sign and leading zeros, so "v+1.2.3" and "v01.2.3"
+// would pass as release tags.
+func isReleaseNumber(part string) bool {
+	if part == "" || (len(part) > 1 && part[0] == '0') {
+		return false
+	}
+	for i := 0; i < len(part); i++ {
+		if part[i] < '0' || part[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // less reports whether t precedes other in numeric release order.
