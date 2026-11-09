@@ -4,17 +4,17 @@ package repo
 // bootstrap for its own repository structure.
 func DefaultManagedPaths() map[string]struct{} {
 	return map[string]struct{}{
-		".walden":          {},
-		"cmd/walden":       {},
-		"internal/app":       {},
-		"internal/repo":      {},
-		"internal/spec":      {},
-		"internal/workflow":  {},
+		".walden":             {},
+		"cmd/walden":          {},
+		"internal/app":        {},
+		"internal/repo":       {},
+		"internal/spec":       {},
+		"internal/workflow":   {},
 		"internal/validation": {},
-		"internal/shell":     {},
-		"internal/output":    {},
-		"internal/testutil":  {},
-		"templates/repo":     {},
-		"templates/spec":     {},
+		"internal/shell":      {},
+		"internal/output":     {},
+		"internal/testutil":   {},
+		"templates/repo":      {},
+		"templates/spec":      {},
 	}
 }
