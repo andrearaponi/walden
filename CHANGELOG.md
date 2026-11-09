@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Added
+
+- **`walden-testability`, a companion skill for the design phase.** Once a feature's requirements are approved, it asks of every acceptance criterion what a proof must provoke, where it sees the response from outside, which oracle decides pass or fail without trusting the implementation, which proof kind is cheapest and where it runs in the loop. Each gap comes with the smallest change that closes it: the control the platform's test tooling already gives first, then one seam, a restructuring last; a reference file gives the idioms for Go, TypeScript and JavaScript, Python, Java and C#. On the user's acceptance it writes the testability matrix into a draft design, so that the design's approval seals it; a design in review or approved gets a proposed revision instead, and the skill never approves anything. Install it with `npx skills add andrearaponi/walden --skill walden-testability`. The CLI and the walden guide do not change.
+
 ## [0.14.4] - 2026-11-04
 
 ### Changed
