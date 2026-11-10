@@ -137,8 +137,9 @@ func seedListing(blobs map[string]string, listing string) {
 // applyOverlay overrides the blob map with the current content of every
 // dirty or untracked path from NUL-separated porcelain output, using git
 // hash-object so the representation matches committed entries. Deleted
-// paths leave the map. Regular files are hashed in chunked batches — one
-// git spawn per file made a 400-file dirty tree cost seconds per status.
+// paths leave the map, and so does the source of a rename. Regular files are
+// hashed in chunked batches — one git spawn per file made a 400-file dirty
+// tree cost seconds per status.
 func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain string, blobs map[string]string) bool {
 	pending := []string{}  // repo-relative paths, hashed in batches
 	hashArgs := []string{} // the argv actually passed for each pending path
@@ -151,17 +152,17 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 		}
 	}()
 
-	fields := strings.Split(porcelain, "\x00")
-	for index := 0; index < len(fields); index++ {
-		entry := fields[index]
-		if len(entry) < 4 {
-			continue
+	for _, entry := range ParseStatus(porcelain) {
+		if entry.Renamed() {
+			// A rename took its source out of the working tree, so the entry
+			// the commit's listing seeded for it leaves the manifest. Left
+			// there, it would move the identity when the rename is committed
+			// and hide a file created again at that path. Such a file is
+			// reported on its own and hashed after this loop, whatever the
+			// order of the entries. A copy's source is still in the tree.
+			delete(blobs, entry.Source)
 		}
-		statusCode, path := entry[:2], entry[3:]
-		if strings.HasPrefix(statusCode, "R") || strings.HasPrefix(statusCode, "C") {
-			// Renames and copies carry the source path as the next field.
-			index++
-		}
+		path := entry.Path
 		if isWaldenPath(path) {
 			continue
 		}

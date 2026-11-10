@@ -341,20 +341,12 @@ func worktreeCriterion(ctx context.Context, root string) (blockers, waldenDirty 
 
 // porcelainPathList extracts worktree paths from NUL-separated porcelain
 // output; rename and copy entries carry the source as a separate field,
-// consumed without being reported.
+// consumed without being reported. The identity reads the same entries, so
+// both go through one parser.
 func porcelainPathList(stdout string) []string {
-	fields := strings.Split(stdout, "\x00")
 	paths := []string{}
-	for index := 0; index < len(fields); index++ {
-		entry := fields[index]
-		if len(entry) < 4 {
-			continue
-		}
-		code, path := entry[:2], entry[3:]
-		if strings.HasPrefix(code, "R") || strings.HasPrefix(code, "C") {
-			index++
-		}
-		paths = append(paths, path)
+	for _, entry := range evidence.ParseStatus(stdout) {
+		paths = append(paths, entry.Path)
 	}
 	return paths
 }
