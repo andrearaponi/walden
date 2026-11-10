@@ -30,7 +30,7 @@ These improvements are planned for the open source core:
 - **JSON contract stabilization** — now at `v0beta1`; move toward a stable `v1` schema as the contract matures.
 - **Skill refinement** — tighter CLI delegation, fewer redundant instructions, better example conversations.
 - **Additional examples** — backend service demo, multi-feature workflow example.
-- **Scoped code identity** — narrowing the identity a proof binds from the whole tree to the slice it depends on, so unrelated changes stop staling a feature's evidence at portfolio scale.
+- **Stale evidence that explains itself** — when evidence goes stale, `walden evidence status` names the paths and the criteria that changed since the proof ran, and each record keeps how long its proof took. The code identity keeps covering the whole tree: a measurement on a real portfolio showed that narrowing it to declared inputs recovers almost no evidence and can keep a false green.
 - **Multi-root identity** — code identity spanning multiple repositories, unblocking cross-repo proofs and multi-repo certification.
 - **Rework provenance** — recording the origin of post-approval rework to close the loop between shipped specs and what they missed.
 

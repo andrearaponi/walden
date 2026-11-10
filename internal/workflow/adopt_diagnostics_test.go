@@ -67,7 +67,11 @@ func TestAdoptDiagnosticsObservation(t *testing.T) {
 				clock = clock.Add(time.Second)
 			},
 		})
-		if err != nil || calls != 2 || probeCalls != 1 || gitCalls != 8 {
+		// Four captures of one status and one listing each, plus the commit
+		// resolved by the two captures a record binds: the initial one, which
+		// is the pre-proof capture of 1.1, and the pre-proof capture of 1.2.
+		const verifyGitCalls = 4*2 + 2
+		if err != nil || calls != 2 || probeCalls != 1 || gitCalls != verifyGitCalls {
 			t.Fatalf("extra/lost execution or capture: err=%v proof=%d probe=%d git=%d", err, calls, probeCalls, gitCalls)
 		}
 		if !reflect.DeepEqual(events, []string{"start 1.1", "run 1.1", "finish 1.1", "start 1.2", "run 1.2", "finish 1.2"}) {
@@ -84,7 +88,7 @@ func TestAdoptDiagnosticsObservation(t *testing.T) {
 		}
 		gitCalls = 0
 		plain, err := Verify(context.Background(), root, "todo-app-demo", true, false, testutil.NewFakeRunner(testutil.Response{Stdout: "ok"}, testutil.Response{Stdout: "ok"}))
-		if err != nil || gitCalls != 8 || probeCalls != 1 {
+		if err != nil || gitCalls != verifyGitCalls || probeCalls != 1 {
 			t.Fatalf("default path changed: %v git=%d probe=%d", err, gitCalls, probeCalls)
 		}
 		for _, outcome := range plain.Outcomes {
@@ -99,6 +103,9 @@ func TestAdoptDiagnosticsObservation(t *testing.T) {
 		for id, record := range observed.Tasks {
 			other := baseline.Tasks[id]
 			record.VerifiedAt, other.VerifiedAt = "", ""
+			// A step duration is the measurement of its own run, like the
+			// timestamp: the two runs agree on everything else.
+			record.Steps, other.Steps = withoutDurations(record.Steps), withoutDurations(other.Steps)
 			if !reflect.DeepEqual(record, other) {
 				t.Fatalf("observation changed persisted proof/binding/policy facts for %s", id)
 			}

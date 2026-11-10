@@ -325,9 +325,17 @@ var commandRegistry = []commandSpec{
 		Summary: "Execution evidence operations",
 		Subcommands: []commandSpec{
 			{
-				Path:      "evidence status",
-				Syntax:    "evidence status <feature> [--json]",
-				Summary:   "Report each completed task's derived execution-evidence state",
+				Path:    "evidence status",
+				Syntax:  "evidence status <feature> [--json]",
+				Summary: "Report each completed task's derived evidence state and what changed since its proof ran",
+				Details: []string{
+					"Before the tasks: what the current code identity is made of, the commit and each uncommitted path, untracked ones marked.",
+					"Under a task whose code is stale: the paths that changed, were added or were removed since its proof ran.",
+					"Under a task whose specification is stale: the approvals that changed and the statements it names that changed or are no longer defined.",
+					"Under a task whose record keeps step durations: how long that recorded execution took.",
+					"An explanation is exact or withheld: when a record lacks a fact, names a commit that is not in this repository, or keeps facts that do not rebuild its code identity, the report says so and names no path or statement. Re-proving the task writes a record with the facts available then.",
+					"Text lists show the first 10 items and the number omitted; --json carries them whole.",
+				},
 				BoolFlags: []flagSpec{jsonFlag},
 			},
 		},

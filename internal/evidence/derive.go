@@ -52,6 +52,12 @@ type TaskEvidence struct {
 	ProfileDrift     []ProfileDrift
 	ProfileLegacy    bool
 	RecordedResult   string
+	// Explanation is filled by the evidence report after Derive, never by
+	// Derive: it explains an assessment and takes no part in it.
+	Explanation *Explanation
+	// RecordedDurationMS is how long the recorded execution took, filled
+	// the same way; nil when the record keeps no measurement.
+	RecordedDurationMS *int64
 }
 
 // Derive is a pure assessment of explicit inputs. Missing observations never

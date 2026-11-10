@@ -42,10 +42,11 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitResult("evidence-status", errorResult(fmt.Errorf("resolve working directory: %w", err)), jsonMode, stdout, stderr)
 	}
 
-	featureName, entries, err := workflow.EvidenceReport(context.Background(), root, positional[0])
+	reading, err := workflow.ReadEvidence(context.Background(), root, positional[0])
 	if err != nil {
 		return emitResult("evidence-status", errorResult(err), jsonMode, stdout, stderr)
 	}
+	featureName, entries := reading.Feature, reading.Entries
 
 	counts := map[string]int{}
 	legacy := false
@@ -69,7 +70,7 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	// Evidence status is a report, not a gate: derived states never change
 	// the exit code.
-	result := output.Result{Summary: summary, Evidence: rendered, ExitCode: 0}
+	result := output.Result{Summary: summary, Evidence: rendered, CurrentTree: reading.Current, ExitCode: 0}
 	if counts["stale-spec"]+counts["stale-code"]+counts["failed"]+counts["unattested"]+counts["unrecorded"] > 0 {
 		result.NextAction = fmt.Sprintf("Run walden verify %s to re-prove the current code", featureName)
 	}

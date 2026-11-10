@@ -332,7 +332,15 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 
 	// Evidence is recorded before the checkbox moves: a completion the
 	// ledger cannot remember is a completion that did not happen.
-	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
+	// One capture gives the identity and the facts that explain it later:
+	// the commit and the paths that differ from it after the proof.
+	capture, identityOK := evidence.CaptureTree(ctx, identityRunner, root)
+	identity := ""
+	var tree *evidence.TreeFacts
+	if identityOK {
+		identity = capture.Manifest.Digest()
+		tree = capture.Facts()
+	}
 	warnings := append([]string{}, run.warnings...)
 	if !identityOK {
 		warnings = append(warnings, "code identity unavailable (git not usable here); evidence recorded without it")
@@ -358,6 +366,8 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		DesignFingerprint:       feature.Design.Fields["approved_fingerprint"],
 		TasksFingerprint:        feature.Tasks.Fields["approved_fingerprint"],
 		CodeIdentity:            identity,
+		Tree:                    tree,
+		Statements:              statementFacts(feature.Requirements.Body, startContext.Task.Requirements, startContext.Task.Proof),
 		Profile:                 profile,
 		Steps:                   run.steps,
 		Result:                  evidence.ResultPassed,
@@ -528,6 +538,30 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 	}}, display, nil
 }
 
+// statementFacts fingerprints the statements a task names: the identifiers of
+// its Requirements line and those in the covers of its proof steps. An
+// identifier that defines no statement, such as a requirement heading, gets
+// no entry. A task that names none still records the scheme with an empty
+// set, so a later reader can tell "names no statement" from "no facts kept".
+func statementFacts(requirementsBody string, requirements []string, proof spec.VerificationSpec) *evidence.StatementFacts {
+	blocks := spec.StatementBlocks(requirementsBody)
+	facts := &evidence.StatementFacts{Scheme: spec.StatementScheme, Fingerprints: map[string]string{}}
+	add := func(id string) {
+		if block, defined := blocks[id]; defined {
+			facts.Fingerprints[id] = spec.StatementFingerprint(block)
+		}
+	}
+	for _, id := range requirements {
+		add(id)
+	}
+	for _, step := range proof.Steps {
+		for _, id := range step.Covers {
+			add(id)
+		}
+	}
+	return facts
+}
+
 // executableTaskFingerprint bridges the execution view back to the spec
 // task-definition fingerprint.
 func executableTaskFingerprint(task ExecutableTask) string {
@@ -560,7 +594,11 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 	var warnings []string
 	for _, proofStep := range proofCommands {
 		stepCtx, cancel := context.WithTimeout(ctx, proofStep.Timeout)
+		// The step is timed around the run alone. time.Time keeps a
+		// monotonic reading, so a wall-clock change cannot bend the result.
+		started := time.Now()
 		response, err := runner.Run(stepCtx, proofStep.Name, proofStep.Args...)
+		durationMS := time.Since(started).Milliseconds()
 		timedOut := stepCtx.Err() == context.DeadlineExceeded
 		cancel()
 		combined := response.Stdout + response.Stderr
@@ -570,6 +608,7 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 				ExpectedExit: proofStep.ExpectExit,
 				ActualExit:   response.ExitCode,
 				OutputDigest: evidence.DigestOutput(combined),
+				DurationMS:   &durationMS,
 			})
 			return run, fmt.Errorf("verification failed for task %q: command %q exceeded timeout %s%s", task.ID, proofStep.Display, proofStep.TimeoutLabel, outputExcerpt(combined))
 		}
@@ -586,6 +625,7 @@ func executeProof(ctx context.Context, runner shell.Runner, task ExecutableTask)
 			ExpectedExit: proofStep.ExpectExit,
 			ActualExit:   response.ExitCode,
 			OutputDigest: evidence.DigestOutput(combined),
+			DurationMS:   &durationMS,
 		})
 
 		if response.ExitCode != proofStep.ExpectExit {

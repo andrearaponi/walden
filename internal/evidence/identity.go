@@ -33,6 +33,140 @@ func CaptureManifest(ctx context.Context, runner shell.Runner, root string) (Man
 	return captureManifest(ctx, runner, root, "HEAD", true)
 }
 
+// RecordingLimit is the largest number of differing paths a record keeps.
+// Over it the record keeps their number instead: a ledger is committed and
+// read, and a tree with hundreds of uncommitted paths is not what it is for.
+const RecordingLimit = 100
+
+// Capture is a working-tree capture together with what its manifest was built
+// from. The facts explain a later difference; they never judge a state.
+type Capture struct {
+	Manifest Manifest
+	// Commit is the object id HEAD named, empty when it does not resolve.
+	Commit string
+	// Differing holds every path whose manifest entry differs from the
+	// commit's listing: its "mode:blob" entry, or "" when the commit holds
+	// the path and the working tree does not. Nil without a commit.
+	Differing map[string]string
+	// Untracked holds the paths git reports as untracked.
+	Untracked map[string]bool
+
+	// listed is the commit's own listing, kept to tell a path the commit
+	// holds from one it does not.
+	listed Manifest
+}
+
+// CaptureTree captures the working tree as CaptureManifest does and also
+// reports the commit and the paths behind the manifest. It adds one git
+// invocation, the commit: the listing is then read from that same id, so the
+// two cannot disagree. When the answer is not an object id — a repository
+// without a commit, or a runner that does not script the subcommand — the
+// capture lists HEAD as CaptureManifest does and yields no facts.
+//
+// It is for the places that write or explain a record. A command that only
+// needs the identity keeps calling CaptureManifest, whose invocations do not
+// change.
+func CaptureTree(ctx context.Context, runner shell.Runner, root string) (Capture, bool) {
+	commit := ""
+	if response, err := Git(ctx, runner, root, "rev-parse", "--verify", "HEAD^{commit}"); err == nil && response.ExitCode == 0 {
+		if id := strings.TrimSpace(response.Stdout); objectID(id) {
+			commit = id
+		}
+	}
+	revision := "HEAD"
+	if commit != "" {
+		revision = commit
+	}
+
+	parts, ok := captureParts(ctx, runner, root, revision, true, true)
+	if !ok {
+		return Capture{}, false
+	}
+	capture := Capture{Manifest: parts.manifest, Commit: commit, Untracked: parts.untracked, listed: parts.listed}
+	if commit != "" {
+		capture.Differing = differingPaths(parts.listed, parts.manifest)
+	}
+	return capture, true
+}
+
+// Current describes what the captured identity is made of: the commit it
+// rests on and each path that differs from it, in path order, as changed,
+// added or removed, with the untracked ones marked. In a repository without
+// a commit it names none and every path is added.
+func (c Capture) Current() *CurrentTree {
+	current := &CurrentTree{Commit: c.Commit}
+	differing := c.Differing
+	if c.Commit == "" {
+		differing = c.Manifest
+	}
+	for path, entry := range differing {
+		kind := KindAdded
+		if entry == "" {
+			kind = KindRemoved
+		} else if _, held := c.listed[path]; held && c.Commit != "" {
+			kind = KindChanged
+		}
+		current.Paths = append(current.Paths, TreePath{Path: path, Kind: kind, Untracked: c.Untracked[path]})
+	}
+	sort.Slice(current.Paths, func(i, j int) bool { return current.Paths[i].Path < current.Paths[j].Path })
+	return current
+}
+
+// differingPaths returns every path whose entry differs between a commit's
+// listing and a manifest. Both sides use the manifest's own representation,
+// so a path counts as differing exactly when it moves the digest.
+func differingPaths(listed, manifest Manifest) map[string]string {
+	paths := map[string]string{}
+	for path, entry := range manifest {
+		if listed[path] != entry {
+			paths[path] = entry
+		}
+	}
+	for path := range listed {
+		if _, exists := manifest[path]; !exists {
+			paths[path] = ""
+		}
+	}
+	return paths
+}
+
+// Facts returns what a record keeps of the capture: nothing without a
+// commit, the commit with its differing paths up to the recording limit, and
+// the commit with their number over it.
+func (c Capture) Facts() *TreeFacts {
+	if c.Commit == "" {
+		return nil
+	}
+	facts := &TreeFacts{Commit: c.Commit}
+	if len(c.Differing) > RecordingLimit {
+		facts.PathsOmitted = len(c.Differing)
+		return facts
+	}
+	if len(c.Differing) > 0 {
+		facts.Paths = make(map[string]string, len(c.Differing))
+		for path, entry := range c.Differing {
+			facts.Paths[path] = entry
+		}
+	}
+	return facts
+}
+
+// RebuildManifest applies a record's differing paths to the listing of its
+// commit (`git ls-tree -r`). The result is the manifest the record's code
+// identity was computed from, which its digest confirms or refutes.
+func RebuildManifest(listing string, paths map[string]string) Manifest {
+	manifest := Manifest{}
+	seedListing(manifest, listing)
+	for path, entry := range paths {
+		if entry == "" {
+			delete(manifest, path)
+			continue
+		}
+		manifest[path] = entry
+	}
+	return manifest
+}
+
 // CaptureManifestAtCommit uses the existing identity representation anchored
 // to a captured revision. An unreadable captured commit is never unborn.
 func CaptureManifestAtCommit(ctx context.Context, runner shell.Runner, root, commit string) (Manifest, bool) {
@@ -43,9 +177,26 @@ func CaptureManifestAtCommit(ctx context.Context, runner shell.Runner, root, com
 }
 
 func captureManifest(ctx context.Context, runner shell.Runner, root, revision string, allowUnborn bool) (Manifest, bool) {
+	parts, ok := captureParts(ctx, runner, root, revision, allowUnborn, false)
+	if !ok {
+		return nil, false
+	}
+	return parts.manifest, true
+}
+
+// captureParts is one capture of the working tree. withFacts also keeps the
+// revision's listing and the untracked paths; without it the capture runs
+// the same git invocations and keeps the manifest alone.
+type captureResult struct {
+	manifest  Manifest
+	listed    Manifest
+	untracked map[string]bool
+}
+
+func captureParts(ctx context.Context, runner shell.Runner, root, revision string, allowUnborn, withFacts bool) (captureResult, bool) {
 	status, err := Git(ctx, runner, root, "status", "--porcelain", "--untracked-files=all", "-z", "--", ".", ":(exclude)"+waldenDir)
 	if err != nil || status.ExitCode != 0 {
-		return nil, false
+		return captureResult{}, false
 	}
 
 	blobs := Manifest{}
@@ -53,13 +204,36 @@ func captureManifest(ctx context.Context, runner shell.Runner, root, revision st
 		seedListing(blobs, lsTree.Stdout)
 	} else if !allowUnborn || !unbornRepository(ctx, runner, root) {
 		// Failure to read an existing tree is not evidence of an empty tree.
-		return nil, false
+		return captureResult{}, false
+	}
+
+	result := captureResult{}
+	if withFacts {
+		result.listed = make(Manifest, len(blobs))
+		for path, entry := range blobs {
+			result.listed[path] = entry
+		}
+		result.untracked = untrackedPaths(status.Stdout)
 	}
 
 	if !applyOverlay(ctx, runner, root, status.Stdout, blobs) {
-		return nil, false
+		return captureResult{}, false
 	}
-	return blobs, true
+	result.manifest = blobs
+	return result, true
+}
+
+// untrackedPaths reads the paths git reports as untracked from NUL-separated
+// porcelain output, through the parser the overlay uses: the source field of
+// a rename or a copy is never an entry of its own.
+func untrackedPaths(porcelain string) map[string]bool {
+	untracked := map[string]bool{}
+	for _, entry := range ParseStatus(porcelain) {
+		if entry.Code == "??" && !isWaldenPath(entry.Path) {
+			untracked[entry.Path] = true
+		}
+	}
+	return untracked
 }
 
 // unbornRepository positively establishes a symbolic HEAD whose branch ref

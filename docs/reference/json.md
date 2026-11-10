@@ -52,6 +52,8 @@ Task evidence views use a shared ordered entry shape. It appears under `result.e
 | `profile_drift` | array | `{key, recorded, current}` diagnostic differences when probes were run. |
 | `profile_legacy` | bool | Recorded profile is absent; this alone does not establish the record's age or execution policy. |
 | `elapsed_ms` | integer | Measured proof-attempt duration in adoption apply; absent from planning, historical read views and ordinary verify output. |
+| `explanation` | object | `evidence status` only: what changed since the record was written. See [Explanations](#explanations-evidence-status---json). |
+| `recorded_duration_ms` | integer | `evidence status` only: how long the recorded execution took, the sum of its steps. Omitted when the record has no step or a step without a measurement: absence is never reported as zero. Not `elapsed_ms`, which times a current attempt. |
 
 Binding states are `current`, `reconstructed-equivalent`, `changed`, `unknown`, or `contradictory`. A reconstructed-equivalent binding establishes the same complete proof contract, not historical purity.
 
@@ -67,9 +69,49 @@ A contaminated command can have `assertion_result: passed` and still produce `pa
 
 For recorded completed work, failures/known policy violations take precedence over known spec mismatches, then known code changes, then missing assurance (`unattested`), then `verified`. Pending and absent-record states stand apart. Always retain the independent dimensions: `stale-code` can coexist with legacy-unattested provenance.
 
+### Explanations (`evidence status --json`)
+
+`walden evidence status` also says what changed since a record was written. An explanation sits beside the assessment and never feeds it: states, exit statuses and release verdicts are the same with and without it. No other command carries these fields.
+
+`current_tree`, a field of the result beside `evidence`, describes what the current code identity is made of:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `commit` | string | The commit `HEAD` names. Omitted in a repository without a commit, where every path is `added`. |
+| `paths` | array | `{path, kind, untracked}` for each path outside `.walden/` that differs from that commit. `kind` is `changed`, `added` or `removed`; `untracked` is `true` on a path git does not track and omitted otherwise. Omitted when no path differs. Ignored files are not inputs of the identity and are not listed. |
+
+An entry may carry `explanation`, with one or both of:
+
+| Field | Present when | Content |
+| --- | --- | --- |
+| `explanation.code` | `code_freshness` is `stale` | `recorded_commit`, and `paths` as `{path, kind}` for every path whose content identity differs between the recorded tree and the current one. Otherwise `unavailable` with a reason code and `detail` with its sentence. |
+| `explanation.spec` | an approval changed since the record | `approvals`, any of `requirements`, `design` and `task`. When the requirements changed, `statements` as `{id, kind}` with `kind` `changed` or `removed` for the statements the task named, or `statements_unchanged` set to `true` when none of them changed. Otherwise `unavailable` and `detail`. |
+
+An explanation is exact or withheld. The reason codes are:
+
+| Reason | Meaning |
+| --- | --- |
+| `no-commit` | The record keeps no commit: it was written before these facts were kept, in a repository without a commit, or rewritten by a CLI that drops them. |
+| `paths-not-kept` | More paths differed from the commit than the recording limit, so the record kept their number alone. |
+| `commit-missing` | The recorded commit is not in this repository: rewritten history, a shallow clone, or a commit that was never pushed. |
+| `identity-mismatch` | The recorded commit and paths do not rebuild a tree with the recorded code identity. No path is named. |
+| `no-statement-fingerprints` | The record keeps no statement fingerprints, or keeps them in a scheme this CLI does not read. |
+
+Re-proving a task writes a record with the facts available at that moment. Nothing adds them to an existing record: work that is still verified keeps its earlier record until it is re-proven, and `walden verify <feature> --all` re-proves every completed task.
+
+JSON lists are complete. Text mode applies a display limit of 10 items to each list: the first in order, then the number omitted.
+
 ### Ledger format and compatibility
 
 The ledger `.walden/evidence/<feature>.json` now writes schema **`v1alpha2`**, independently of JSON envelope `v0beta1` and document schema `v1alpha1`. It stores step results, approved-chain fingerprints, `task_fingerprint_scheme: walden/task-definition/v2`, code identity, profile, execution facts, `result` and `verified_at`. It stores no derived task state.
+
+A record may also keep three optional groups of facts. They explain a stale state later and decide nothing: state derivation never reads them.
+
+- `tree`: the `commit` that `HEAD` named when the code identity was captured, with `paths`, a map from each path that differed from that commit to its `mode:blob` entry, or to an empty string when the commit held the path and the working tree did not. Over the recording limit of 100 paths the record keeps `paths_omitted`, their number, instead. No `tree` is written without a commit.
+- `statements`: the `scheme`, `walden/statement-block/v1`, and the `fingerprints` of the requirement statements the task names in its `Requirements:` line or in a `covers:` attribute. A fingerprint covers the statement and the lines indented under it, its acceptance check included.
+- `duration_ms` on each step: how long that step took.
+
+These fields are additive within `v1alpha2` and absent on earlier records. An earlier CLI that rewrites a ledger drops them, and the next verification records them again.
 
 Readers accept older `v1alpha1` or missing-version ledgers. Mixed ledgers preserve untouched legacy records; a new container version does not upgrade their assurance. Read-time recovery can use fingerprint-bound local plan snapshots but cannot infer execution policy from a timestamp, profile or CLI version label. Unsupported/corrupt ledgers fail read operations rather than becoming empty evidence.
 
