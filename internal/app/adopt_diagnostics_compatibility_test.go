@@ -100,9 +100,16 @@ func TestAdoptDiagnosticsPersistenceAndCompatibility(t *testing.T) {
 			t.Fatalf("storage schema changed: %v", stored["schema_version"])
 		}
 		record := adoptDiagnosticObject(t, adoptDiagnosticObject(t, stored["tasks"])["1"])
-		adoptDiagnosticKeys(t, record, "task_fingerprint", "task_fingerprint_scheme", "execution", "requirements_fingerprint", "design_fingerprint", "tasks_fingerprint", "code_identity", "profile", "steps", "result", "verified_at")
+		// The evidence-writing contract now includes the facts that explain a
+		// stale record. Adoption persists them where it already writes a
+		// record, and nowhere else: here the fingerprints of the statements
+		// the task names. This fixture repository has no commit, so the
+		// record keeps no tree facts.
+		adoptDiagnosticKeys(t, record, "task_fingerprint", "task_fingerprint_scheme", "execution", "requirements_fingerprint", "design_fingerprint", "tasks_fingerprint", "code_identity", "statements", "profile", "steps", "result", "verified_at")
 		step := adoptDiagnosticObject(t, record["steps"].([]any)[0])
-		adoptDiagnosticKeys(t, step, "command", "expected_exit", "actual_exit", "output_digest")
+		// Each recorded step also carries its measured duration: a fact of
+		// the record, not the timing of a report.
+		adoptDiagnosticKeys(t, step, "command", "expected_exit", "actual_exit", "output_digest", "duration_ms")
 		adoptDiagnosticKeys(t, adoptDiagnosticObject(t, record["execution"]), "origin", "policy", "assertion_result", "integrity", "before_code_identity", "after_code_identity")
 		after := adoptDiagnosticFiles(t, root)
 		for name, digest := range after {

@@ -91,7 +91,8 @@ Completions and verifications write to `.walden/evidence/<feature>.json` — the
 - the complete task-contract fingerprint scheme, including ordered argv, expected exit/output, timeout declarations and asserted coverage,
 - the proof's steps with their outcomes and completion/verify execution provenance,
 - the fingerprints of the approved chain at proof time (the spec photograph),
-- the code identity at proof time (the code photograph — a deterministic digest over every tracked file's content, `.walden/` excluded so committing evidence never invalidates it),
+- the code identity at proof time (the code photograph — a deterministic digest over the content and mode of every file in the working tree that git tracks or would track: committed, modified and untracked files alike, with ignored files left out. `.walden/` is outside it, so committing evidence never invalidates it, and committing unchanged content leaves it unchanged),
+- the facts behind that identity and those bindings: the commit and the paths that differed from it, a fingerprint of each requirement statement the task names, and how long each step took. They explain a stale state later and decide nothing,
 - the [execution profile](#the-environment) of the machine that ran it,
 - `result: passed | failed` and a timestamp.
 
@@ -108,6 +109,8 @@ What the ledger deliberately does **not** hold is any state label. When you ask 
 | `pending` | Not completed yet. |
 
 *Stale* does not mean broken. It means **"no longer known"** — the world moved since the claim was proven, and the honest state is a declared doubt. A code-only bugfix needs no spec ceremony: evidence goes `stale-code`, and one `walden verify` either restores `verified` on today's tree or names exactly which task's proof broke.
+
+A stale state says what moved. `walden evidence status` names, for a `stale-code` task, the paths that changed, were added or were removed since its proof ran; for a `stale-spec` task, the approval that changed and, when it is the requirements, which of the statements the task names changed or are gone, or that none did. It also shows what the current identity is made of: the commit and the uncommitted paths, with untracked ones marked, so a stray copy or a forgotten edit is visible as an input. When a record lacks the facts, or the commit it names is gone, the report says so instead of guessing. None of this changes a state: the identity still covers the whole tree.
 
 The ledger is a current-state map; historical recovery depends on actually preserved Git history. Normal feature-local verify prunes orphaned task entries, while inspection never prunes. A missing record is `unrecorded`; a corrupted or unsupported ledger is a read error, not an empty trusted map. Preserve it for diagnosis rather than deleting history as a universal remedy.
 

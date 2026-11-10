@@ -143,7 +143,11 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 	}
 	current, leafs := evidence.FeatureInputs(feature, tree)
 	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
-	initial, initialOK := evidence.CaptureManifest(ctx, identityRunner, root)
+	// The pre-proof capture of each task is the one a record binds, so it is
+	// the one that also keeps the commit and the differing paths. The
+	// post-proof captures only judge purity and stay identity-only.
+	initialCapture, initialOK := evidence.CaptureTree(ctx, identityRunner, root)
+	initial := initialCapture.Manifest
 	identity := ""
 	if initialOK {
 		identity = initial.Digest()
@@ -188,10 +192,11 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 		if !selected[task.ID] {
 			continue
 		}
-		pre, preOK := initial, initialOK
+		preCapture, preOK := initialCapture, initialOK
 		if len(result.Outcomes) > 0 {
-			pre, preOK = evidence.CaptureManifest(ctx, identityRunner, root)
+			preCapture, preOK = evidence.CaptureTree(ctx, identityRunner, root)
 		}
+		pre := preCapture.Manifest
 		priorContamination := causeTask != ""
 		var policyProblems []string
 		if priorContamination {
@@ -277,6 +282,10 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 			TasksFingerprint: feature.Tasks.ApprovedFingerprint, CodeIdentity: facts.BeforeCodeIdentity,
 			Profile: profile, Steps: run.steps, Result: evidence.ResultPassed, VerifiedAt: verifiedAt, Execution: facts,
 		}
+		if preOK {
+			record.Tree = preCapture.Facts()
+		}
+		record.Statements = statementFacts(feature.Requirements.Body, task.Requirements, task.Proof)
 		outcome := VerifyOutcome{TaskID: task.ID, Passed: true, Profile: profile, Elapsed: elapsed}
 		if proofErr != nil {
 			outcome.Failure = proofErr.Error()
@@ -393,31 +402,92 @@ func toExecutableTask(task *spec.Task) ExecutableTask {
 		DesignRefs: append([]string(nil), task.DesignRefs...), Verification: task.Verification, Proof: task.Proof}
 }
 
+// EvidenceReading is what `evidence status` shows: each task's assessment
+// with the explanation of what changed since its record was written.
+type EvidenceReading struct {
+	Feature string
+	Entries []evidence.TaskEvidence
+	// Current is what the current identity is made of, nil when no
+	// identity could be captured.
+	Current *evidence.CurrentTree
+}
+
 // EvidenceReport is a diagnostic view, not the probe-free migration surface:
 // it retains profile probes. Adoption planning and release do not call it.
 func EvidenceReport(ctx context.Context, root, featureName string) (string, []evidence.TaskEvidence, error) {
-	feature, err := spec.LoadFeature(root, featureName)
+	reading, err := ReadEvidence(ctx, root, featureName)
 	if err != nil {
 		return "", nil, err
+	}
+	return reading.Feature, reading.Entries, nil
+}
+
+// ReadEvidence derives the states as every evidence consumer does and then
+// explains them. The explanations are a second reading of the same records:
+// they are computed after Derive and never passed back to it. Git is asked
+// once for the current tree and once for each distinct recorded commit that
+// a stale record names, however many tasks were recorded at it.
+func ReadEvidence(ctx context.Context, root, featureName string) (EvidenceReading, error) {
+	feature, err := spec.LoadFeature(root, featureName)
+	if err != nil {
+		return EvidenceReading{}, err
 	}
 	tree, err := spec.ParseTaskTree(feature.Tasks)
 	if err != nil {
-		return "", nil, err
+		return EvidenceReading{}, err
 	}
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return "", nil, err
+		return EvidenceReading{}, err
 	}
 	currentProfile, err := runProfile(ctx, root)
 	if err != nil {
-		return "", nil, err
+		return EvidenceReading{}, err
 	}
-	identity, identityOK := evidence.Identity(ctx, identityRunner, root)
+	capture, identityOK := evidence.CaptureTree(ctx, identityRunner, root)
+	identity := ""
+	if identityOK {
+		identity = capture.Manifest.Digest()
+	}
 	current, leafs := evidence.FeatureInputs(feature, tree)
 	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
 	entries := evidence.Derive(ledger, current, identity, identityOK, leafs)
+
+	listings := map[string]evidence.CommitListing{}
+	statements := spec.StatementFingerprints(feature.Requirements.Body)
 	for i := range entries {
 		entries[i].ProfileDrift = evidence.DiffProfile(entries[i].RecordedProfile, currentProfile)
+
+		record, recorded := ledger.Tasks[entries[i].TaskID]
+		if !recorded {
+			continue
+		}
+		if commit, needed := commitToList(record, entries[i]); needed {
+			if _, listed := listings[commit]; !listed {
+				listings[commit] = evidence.ListCommit(ctx, identityRunner, root, commit)
+			}
+		}
+		entries[i].RecordedDurationMS = evidence.RecordedDuration(record)
+		entries[i].Explanation = evidence.Explain(record, entries[i], evidence.ExplainInput{
+			Feature:    feature.Name,
+			Current:    capture.Manifest,
+			Listings:   listings,
+			Chain:      current,
+			Statements: statements,
+		})
 	}
-	return feature.Name, entries, nil
+	reading := EvidenceReading{Feature: feature.Name, Entries: entries}
+	if identityOK {
+		reading.Current = capture.Current()
+	}
+	return reading, nil
+}
+
+// commitToList reports the recorded commit whose tree an explanation needs:
+// only a stale record that kept its commit and its paths has one.
+func commitToList(record evidence.Record, entry evidence.TaskEvidence) (string, bool) {
+	if entry.CodeFreshness != "stale" || record.Tree == nil || record.Tree.Commit == "" || record.Tree.PathsOmitted > 0 {
+		return "", false
+	}
+	return record.Tree.Commit, true
 }

@@ -33,12 +33,37 @@ type ExecutionFacts struct {
 	ChangedPaths       []string `json:"changed_paths,omitempty"`
 }
 
-// StepResult captures one executed proof step.
+// TreeFacts are what a record's code identity was computed from: the commit
+// HEAD named and the paths that differed from it. They are diagnostic, like
+// the profile: Derive never reads them. Paths maps each differing path to its
+// "mode:blob" entry, or to "" when the commit holds the path and the working
+// tree did not. PathsOmitted is set instead when more paths differed than the
+// recording limit, and says how many.
+type TreeFacts struct {
+	Commit       string            `json:"commit"`
+	Paths        map[string]string `json:"paths,omitempty"`
+	PathsOmitted int               `json:"paths_omitted,omitempty"`
+}
+
+// StatementFacts are the fingerprints of the requirement statements a task
+// named when its record was written, with the scheme that built them. They
+// let a later reader tell a change to those statements from an edit elsewhere
+// in the requirements. Diagnostic, like TreeFacts: Derive never reads them.
+type StatementFacts struct {
+	Scheme       string            `json:"scheme"`
+	Fingerprints map[string]string `json:"fingerprints"`
+}
+
+// StepResult captures one executed proof step. DurationMS is how long the
+// step took, in milliseconds: a measurement of this one execution, never an
+// estimate. It is a pointer so that zero is a measurement and absence, on a
+// record written before durations were kept, is not.
 type StepResult struct {
 	Command      []string `json:"command"`
 	ExpectedExit int      `json:"expected_exit"`
 	ActualExit   int      `json:"actual_exit"`
 	OutputDigest string   `json:"output_digest"`
+	DurationMS   *int64   `json:"duration_ms,omitempty"`
 }
 
 // Profile is the execution environment captured when a record was produced:
@@ -67,6 +92,8 @@ type Record struct {
 	DesignFingerprint       string          `json:"design_fingerprint"`
 	TasksFingerprint        string          `json:"tasks_fingerprint"`
 	CodeIdentity            string          `json:"code_identity,omitempty"`
+	Tree                    *TreeFacts      `json:"tree,omitempty"`
+	Statements              *StatementFacts `json:"statements,omitempty"`
 	Profile                 Profile         `json:"profile,omitempty"`
 	Steps                   []StepResult    `json:"steps"`
 	Result                  string          `json:"result"`

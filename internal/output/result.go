@@ -11,41 +11,44 @@ import (
 
 // Result is the shared structured output model for CLI commands.
 type Result struct {
-	Summary               string               `json:"summary"`
-	CreatedFiles          []string             `json:"created_files,omitempty"`
-	UpdatedFiles          []string             `json:"updated_files,omitempty"`
-	ChangedFiles          []string             `json:"changed_files"`
-	SkippedFiles          []string             `json:"skipped_files"`
-	CompletedTasks        []string             `json:"completed_tasks,omitempty"`
-	AutoCompleted         []string             `json:"auto_completed,omitempty"`
-	ValidatedPhases       []string             `json:"validated_phases,omitempty"`
-	SkippedPhases         []string             `json:"skipped_phases,omitempty"`
-	GitInitialized        bool                 `json:"git_initialized,omitempty"`
-	GitAlreadyInitialized bool                 `json:"git_already_initialized,omitempty"`
-	CurrentPhase          string               `json:"current_phase,omitempty"`
-	DocumentSchemaVersion string               `json:"document_schema_version,omitempty"`
-	Completion            string               `json:"completion,omitempty"`
-	CertifiedCommit       string               `json:"certified_commit,omitempty"`
-	BranchName            string               `json:"branch_name,omitempty"`
-	Document              string               `json:"document,omitempty"`
-	Documents             []DocumentStatus     `json:"documents,omitempty"`
-	Task                  *TaskStatus          `json:"task,omitempty"`
-	Blockers              []string             `json:"blockers,omitempty"`
-	NextAction            string               `json:"next_action,omitempty"`
-	Warnings              []string             `json:"warnings"`
-	EARSValidation        []EARSCriterion      `json:"ears_validation,omitempty"`
-	Coverage              *CoverageReport      `json:"coverage,omitempty"`
-	EARSDistribution      *EARSDistribution    `json:"ears_distribution,omitempty"`
-	Features              []FeatureValidation  `json:"features,omitempty"`
-	Evidence              []EvidenceStatus     `json:"evidence,omitempty"`
-	Scope                 *evidence.Scope      `json:"scope,omitempty"`
-	Update                *UpdateStatus        `json:"update,omitempty"`
-	Release               *ReleaseStatus       `json:"release,omitempty"`
-	Adoption              *AdoptionStatus      `json:"adoption,omitempty"`
-	Waiver                *WaiverStatus        `json:"waiver,omitempty"`
-	Consolidation         *ConsolidationStatus `json:"consolidation,omitempty"`
-	Content               string               `json:"content,omitempty"`
-	ExitCode              int                  `json:"exit_code"`
+	Summary               string              `json:"summary"`
+	CreatedFiles          []string            `json:"created_files,omitempty"`
+	UpdatedFiles          []string            `json:"updated_files,omitempty"`
+	ChangedFiles          []string            `json:"changed_files"`
+	SkippedFiles          []string            `json:"skipped_files"`
+	CompletedTasks        []string            `json:"completed_tasks,omitempty"`
+	AutoCompleted         []string            `json:"auto_completed,omitempty"`
+	ValidatedPhases       []string            `json:"validated_phases,omitempty"`
+	SkippedPhases         []string            `json:"skipped_phases,omitempty"`
+	GitInitialized        bool                `json:"git_initialized,omitempty"`
+	GitAlreadyInitialized bool                `json:"git_already_initialized,omitempty"`
+	CurrentPhase          string              `json:"current_phase,omitempty"`
+	DocumentSchemaVersion string              `json:"document_schema_version,omitempty"`
+	Completion            string              `json:"completion,omitempty"`
+	CertifiedCommit       string              `json:"certified_commit,omitempty"`
+	BranchName            string              `json:"branch_name,omitempty"`
+	Document              string              `json:"document,omitempty"`
+	Documents             []DocumentStatus    `json:"documents,omitempty"`
+	Task                  *TaskStatus         `json:"task,omitempty"`
+	Blockers              []string            `json:"blockers,omitempty"`
+	NextAction            string              `json:"next_action,omitempty"`
+	Warnings              []string            `json:"warnings"`
+	EARSValidation        []EARSCriterion     `json:"ears_validation,omitempty"`
+	Coverage              *CoverageReport     `json:"coverage,omitempty"`
+	EARSDistribution      *EARSDistribution   `json:"ears_distribution,omitempty"`
+	Features              []FeatureValidation `json:"features,omitempty"`
+	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
+	// CurrentTree is what the current code identity is made of: the commit
+	// and the paths that differ from it. Only `evidence status` sets it.
+	CurrentTree   *evidence.CurrentTree `json:"current_tree,omitempty"`
+	Scope         *evidence.Scope       `json:"scope,omitempty"`
+	Update        *UpdateStatus         `json:"update,omitempty"`
+	Release       *ReleaseStatus        `json:"release,omitempty"`
+	Adoption      *AdoptionStatus       `json:"adoption,omitempty"`
+	Waiver        *WaiverStatus         `json:"waiver,omitempty"`
+	Consolidation *ConsolidationStatus  `json:"consolidation,omitempty"`
+	Content       string                `json:"content,omitempty"`
+	ExitCode      int                   `json:"exit_code"`
 }
 
 // FeatureValidation is one feature's verdict in a portfolio validation run.
@@ -161,6 +164,13 @@ type EvidenceStatus struct {
 	Execution        *evidence.ExecutionAssessment `json:"execution,omitempty"`
 	Gaps             []evidence.Gap                `json:"gaps,omitempty"`
 	ElapsedMS        *int64                        `json:"elapsed_ms,omitempty"`
+	// Explanation says what changed since the record was written. It is
+	// present only where `evidence status` has something to explain.
+	Explanation *evidence.Explanation `json:"explanation,omitempty"`
+	// RecordedDurationMS is how long the recorded execution took: the sum
+	// of its steps, a measurement and never an estimate. elapsed_ms is the
+	// duration of a current attempt and stays a different field.
+	RecordedDurationMS *int64 `json:"recorded_duration_ms,omitempty"`
 }
 
 // ProfileDriftEntry is one differing execution-profile entry: the recorded
@@ -341,6 +351,8 @@ func PrintText(w io.Writer, result Result) {
 			_, _ = fmt.Fprintf(w, "- %s: %s\n", feature.Feature, verdict)
 		}
 	}
+
+	printCurrentTree(w, result.CurrentTree)
 
 	if len(result.Evidence) > 0 {
 		_, _ = fmt.Fprintln(w, "Evidence:")
