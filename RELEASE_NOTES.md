@@ -1,3 +1,100 @@
+## Walden v0.14.5
+
+Stale evidence now says what changed. Until this release a `stale-code` task reported that the recorded and current code identities differ, and a `stale-spec` task that the recorded bindings differ from the current chain: true, and no help in deciding whether the change concerns the proof. `walden evidence status` now names the paths, the approvals and the statements that changed since each proof ran, and shows what the current code identity is made of. The release also corrects the code identity of a renamed file.
+
+### `evidence status` says what changed
+
+After three edits to a clean tree, with commit ids shortened here:
+
+```
+Current identity: commit 46a53dd3… plus 3 uncommitted path(s)
+- changed README.md
+- removed SECURITY.md
+- added (untracked) vendor-copy/SKILL.md
+Evidence:
+- 1.1: stale-code [binding=current code=stale execution=supported]
+  code-stale: recorded and current code identities differ
+  since commit 46a53dd3…: changed README.md, removed SECURITY.md, added vendor-copy/SKILL.md
+  recorded duration: 4406 ms
+```
+
+After the requirements were approved again with one criterion reworded:
+
+```
+- 1.2: stale-spec [binding=current code=current execution=supported]
+  chain-changed: recorded requirements/design bindings differ from the current chain
+  changed approvals: requirements
+  changed statements: R1.AC5 changed
+  recorded duration: 845 ms
+- 1.3: stale-spec [binding=current code=current execution=supported]
+  chain-changed: recorded requirements/design bindings differ from the current chain
+  changed approvals: requirements
+  changed statements: none of the statements this task names
+  recorded duration: 517 ms
+```
+
+- **Stale code.** The paths that changed, were added or were removed since the task's proof ran.
+- **Stale specification.** The approvals that changed (the requirements, the design, the task's own definition) and, when the requirements did, which of the statements the task names changed or are no longer defined, or that none did. A reworded criterion is told from an edit elsewhere in the document.
+- **Current identity.** The commit the identity rests on and each uncommitted path, untracked ones marked. A stray copy or a forgotten edit is visible as an input, where before it only moved a digest.
+- **Recorded duration.** How long each recorded proof took, as the measurement of that one execution.
+
+`walden evidence status --help` describes the report. `--json` carries the same facts in `current_tree`, `explanation` and `recorded_duration_ms`, with complete lists; text shows the first 10 items of a list and the number omitted.
+
+### What a record keeps
+
+New records keep three optional groups of facts: the commit `HEAD` named with the paths that differed from it, up to 100; a fingerprint of each requirement statement the task names in its `Requirements:` line or in a `covers:` attribute, acceptance check included; and the duration of each proof step. They hold paths, content identities, fingerprints and durations, never file content or proof output.
+
+### Exact or withheld
+
+An explanation names a path only when the recorded facts establish it. The recorded tree is rebuilt from the commit and the paths, and accepted only when its digest equals the code identity the record was bound to. When a record lacks a fact, names a commit that is not in the repository (rewritten history, a shallow clone, a commit that was never pushed), or keeps facts that do not rebuild its identity, the report says so and names no path or statement. Re-proving the task writes a record with the facts available then.
+
+### The explanations decide nothing
+
+What makes evidence stale does not change. The code identity still covers the whole tree outside `.walden/`, every state is derived as before, and no proof is skipped or reused. State derivation never reads the new facts, so states, exit statuses and release verdicts are the same with and without them. A measurement on a real portfolio showed that narrowing the identity to declared inputs recovers almost no evidence and can keep a false green: this release explains the whole-tree identity instead of narrowing it.
+
+### A renamed file no longer leaves its old path in the code identity
+
+After `git mv`, the identity kept the old path, with the content the last commit had there, until the rename was committed. Committing the rename then moved the identity although no content had changed, so evidence recorded in between went `stale-code` for no reason. And a file created again at the old path with that same content did not move the identity at all, so evidence stayed `verified` on a tree that had gained a file. The old path now leaves the identity as soon as git reports the rename, in the index or, after `git add -N`, in the working tree; a copy keeps its source. In the `git add -N` case `walden release check` also listed a path that does not exist among the uncommitted ones, and no longer does.
+
+### Also in this release
+
+- **`walden update --version` rejects a tag whose numbers carry a sign or a leading zero.** `v+1.2.3`, `v-0.2.3` and `v01.2.3` passed the format check and the update then failed later with a download error for a release that cannot exist. Such a tag is now refused at once.
+- **`walden-testability`, a companion skill for the design phase.** For every acceptance criterion it asks what a proof must provoke, where it sees the response from outside, which oracle decides pass or fail without trusting the implementation, and which proof is cheapest; each gap comes with the smallest change that closes it. Install it with `npx skills add andrearaponi/walden --skill walden-testability`. The CLI and the walden guide do not change.
+
+### What it found
+
+- On 9 November the portfolio of this repository held 155 `stale-code` tasks, each with the same sentence and nothing to tell them apart.
+- In a run on a copy of this repository with 25 paths already uncommitted when the proofs ran, three later edits were named for every task, and none of the 25.
+- The rename defect above was found while writing the tests for the recorded tree: it had been in every release since the code identity was introduced.
+
+### Limits
+
+- A record written before this release lacks the facts until its task is re-proven. `walden verify <feature> --all` does it for work that is still verified.
+- Naming the changed paths needs the recorded commit to be in the repository.
+- Over 100 differing paths a record keeps their number, not the paths.
+- A duration is the measurement of one execution. This release computes no estimate and changes neither the order nor the concurrency of proofs.
+- The explanations are in `evidence status`. `release check`, `status`, `task status` and `verify` keep their output and their remedies.
+- A statement fingerprint follows the text of the statement and its acceptance check: rewording either changes it, reordering other statements does not.
+
+### Compatibility and distribution
+
+- No gate changes. States, exit statuses and release verdicts are those of v0.14.4 for the same ledger and the same committed tree.
+- JSON stays additive within `v0beta1`: `current_tree` on the result of `evidence status`, `explanation` and `recorded_duration_ms` on its entries. No existing field changes.
+- The ledger stays `v1alpha2`, with optional fields: `tree`, `statements` and `duration_ms` on each step. **The ledger now keeps step durations**, which v0.12.0 said it did not. `elapsed_ms` of adoption output is still not written.
+- An earlier CLI reads a ledger that holds the new fields and derives the same states. When it rewrites the ledger it drops them, and this release then reports them missing until the task is re-proven.
+- The text of `walden evidence status` gains a section before `Evidence:` and lines under its entries, and its line in `walden --help` changes. No command and no flag is added.
+- Evidence recorded while a rename was uncommitted reads `stale-code` until `walden verify` runs again, as it already did once the rename was committed. `walden release check` never certified a tree with uncommitted changes, so no verdict changes.
+- The guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 12 tasks of the approved `staleness-diagnostics` specification re-proven against the release tree.
+- An end-to-end run with the compiled CLI on a copy of this repository, which produced the two reports above: the three edits named for each of the 12 tasks, and every task `verified` again once they were undone; a file renamed with `git mv`, proven and then committed, with every task still `verified`; a reworded criterion named for the one task that proves it, and "none of the statements this task names" for the other 11.
+- The released v0.14.4 run on a ledger written by this release: the same states for every task. After it rewrote the ledger, this release reported the facts missing and named no path.
+- Targeted mutations, each caught by the test meant to catch it: state derivation made to read the new facts, a read command made to write the ledger, an existing JSON field renamed, a recorded commit listed once for each task, three mutations of the rename fix, and the usage line of another command changed.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.4
 
 A decision checkpoint can no longer be sealed unresolved. Until this release `review open` and `review approve` accepted a document still holding an open `[decision: …]` marker, and only `release check` noticed it, after approval. `release check` in turn read the marker literally, so a document that only quoted it could not be certified.

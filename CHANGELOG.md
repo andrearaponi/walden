@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.14.5] - 2026-11-10
+
 ### Added
 
 - **`walden evidence status` says what changed behind a stale state.** A `stale-code` task names the paths that changed, were added or were removed since its proof ran. A `stale-spec` task names the approval that changed and, when it is the requirements, which of the statements the task names changed or are gone, or that none did. The report also shows what the current code identity is made of, the commit and the uncommitted paths with untracked ones marked, and how long each recorded proof took. `walden evidence status --help` describes all of it. New records keep the facts this needs: the commit and the paths that differed from it, a fingerprint of each statement the task names, and the duration of each step. They are optional fields of the `v1alpha2` ledger and `--json` gains `current_tree`, `explanation` and `recorded_duration_ms`. A record written before lacks the facts and the report says so; re-proving the task records them, and `walden verify <feature> --all` does it for work that is still verified. What makes evidence stale does not change: the code identity still covers the whole tree, and states, exit statuses and release verdicts are the same with and without these facts.
