@@ -387,14 +387,17 @@ func TestIdentityHandlesRenameEntries(t *testing.T) {
 		"ls-tree": {ExitCode: 0, Stdout: "100644 blob aaa\toriginal.txt\n"},
 	}}
 
-	identity, ok := Identity(context.Background(), git, root)
+	manifest, ok := CaptureManifest(context.Background(), git, root)
 	if !ok {
-		t.Fatal("identity not computed on a rename")
+		t.Fatal("manifest not captured on a rename")
 	}
 
-	// The old path stays in the map only via the listing; the source field
-	// must not be treated as a live file (it does not exist on disk).
-	if identity == "" {
-		t.Fatal("empty identity")
+	// The source field is not a live file, and the path it names is gone
+	// from the working tree: the listing's entry for it leaves the manifest.
+	if _, held := manifest["original.txt"]; held {
+		t.Fatalf("the manifest still holds the source of a rename: %v", manifest)
+	}
+	if _, held := manifest["renamed.txt"]; !held || len(manifest) != 1 {
+		t.Fatalf("manifest = %v, want renamed.txt alone", manifest)
 	}
 }
