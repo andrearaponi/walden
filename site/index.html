@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#top">Skip to content</a>
+
   <!-- paper grain overlay -->
   <div class="grain" aria-hidden="true"></div>
 
@@ -42,7 +44,7 @@
     </nav>
   </header>
 
-  <main id="top">
+  <main id="top" tabindex="-1">
 
     <!-- ───────────────────────────  HERO  ─────────────────────────── -->
     <section class="hero">
@@ -93,7 +95,7 @@
 
     <!-- ───────────────────────  TWO VOICES  ────────────────────────── -->
     <section class="voices" id="voices">
-      <div class="section-label"><span>§ 01</span> Two halves, one boundary</div>
+      <h2 class="section-label"><span>§ 01</span> Two halves, one boundary</h2>
       <p class="lede">
         Walden draws a hard line between what a machine should decide and what a human
         should author. The non-deterministic work is drafted. The rules are enforced.
@@ -101,7 +103,7 @@
 
       <div class="voices-grid">
         <div class="voice voice--human">
-          <p class="voice-head">The skill drafts</p>
+          <h3 class="voice-head">The skill drafts</h3>
           <ul>
             <li>Asks the clarifying questions</li>
             <li>Writes requirements in EARS form</li>
@@ -113,7 +115,7 @@
         </div>
 
         <div class="voice voice--machine">
-          <p class="voice-head">The CLI enforces</p>
+          <h3 class="voice-head">The CLI enforces</h3>
           <ul>
             <li>phase order: requirements → design → tasks</li>
             <li>document freshness &amp; approval chains</li>
@@ -132,7 +134,7 @@
 
     <!-- ───────────────────────  WORKFLOW  ──────────────────────────── -->
     <section class="workflow" id="workflow">
-      <div class="section-label"><span>§ 02</span> How it works</div>
+      <h2 class="section-label"><span>§ 02</span> How it works</h2>
       <p class="lede">
         Every feature moves through four phases. Each one has an approval gate that must
         pass before the next begins. Phases cannot be skipped.
@@ -173,7 +175,7 @@
 
     <!-- ─────────────────────────  EARS  ────────────────────────────── -->
     <section class="ears" id="ears">
-      <div class="section-label"><span>§ 03</span> Requirements that can't be vague</div>
+      <h2 class="section-label"><span>§ 03</span> Requirements that can't be vague</h2>
       <p class="lede">
         Every acceptance criterion takes exactly one of six EARS forms. The CLI validates
         the grammar — a single <code>SHALL</code>, the right keywords in the right place.
@@ -196,7 +198,7 @@
 
     <!-- ─────────────────────  HOW YOU USE IT  ──────────────────────── -->
     <section class="howto" id="howto">
-      <div class="section-label"><span>§ 04</span> How you use it</div>
+      <h2 class="section-label"><span>§ 04</span> How you use it</h2>
       <p class="lede">
         One prompt in. A reviewed spec tree out — every gate passed, every proof
         recorded, nothing typed but the intent.
@@ -238,17 +240,17 @@
           <li class="tree-row dir" style="--lvl:2"><span class="ico ico-dir"></span>specs</li>
           <li class="tree-row dir" style="--lvl:3"><span class="ico ico-dir"></span>todo-cli</li>
           <li style="--lvl:4">
-            <button class="tree-row file file--spec" data-tab="req" type="button">
+            <button class="tree-row file file--spec" data-tab="req" type="button" aria-haspopup="dialog">
               <span class="ico ico-doc"></span>requirements.md<span class="file-pill">approved</span>
             </button>
           </li>
           <li style="--lvl:4">
-            <button class="tree-row file file--spec" data-tab="design" type="button">
+            <button class="tree-row file file--spec" data-tab="design" type="button" aria-haspopup="dialog">
               <span class="ico ico-doc"></span>design.md<span class="file-pill">approved</span>
             </button>
           </li>
           <li style="--lvl:4">
-            <button class="tree-row file file--spec" data-tab="tasks" type="button">
+            <button class="tree-row file file--spec" data-tab="tasks" type="button" aria-haspopup="dialog">
               <span class="ico ico-doc"></span>tasks.md<span class="file-pill">approved</span>
             </button>
           </li>
@@ -273,7 +275,7 @@
 
     <!-- ─────────────────────  THE STACK (recipes)  ─────────────────── -->
     <section class="stack" id="stack">
-      <div class="section-label"><span>§ 05</span> The kernel under your stack</div>
+      <h2 class="section-label"><span>§ 05</span> The kernel under your stack</h2>
       <p class="lede">
         Walden doesn&rsquo;t replace your agent, your IDE, or your spec tool. It is the
         gate they call — anything that runs a command and reads an exit code gets hard gates.
@@ -322,7 +324,7 @@
 
     <!-- ────────────────────────  INSTALL  ──────────────────────────── -->
     <section class="install" id="install">
-      <div class="section-label"><span>§ 06</span> Install</div>
+      <h2 class="section-label"><span>§ 06</span> Install</h2>
       <p class="lede">
         The latest release binary lands in <code>~/.local/bin/walden</code>,
         checksum-verified. Install the AI guide separately through the Skills CLI;
@@ -344,7 +346,7 @@
 
     <!-- ──────────────────────  ON THE NAME  ────────────────────────── -->
     <section class="name" id="name">
-      <div class="section-label"><span>§ 07</span> On the name</div>
+      <h2 class="section-label"><span>§ 07</span> On the name</h2>
       <blockquote class="thoreau">
         <span class="quote-mark" aria-hidden="true">&ldquo;</span>
         I went to the woods because I wished to live deliberately, to front only
@@ -381,15 +383,15 @@
         <h3 class="spec-title" id="specModalTitle">requirements.md</h3>
         <button class="spec-close" type="button" data-close aria-label="Close">×</button>
       </div>
-      <div class="spec-tabs">
-        <button class="spec-tab" data-tab="req" type="button">requirements</button>
-        <button class="spec-tab" data-tab="design" type="button">design</button>
-        <button class="spec-tab" data-tab="tasks" type="button">tasks</button>
+      <div class="spec-tabs" role="tablist" aria-label="Spec documents">
+        <button class="spec-tab" id="spec-tab-req" role="tab" aria-selected="false" aria-controls="spec-pane-req" tabindex="-1" data-tab="req" type="button">requirements</button>
+        <button class="spec-tab" id="spec-tab-design" role="tab" aria-selected="false" aria-controls="spec-pane-design" tabindex="-1" data-tab="design" type="button">design</button>
+        <button class="spec-tab" id="spec-tab-tasks" role="tab" aria-selected="false" aria-controls="spec-pane-tasks" tabindex="-1" data-tab="tasks" type="button">tasks</button>
       </div>
-      <div class="spec-body" tabindex="0">
+      <div class="spec-body" tabindex="0" role="group" aria-labelledby="specModalTitle">
 
         <!-- REQUIREMENTS — the real file from the demo run -->
-        <article class="spec-pane" data-pane="req">
+        <article class="spec-pane" id="spec-pane-req" role="tabpanel" aria-labelledby="spec-tab-req" data-pane="req">
           <div class="fm">
             <span class="fm-status">status: approved</span>
             <span class="fm-item">approved_at: 2026-07-07T17:34:27Z</span>
@@ -516,7 +518,7 @@
         </article>
 
         <!-- DESIGN — the real file from the demo run -->
-        <article class="spec-pane" data-pane="design">
+        <article class="spec-pane" id="spec-pane-design" role="tabpanel" aria-labelledby="spec-tab-design" data-pane="design">
           <div class="fm">
             <span class="fm-status">status: approved</span>
             <span class="fm-item">approved_at: 2026-07-07T17:37:01Z</span>
@@ -752,7 +754,7 @@
         </article>
 
         <!-- TASKS — the real file from the demo run -->
-        <article class="spec-pane" data-pane="tasks">
+        <article class="spec-pane" id="spec-pane-tasks" role="tabpanel" aria-labelledby="spec-tab-tasks" data-pane="tasks">
           <div class="fm">
             <span class="fm-status">status: approved</span>
             <span class="fm-item">approved_at: 2026-07-07T17:40:32Z</span>
@@ -872,28 +874,40 @@
     </div>
   </div>
 
+  <!-- copy confirmation for screen readers: the buttons' labels hide their "Copied" text -->
+  <p class="sr-only" id="copy-status" role="status"></p>
+
   <script>
     // version tag — static fallback, refreshed from the latest GitHub release
     (function () {
       var tag = document.getElementById('version-tag');
-      if (!tag || !window.fetch) return;
+      if (!tag) return;
+      // the accessible name carries the version a sighted reader sees
+      function label(version) { tag.setAttribute('aria-label', 'Latest release ' + version); }
+      label(tag.textContent);
+      if (!window.fetch) return;
       fetch('https://api.github.com/repos/andrearaponi/walden/releases/latest')
         .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (rel) { if (rel && rel.tag_name) tag.textContent = rel.tag_name; })
+        .then(function (rel) { if (rel && rel.tag_name) { tag.textContent = rel.tag_name; label(rel.tag_name); } })
         .catch(function () {});
     })();
 
     // click-to-copy — restrained micro-interaction
+    var copyStatus = document.getElementById('copy-status');
     document.querySelectorAll('.copy').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var el = document.querySelector(btn.dataset.copy);
-        if (!el) return;
+        if (!el || !navigator.clipboard) return;
         navigator.clipboard.writeText(el.innerText.trim()).then(function () {
           var prev = btn.textContent;
           btn.textContent = 'Copied';
           btn.classList.add('is-copied');
-          setTimeout(function () { btn.textContent = prev; btn.classList.remove('is-copied'); }, 1400);
-        });
+          if (copyStatus) copyStatus.textContent = 'Copied to clipboard';
+          setTimeout(function () {
+            btn.textContent = prev; btn.classList.remove('is-copied');
+            if (copyStatus) copyStatus.textContent = '';
+          }, 1400);
+        }).catch(function () {});
       });
     });
 
@@ -920,7 +934,12 @@
       var lastFocus = null;
 
       function show(tab) {
-        tabs.forEach(function (t) { t.classList.toggle('is-on', t.dataset.tab === tab); });
+        tabs.forEach(function (t) {
+          var on = t.dataset.tab === tab;
+          t.classList.toggle('is-on', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+          t.tabIndex = on ? 0 : -1;   // one tab stop; the arrows move between tabs
+        });
         panes.forEach(function (p) { p.classList.toggle('is-on', p.dataset.pane === tab); });
         title.textContent = labels[tab] || 'requirements.md';
       }
@@ -943,8 +962,19 @@
       document.querySelectorAll('.file--spec').forEach(function (btn) {
         btn.addEventListener('click', function () { open(btn.dataset.tab); });
       });
-      tabs.forEach(function (t) {
+      tabs.forEach(function (t, i) {
         t.addEventListener('click', function () { show(t.dataset.tab); });
+        t.addEventListener('keydown', function (e) {
+          var next = null;
+          if (e.key === 'ArrowRight') next = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') next = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') next = tabs[0];
+          else if (e.key === 'End') next = tabs[tabs.length - 1];
+          if (!next) return;
+          e.preventDefault();
+          show(next.dataset.tab);
+          next.focus();
+        });
       });
       modal.querySelectorAll('[data-close]').forEach(function (el) {
         el.addEventListener('click', close);
@@ -954,7 +984,7 @@
         if (e.key === 'Escape') { close(); return; }
         if (e.key !== 'Tab') return;
         // keep focus inside the dialog while it is open
-        var items = dialog.querySelectorAll('button, [tabindex="0"]');
+        var items = dialog.querySelectorAll('button:not([tabindex="-1"]), [tabindex="0"]');
         var first = items[0], last = items[items.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }

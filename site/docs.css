@@ -3,21 +3,31 @@
    Shares the landing's palette; owns its own layout.
    ============================================================ */
 
+/* Georgia scaled to Fraunces' width: when the webfont arrives the text
+   keeps its line breaks instead of re-wrapping. */
+@font-face {
+  font-family: "Fraunces Fallback";
+  src: local("Georgia");
+  size-adjust: 104%;
+}
+
 :root {
   --paper:      #f2eee4;
   --paper-2:    #ece6d8;
   --paper-3:    #e4ddcc;
   --ink:        #181610;
   --ink-soft:   rgba(24, 22, 16, 0.66);
-  --ink-mute:   rgba(24, 22, 16, 0.45);
+  --ink-mute:   rgba(24, 22, 16, 0.64);   /* 4.8:1 on the deepest paper */
   --rule:       rgba(24, 22, 16, 0.14);
   --rule-soft:  rgba(24, 22, 16, 0.08);
   --pine:       #2c4734;
   --pine-deep:  #1f3527;
   --pine-bright:#3b6049;
 
-  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --serif: "Fraunces", "Fraunces Fallback", Georgia, "Times New Roman", serif;
   --mono:  "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --micro: 0.75rem;        /* 12px: the smallest text the site sets */
 }
 
 * { box-sizing: border-box; }
@@ -39,6 +49,20 @@ body {
 
 ::selection { background: var(--pine); color: var(--paper); }
 
+:focus-visible { outline: 2px solid var(--pine); outline-offset: 3px; border-radius: 2px; }
+
+/* skip link: on the page only while it holds keyboard focus */
+.skip-link {
+  position: absolute; top: 0; left: clamp(1.2rem, 4vw, 3rem); z-index: 30;
+  transform: translateY(-120%);
+  font-family: var(--mono); font-size: var(--micro); font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.12em; text-decoration: none;
+  background: var(--ink); color: var(--paper);
+  padding: .8rem 1.1rem; border-radius: 0 0 3px 3px;
+}
+.skip-link:focus { transform: none; }
+main:focus { outline: none; }   /* the skip link's landing point, not a control */
+
 /* header ---------------------------------------------------------------- */
 .site-head {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -53,7 +77,7 @@ body {
 }
 .wordmark .mark { color: var(--pine); }
 .version-tag {
-  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+  font-family: var(--mono); font-size: var(--micro); letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--pine);
   border: 1px solid var(--rule); border-radius: 999px;
   padding: 0.14rem 0.6rem; text-decoration: none;
@@ -79,15 +103,16 @@ body {
    disappears, and with it the only way to collapse the details. */
 .sidenav > summary { display: none; }
 .sidebar .lane {
-  margin: 1.3rem 0 0.45rem; font-size: 0.62rem; letter-spacing: 0.16em;
+  margin: 1.3rem 0 0.3rem; font-size: var(--micro); letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink-mute);
 }
 .sidebar .lane:first-child { margin-top: 0; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }
-.sidebar li { margin: 0.28rem 0; }
+.sidebar li { margin: 0; }
+/* each link is a full row, 28px tall: room for a fingertip */
 .sidebar a {
   color: var(--ink-soft); text-decoration: none;
-  border-left: 2px solid transparent; padding-left: 0.6rem; display: inline-block;
+  border-left: 2px solid transparent; padding: 0.3rem 0 0.3rem 0.6rem; display: block;
 }
 .sidebar a:hover { color: var(--pine); }
 .sidebar a.here { color: var(--pine); border-left-color: var(--pine); font-weight: 500; }
@@ -99,14 +124,15 @@ body {
   .sidebar { position: static; }
   .sidenav {
     border: 1px solid var(--rule); border-radius: 8px;
-    background: var(--paper-2); padding: 0.65rem 0.9rem; margin-bottom: 1.6rem;
+    background: var(--paper-2); margin-bottom: 1.6rem;
   }
+  /* the padding sits on the summary, so the whole bar opens the menu */
   .sidenav > summary {
-    display: list-item; cursor: pointer;
-    font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+    display: list-item; cursor: pointer; padding: 0.75rem 0.9rem;
+    font-size: var(--micro); letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--pine); font-weight: 500;
   }
-  .sidenav[open] > summary { margin-bottom: 0.8rem; }
+  .sidenav > nav { padding: 0.15rem 0.9rem 0.75rem; }
 }
 
 /* article --------------------------------------------------------------- */
@@ -122,7 +148,11 @@ body {
 .doc h3 { font-size: 1.08rem; font-weight: 600; margin: 1.8rem 0 0.5rem; }
 .doc h4 { font-size: 0.95rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
 .doc h1 code, .doc h2 code, .doc h3 code, .doc h4 code { font-size: 0.85em; }
+.doc h1, .doc h2, .doc h3 { text-wrap: balance; }
 .doc p { margin: 0 0 1rem; }
+.doc p, .doc li { text-wrap: pretty; }
+/* prose keeps a readable measure, about 74 characters; code and tables take the full column */
+.doc > p, .doc > ul, .doc > ol, .doc > blockquote { max-width: 38rem; }
 .doc strong { color: var(--pine-deep); font-weight: 600; }
 .doc a { color: var(--pine); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .doc a:hover { color: var(--pine-deep); }
@@ -131,13 +161,14 @@ body {
   font-family: var(--mono); font-size: 0.82em;
   background: var(--paper-2); border: 1px solid var(--rule-soft);
   border-radius: 4px; padding: 0.08em 0.35em;
+  overflow-wrap: anywhere;   /* a long command wraps instead of widening the page */
 }
 .doc pre {
   background: var(--pine-deep); color: #e9e5d8;
   border-radius: 8px; padding: 1rem 1.2rem; margin: 1.1rem 0 1.4rem;
   overflow-x: auto; font-size: 0.8rem; line-height: 1.7;
 }
-.doc pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+.doc pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; overflow-wrap: normal; }
 
 .doc ul, .doc ol { margin: 0 0 1rem; padding-left: 1.4rem; }
 .doc li { margin: 0.3rem 0; }
@@ -153,7 +184,7 @@ body {
 .table-scroll { overflow-x: auto; margin: 1.1rem 0 1.4rem; }
 .doc table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
 .doc th {
-  font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em;
+  font-family: var(--mono); font-size: var(--micro); letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--ink-mute); text-align: left;
   padding: 0.4rem 0.9rem 0.4rem 0; border-bottom: 1px solid var(--rule);
 }
@@ -168,7 +199,7 @@ body {
   max-width: 76rem; margin: 0 auto;
   padding: 1.2rem clamp(1.2rem, 4vw, 3rem) 2.5rem;
   border-top: 1px solid var(--rule);
-  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
+  font-family: var(--mono); font-size: var(--micro); letter-spacing: 0.03em;
   color: var(--ink-mute);
 }
 .foot a { color: var(--ink-soft); text-decoration: none; }

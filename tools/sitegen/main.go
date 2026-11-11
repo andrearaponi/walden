@@ -366,10 +366,11 @@ func pageHTML(current page, body string) string {
   <link rel="icon" href="` + site + `walden.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,380;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..520&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="` + site + `docs.css" />
 </head>
 <body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
   <header class="site-head">
     <div class="brand">
       <a class="wordmark" href="` + site + `index.html">Walden<span class="mark">§</span></a>
@@ -385,19 +386,21 @@ func pageHTML(current page, body string) string {
     <aside class="sidebar" aria-label="Documentation">
       <details class="sidenav" open>
         <summary>Documentation menu</summary>
-        <nav>
+        <nav aria-label="Documentation pages">
 ` + sidebar.String() + `        </nav>
       </details>
+      <script>
+        // Mobile: the menu starts collapsed. Decided here, before the article
+        // below is laid out, so the page does not jump after its first paint.
+        // Without JS the menu stays open and stacks.
+        if (matchMedia("(max-width: 54rem)").matches) {
+          document.currentScript.previousElementSibling.removeAttribute("open");
+        }
+      </script>
     </aside>
-    <main class="doc">
+    <main class="doc" id="page-content" tabindex="-1">
 ` + body + `    </main>
   </div>
-  <script>
-    // Mobile: the menu starts collapsed; without JS it stays open and stacks.
-    if (matchMedia("(max-width: 54rem)").matches) {
-      document.querySelector(".sidenav").removeAttribute("open");
-    }
-  </script>
   <footer class="foot">
     <span>intention before code · proof before completion</span>
     <a href="https://github.com/andrearaponi/walden/tree/main/docs">Edit these pages on GitHub ↗</a>
