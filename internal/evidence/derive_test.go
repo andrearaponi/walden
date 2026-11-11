@@ -178,6 +178,14 @@ func TestDeriveIgnoresDiagnosticFacts(t *testing.T) {
 		{state: StateStaleSpec, mutate: func(r *Record) { r.RequirementsFingerprint = "sha256:old" }, task: task, recorded: true, currentIdentity: "sha256:code", identityOK: true},
 		{state: StateStaleCode, task: task, recorded: true, currentIdentity: "sha256:moved", identityOK: true},
 		{state: StateUnattested, mutate: func(r *Record) { r.CodeIdentity = "" }, task: task, recorded: true},
+		// A delivered task after the code moved on: its state rests on the
+		// attestation, never on the facts that explain a record.
+		{state: StateDelivered, mutate: func(r *Record) {
+			r.Attestation = &Attestation{
+				Commit: "2222222222222222222222222222222222222222", TaskFingerprint: "sha256:task",
+				Statements: StatementFacts{Scheme: "walden/statement-block/v1", Fingerprints: map[string]string{}},
+			}
+		}, task: task, recorded: true, currentIdentity: "sha256:moved", identityOK: true},
 	}
 
 	// Facts of every shape a record can hold, including ones that would
@@ -251,7 +259,7 @@ func TestDeriveIgnoresDiagnosticFacts(t *testing.T) {
 		})
 	}
 
-	for _, state := range []string{StateVerified, StateFailed, StateStaleSpec, StateStaleCode, StateUnattested, StateUnrecorded, StatePending} {
+	for _, state := range []string{StateVerified, StateFailed, StateStaleSpec, StateStaleCode, StateUnattested, StateUnrecorded, StatePending, StateDelivered} {
 		if !reached[state] {
 			t.Fatalf("state %s was not exercised", state)
 		}

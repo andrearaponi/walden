@@ -11,7 +11,9 @@ import (
 const evidenceStatusSummary = "Report each completed task's derived evidence state and what changed since its proof ran"
 
 // evidenceStatusHelp is the whole help of the command. The summary and the
-// six detail lines are the text the design fixes; the frame around them is
+// first six detail lines are the text the design of the staleness
+// diagnostics fixes, and the seventh is the one the design of proof kinds
+// adds; the frame around them is
 // what the help renderer prints for a command with one flag. The test states
 // the text here instead of reading it from the command catalog.
 const evidenceStatusHelp = `Usage:
@@ -24,6 +26,7 @@ const evidenceStatusHelp = `Usage:
   Under a task whose record keeps step durations: how long that recorded execution took.
   An explanation is exact or withheld: when a record lacks a fact, names a commit that is not in this repository, or keeps facts that do not rebuild its code identity, the report says so and names no path or statement. Re-proving the task writes a record with the facts available then.
   Text lists show the first 10 items and the number omitted; --json carries them whole.
+  A delivered task is reported with the commit it was attested on, marked when adoption sealed the attestation, and with no explanation of later changes; a completed delivery task without an attestation says why its recorded pass is not one and what attests it.
 
 Flags:
   --json             Emit machine-readable JSON instead of text

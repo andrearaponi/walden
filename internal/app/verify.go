@@ -106,6 +106,20 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 		scope = evidence.NewTaskScope(verifyResult.Feature, verifyResult.Task)
 	}
 	result := output.Result{Evidence: entries, Scope: &scope, ExitCode: 0}
+	for _, kept := range verifyResult.Kept {
+		result.Kept = append(result.Kept, output.KeptDelivery{TaskID: kept.TaskID, Commit: kept.Commit, Sealed: kept.Sealed})
+	}
+	result.LeftForAdoption = append([]string(nil), verifyResult.Left...)
+	// The run names what it left as it was, apart from what it proved and
+	// what it skipped as verified. Without such tasks the summary is the one
+	// of a feature that declares no delivery proof.
+	apart := ""
+	if kept := len(verifyResult.Kept); kept > 0 {
+		apart += fmt.Sprintf(", %d kept as delivered", kept)
+	}
+	if left := len(verifyResult.Left); left > 0 {
+		apart += fmt.Sprintf(", %d left for adoption", left)
+	}
 	if len(verifyResult.Pruned) > 0 && !verifyResult.Checked {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("pruned %d orphaned evidence entr%s no longer in the plan: %s", len(verifyResult.Pruned), map[bool]string{true: "y", false: "ies"}[len(verifyResult.Pruned) == 1], strings.Join(verifyResult.Pruned, ", ")))
 	}
@@ -125,9 +139,14 @@ func verifyOutputResult(verifyResult workflow.VerifyResult) output.Result {
 		result.NextAction = fmt.Sprintf("Fix the failing proofs and rerun walden verify %s", verifyResult.Feature)
 		result.ExitCode = 1
 	case len(verifyResult.Outcomes) == 0:
-		result.Summary = fmt.Sprintf("nothing to verify for %s: %d completed task(s) already verified%s", verifyResult.Feature, len(verifyResult.Skipped), suffix)
+		result.Summary = fmt.Sprintf("nothing to verify for %s: %d completed task(s) already verified%s%s", verifyResult.Feature, len(verifyResult.Skipped), apart, suffix)
 	default:
-		result.Summary = fmt.Sprintf("verification passed for %s: %d task(s) re-proven, %d skipped as verified%s", verifyResult.Feature, len(verifyResult.Outcomes), len(verifyResult.Skipped), suffix)
+		result.Summary = fmt.Sprintf("verification passed for %s: %d task(s) re-proven, %d skipped as verified%s%s", verifyResult.Feature, len(verifyResult.Outcomes), len(verifyResult.Skipped), apart, suffix)
+	}
+	// A pass that awaits adoption is not proven by this command unless its
+	// task is named: adoption is the step that can keep it.
+	if result.ExitCode == 0 && len(verifyResult.Left) > 0 {
+		result.NextAction = fmt.Sprintf("Review walden adopt %s: it can seal the recorded pass of each task left for adoption", verifyResult.Feature)
 	}
 	return result
 }

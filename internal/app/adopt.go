@@ -103,6 +103,10 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 		for _, entry := range feature.Evidence {
 			view.Evidence = append(view.Evidence, output.EvidenceView(entry))
 		}
+		for _, pass := range feature.SealablePasses {
+			view.SealablePasses = append(view.SealablePasses, output.AdoptionPass{TaskID: pass.TaskID, Commit: pass.Commit})
+		}
+		view.UnsealedPasses = unsealedPassViews(feature.UnsealedPasses)
 		status.Features = append(status.Features, view)
 	}
 
@@ -113,19 +117,40 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 	}
 	applyCommand += " --apply"
 	nextAction := ""
-	if totals.SealableDocs > 0 || totals.ReproveTasks > 0 {
+	if totals.SealableDocs > 0 || totals.ReproveTasks > 0 || totals.SealablePasses > 0 {
 		nextAction = "Review this scope and its trust assumptions before explicitly running " + applyCommand
 	}
 	if totals.Blocked > 0 && nextAction == "" {
 		nextAction = "Resolve the named blockers in this scope; do not automatically reseal or discard historical evidence"
 	}
+	if totals.UnsealedPasses > 0 && nextAction == "" {
+		// Apply would execute nothing for a pass left unsealed.
+		nextAction = "Prove again the task of each pass left unsealed with the walden verify command its entry names"
+	}
+	// The passes are named in the summary only when the scope holds some, so
+	// a portfolio without delivery proofs is summarized as before.
+	passes := ""
+	if totals.SealablePasses > 0 {
+		passes += fmt.Sprintf(", %d recorded pass(es) to seal", totals.SealablePasses)
+	}
+	if totals.UnsealedPasses > 0 {
+		passes += fmt.Sprintf(", %d recorded pass(es) left unsealed", totals.UnsealedPasses)
+	}
 	return output.Result{
-		Summary: fmt.Sprintf("ADOPTION PLAN — %d backfill, %d re-prove, %d complete, %d blocked (%d doc(s) to seal, %d task(s) to re-prove)",
-			totals.Backfill, totals.Reprove, totals.Complete, totals.Blocked, totals.SealableDocs, totals.ReproveTasks),
+		Summary: fmt.Sprintf("ADOPTION PLAN — %d backfill, %d re-prove, %d complete, %d blocked (%d doc(s) to seal, %d task(s) to re-prove%s)",
+			totals.Backfill, totals.Reprove, totals.Complete, totals.Blocked, totals.SealableDocs, totals.ReproveTasks, passes),
 		Adoption:   status,
 		NextAction: nextAction,
 		ExitCode:   0,
 	}
+}
+
+func unsealedPassViews(passes []adopt.UnsealedPass) []output.AdoptionUnsealedPass {
+	var views []output.AdoptionUnsealedPass
+	for _, pass := range passes {
+		views = append(views, output.AdoptionUnsealedPass{TaskID: pass.TaskID, Reason: pass.Reason, Detail: pass.Detail})
+	}
+	return views
 }
 
 func adoptionWorkload(work adopt.Workload) *output.AdoptionWorkload {
@@ -168,6 +193,10 @@ func adoptApplyResult(report adopt.ApplyReport) output.Result {
 		for _, outcome := range feature.Outcomes {
 			view.Evidence = append(view.Evidence, verificationOutcomeView(outcome))
 		}
+		for _, pass := range feature.SealedPasses {
+			view.SealedPasses = append(view.SealedPasses, output.AdoptionPass{TaskID: pass.TaskID, Commit: pass.Commit})
+		}
+		view.UnsealedPasses = unsealedPassViews(feature.UnsealedPasses)
 		for _, warning := range feature.Warnings {
 			warnings = append(warnings, feature.Name+": "+warning)
 		}
@@ -175,12 +204,26 @@ func adoptApplyResult(report adopt.ApplyReport) output.Result {
 	}
 
 	totals := report.Totals
+	// The passes are named in the summary only when the run met some, so a
+	// portfolio without delivery proofs is summarized as before.
+	passes := ""
+	if totals.SealedPasses > 0 {
+		passes += fmt.Sprintf(", sealed %d recorded pass(es)", totals.SealedPasses)
+	}
+	if totals.UnsealedPasses > 0 {
+		passes += fmt.Sprintf(", %d recorded pass(es) left unsealed", totals.UnsealedPasses)
+	}
 	result := output.Result{
-		Summary: fmt.Sprintf("ADOPTION — sealed %d doc(s), verified %d, failed %d, skipped %d, blocked %d, errors %d",
-			totals.SealedDocs, totals.Verified, totals.Failed, totals.Skipped, totals.Blocked, totals.Errors),
+		Summary: fmt.Sprintf("ADOPTION — sealed %d doc(s), verified %d, failed %d, skipped %d, blocked %d, errors %d%s",
+			totals.SealedDocs, totals.Verified, totals.Failed, totals.Skipped, totals.Blocked, totals.Errors, passes),
 		Adoption: status,
 		Warnings: warnings,
 		ExitCode: 0,
+	}
+	// A pass left unsealed is no failed execution and does not change the
+	// exit status: the run names it, with the command that proves its task.
+	if totals.UnsealedPasses > 0 {
+		result.NextAction = "Prove again the task of each pass left unsealed with the walden verify command its entry names"
 	}
 	if totals.Failed > 0 || totals.Errors > 0 || totals.Blocked > 0 {
 		retry := "walden adopt"

@@ -11,8 +11,15 @@ import (
 )
 
 // SchemaVersion identifies the evidence document format, versioned
-// independently from the CLI output contract.
+// independently from the CLI output contract. It is the format of a ledger
+// in which no record holds an attestation.
 const SchemaVersion = "v1alpha2"
+
+// AttestedSchemaVersion is the format of a ledger in which at least one
+// record holds an attestation. Releases before proof kinds refuse it, naming
+// the version: they would otherwise prove a delivery again, as a regression,
+// and replace its attestation with a failure.
+const AttestedSchemaVersion = "v1alpha3"
 
 const (
 	Guarantee        = "walden/evidence-integrity/v2"
@@ -98,6 +105,27 @@ type Record struct {
 	Steps                   []StepResult    `json:"steps"`
 	Result                  string          `json:"result"`
 	VerifiedAt              string          `json:"verified_at"`
+	// Attestation is present when the recorded pass of a delivery proof ran
+	// on the tree of a commit. It is a fact of its own: it reads none of the
+	// diagnostic facts above, and nothing else in the record reads it.
+	Attestation *Attestation `json:"attestation,omitempty"`
+}
+
+// Attestation says that the recorded pass ran on the tree of Commit: the code
+// identity of the record is the identity of that tree. An execution writes it
+// from its own capture; adoption writes it, sealed, after finding the commit.
+// It carries the definition and the statements it attests, because sealing
+// adds it to a record and changes nothing else there: a sealed record stays
+// bound to the definition without the declaration and may keep no statement
+// fingerprints of its own.
+type Attestation struct {
+	Commit string `json:"commit"`
+	// TaskFingerprint is the fingerprint of the definition that was attested.
+	TaskFingerprint string `json:"task_fingerprint"`
+	// Statements are the statements the task named, as they read then.
+	Statements StatementFacts `json:"statements"`
+	// Sealed marks an attestation written by adoption, not by an execution.
+	Sealed bool `json:"sealed,omitempty"`
 }
 
 // DiffProfile compares a recorded profile against the current one, sorted by

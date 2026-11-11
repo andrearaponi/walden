@@ -23,6 +23,11 @@ type FeatureAdoption struct {
 	Warnings          []string
 	EvidencePersisted *bool
 	Elapsed           *time.Duration
+	// SealedPasses are the recorded passes of delivery tasks this run sealed
+	// as attestations, without executing their proofs; UnsealedPasses those
+	// it left as they were.
+	SealedPasses   []PassToSeal
+	UnsealedPasses []UnsealedPass
 }
 
 // ApplyTotals aggregates the run.
@@ -33,6 +38,10 @@ type ApplyTotals struct {
 	Skipped    int
 	Blocked    int
 	Errors     int
+	// SealedPasses and UnsealedPasses count the recorded passes of delivery
+	// tasks the run sealed and left unsealed.
+	SealedPasses   int
+	UnsealedPasses int
 }
 
 // ApplyReport is the outcome of an adoption run.
@@ -77,7 +86,9 @@ func ApplyWithOptions(ctx context.Context, root, featureName string, runner shel
 		elapsed := now().Sub(started)
 		report.Elapsed = &elapsed
 	}()
-	plan, err := Plan(ctx, root, featureName)
+	// One search serves the plan and the sealing of every feature.
+	search := evidence.NewTreeSearch(gitRunner, root, evidence.SealSearchLimit)
+	plan, err := planWith(ctx, root, featureName, search)
 	if err != nil {
 		return ApplyReport{}, err
 	}
@@ -113,6 +124,20 @@ func ApplyWithOptions(ctx context.Context, root, featureName string, runner shel
 					finishFeature()
 					continue
 				}
+			}
+
+			// The recorded passes of delivery tasks are sealed before the
+			// verify run, which then keeps the sealed tasks and leaves the
+			// unsealed ones: neither proof is executed.
+			sealedPasses, unsealedPasses, passErr := sealPasses(ctx, root, featurePlan.Name, search)
+			adoption.SealedPasses, adoption.UnsealedPasses = sealedPasses, unsealedPasses
+			report.Totals.SealedPasses += len(sealedPasses)
+			report.Totals.UnsealedPasses += len(unsealedPasses)
+			if passErr != nil {
+				report.Totals.Errors++
+				adoption.Error = passErr.Error()
+				finishFeature()
+				continue
 			}
 
 			observation := workflow.VerifyOptions{Now: now}

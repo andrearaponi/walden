@@ -32,6 +32,9 @@ type FeatureCertification struct {
 	Criteria []CriterionResult
 	Pending  []string
 	Evidence []evidence.TaskEvidence
+	// DeliveryOnly lists the statements that only delivery proofs cover: once
+	// their tasks are delivered, nothing proves them again.
+	DeliveryOnly []string
 }
 
 // Options are the certification policy knobs. The zero value is the default
@@ -283,6 +286,9 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 	evidenceCriterion := CriterionResult{Name: "evidence"}
 	if loadErr == nil {
 		if tree, err := spec.ParseTaskTree(feature.Tasks); err == nil {
+			// What a verdict that counts deliveries did not prove again is
+			// part of the verdict, whatever the state of the tasks.
+			certification.DeliveryOnly = spec.DeliveryOnlyStatements(tree)
 			ledger := snapshot.Ledger
 			if snapshot.LedgerErr != nil {
 				evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("%v — retain the ledger and inspect it with a compatible reader", snapshot.LedgerErr))
@@ -293,6 +299,11 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 					certification.Evidence = append(certification.Evidence, derived)
 					switch derived.State {
 					case evidence.StateVerified:
+					case evidence.StateDelivered:
+						// A delivered task satisfies the criterion: its proof
+						// attested a delivery on a commit and is not expected
+						// to pass on later code. The report names it with that
+						// commit, never as verified.
 					case evidence.StatePending:
 						certification.Pending = append(certification.Pending, derived.TaskID)
 						// The flip: an unexecuted plan blocks certification

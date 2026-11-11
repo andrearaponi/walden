@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/andrearaponi/walden/internal/evidence"
 	"github.com/andrearaponi/walden/internal/output"
 	"github.com/andrearaponi/walden/internal/release"
 )
@@ -99,14 +100,18 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 		status.Worktree.Inputs = append(status.Worktree.Inputs, output.ReleaseInput{Path: input.Path, State: input.State, Detail: input.Detail})
 	}
 	result := output.Result{ExitCode: 0}
-	pendingTotal := 0
+	pendingTotal, deliveredTotal := 0, 0
 	for _, feature := range report.Features {
 		view := output.ReleaseFeature{
-			Feature: feature.Feature,
-			Pending: append([]string(nil), feature.Pending...),
+			Feature:      feature.Feature,
+			Pending:      append([]string(nil), feature.Pending...),
+			DeliveryOnly: append([]string(nil), feature.DeliveryOnly...),
 		}
 		for _, entry := range feature.Evidence {
 			view.Evidence = append(view.Evidence, output.EvidenceView(entry))
+			if entry.State == evidence.StateDelivered {
+				deliveredTotal++
+			}
 		}
 		pendingTotal += len(feature.Pending)
 		for _, criterion := range feature.Criteria {
@@ -145,6 +150,11 @@ func releaseCheckResult(report release.ReleaseReport) output.Result {
 			result.Summary += fmt.Sprintf(", %d task(s) waived (reason: %s)", pendingTotal, report.WaiverReason)
 		} else if pendingTotal > 0 {
 			result.Summary += fmt.Sprintf(", %d task(s) still planned", pendingTotal)
+		}
+		// A verdict that counts deliveries says how many tasks it accepted
+		// without proving them again.
+		if deliveredTotal > 0 {
+			result.Summary += fmt.Sprintf(", %d delivered task(s) not proven again", deliveredTotal)
 		}
 		if report.CertifiedCommit != "" {
 			short := report.CertifiedCommit

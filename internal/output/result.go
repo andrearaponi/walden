@@ -38,6 +38,12 @@ type Result struct {
 	EARSDistribution      *EARSDistribution   `json:"ears_distribution,omitempty"`
 	Features              []FeatureValidation `json:"features,omitempty"`
 	Evidence              []EvidenceStatus    `json:"evidence,omitempty"`
+	// Kept lists the delivered tasks a verify run did not prove again, with
+	// the commit each was attested on.
+	Kept []KeptDelivery `json:"kept,omitempty"`
+	// LeftForAdoption lists the tasks whose recorded pass awaits adoption: a
+	// verify run that names no task leaves their proofs alone.
+	LeftForAdoption []string `json:"left_for_adoption,omitempty"`
 	// CurrentTree is what the current code identity is made of: the commit
 	// and the paths that differ from it. Only `evidence status` sets it.
 	CurrentTree   *evidence.CurrentTree `json:"current_tree,omitempty"`
@@ -49,6 +55,13 @@ type Result struct {
 	Consolidation *ConsolidationStatus  `json:"consolidation,omitempty"`
 	Content       string                `json:"content,omitempty"`
 	ExitCode      int                   `json:"exit_code"`
+}
+
+// KeptDelivery is a delivered task a verify run kept as it was.
+type KeptDelivery struct {
+	TaskID string `json:"task_id"`
+	Commit string `json:"commit"`
+	Sealed bool   `json:"sealed"`
 }
 
 // FeatureValidation is one feature's verdict in a portfolio validation run.
@@ -76,6 +89,8 @@ type ReleaseFeature struct {
 	Criteria []ReleaseCriterion `json:"criteria"`
 	Pending  []string           `json:"pending,omitempty"`
 	Evidence []EvidenceStatus   `json:"evidence,omitempty"`
+	// DeliveryOnly lists the statements that only delivery proofs cover.
+	DeliveryOnly []string `json:"delivery_only,omitempty"`
 }
 
 // ReleaseCriterion is a single certification criterion's verdict.
@@ -146,6 +161,26 @@ type AdoptionFeature struct {
 	Failed            []string          `json:"failed,omitempty"`
 	Skipped           int               `json:"skipped,omitempty"`
 	Reason            string            `json:"reason,omitempty"`
+	// SealablePasses are the recorded passes of delivery tasks the plan can
+	// seal as attestations; SealedPasses those an apply run sealed, without
+	// executing their proofs; UnsealedPasses those left as they were, each
+	// with its reason and what proves its task again.
+	SealablePasses []AdoptionPass         `json:"sealable_passes,omitempty"`
+	SealedPasses   []AdoptionPass         `json:"sealed_passes,omitempty"`
+	UnsealedPasses []AdoptionUnsealedPass `json:"unsealed_passes,omitempty"`
+}
+
+// AdoptionPass is a recorded pass with the commit that holds its tree.
+type AdoptionPass struct {
+	TaskID string `json:"task_id"`
+	Commit string `json:"commit"`
+}
+
+// AdoptionUnsealedPass is a recorded pass adoption leaves unsealed.
+type AdoptionUnsealedPass struct {
+	TaskID string `json:"task_id"`
+	Reason string `json:"reason"`
+	Detail string `json:"detail"`
 }
 
 // EvidenceStatus is the JSON output view of one task's execution evidence.
@@ -171,6 +206,16 @@ type EvidenceStatus struct {
 	// of its steps, a measurement and never an estimate. elapsed_ms is the
 	// duration of a current attempt and stays a different field.
 	RecordedDurationMS *int64 `json:"recorded_duration_ms,omitempty"`
+	// Delivery marks a task whose proof the plan declares as a delivery
+	// proof.
+	Delivery bool `json:"delivery,omitempty"`
+	// Attestation holds the commit a delivered task was attested on, and
+	// whether adoption sealed the attestation. It is present when the state
+	// is delivered.
+	Attestation *evidence.AttestedCommit `json:"attestation,omitempty"`
+	// AwaitsAdoption marks a pass recorded before the plan declared the
+	// delivery: walden adopt can seal it.
+	AwaitsAdoption bool `json:"awaits_adoption,omitempty"`
 }
 
 // ProfileDriftEntry is one differing execution-profile entry: the recorded
@@ -238,7 +283,10 @@ type TaskStatus struct {
 	ParentID     string   `json:"parent_id,omitempty"`
 	Requirements []string `json:"requirements,omitempty"`
 	DesignRefs   []string `json:"design_refs,omitempty"`
-	Verification string   `json:"verification,omitempty"`
+	// Proof is the proof kind the task declares, "delivery", and is absent
+	// for a task that declares none: its proof is a regression proof.
+	Proof        string `json:"proof,omitempty"`
+	Verification string `json:"verification,omitempty"`
 }
 
 // PrintText renders a compact human-readable result summary.
@@ -336,6 +384,9 @@ func PrintText(w io.Writer, result Result) {
 		if len(result.Task.DesignRefs) > 0 {
 			_, _ = fmt.Fprintf(w, "Task design refs: %s\n", strings.Join(result.Task.DesignRefs, ", "))
 		}
+		if result.Task.Proof != "" {
+			_, _ = fmt.Fprintf(w, "Task proof: %s\n", result.Task.Proof)
+		}
 		if result.Task.Verification != "" {
 			_, _ = fmt.Fprintf(w, "Task verification: %s\n", result.Task.Verification)
 		}
@@ -357,6 +408,25 @@ func PrintText(w io.Writer, result Result) {
 	if len(result.Evidence) > 0 {
 		_, _ = fmt.Fprintln(w, "Evidence:")
 		printEvidence(w, result.Evidence, "")
+	}
+
+	if len(result.Kept) > 0 {
+		kept := make([]string, 0, len(result.Kept))
+		for _, task := range result.Kept {
+			entry := task.TaskID + " at " + task.Commit
+			if task.Sealed {
+				entry += " (sealed by adoption)"
+			}
+			kept = append(kept, entry)
+		}
+		_, _ = fmt.Fprintf(w, "Kept as delivered: %s\n", strings.Join(kept, ", "))
+	}
+	if len(result.LeftForAdoption) > 0 {
+		_, _ = fmt.Fprintf(w, "Left for adoption: %s", strings.Join(result.LeftForAdoption, ", "))
+		if result.Scope != nil && result.Scope.NamedFeature() != "" {
+			_, _ = fmt.Fprintf(w, " — walden adopt %s", result.Scope.NamedFeature())
+		}
+		_, _ = fmt.Fprintln(w)
 	}
 
 	if result.Update != nil {
@@ -381,10 +451,17 @@ func PrintText(w io.Writer, result Result) {
 		}
 		for _, feature := range result.Adoption.Features {
 			_, _ = fmt.Fprintf(w, "- %s: %s", feature.Feature, feature.Class)
+			var work []string
 			if len(feature.SealableDocs) > 0 {
-				_, _ = fmt.Fprintf(w, " (%d doc(s) to seal, %d task(s) to re-prove)", len(feature.SealableDocs), feature.ReproveCount)
+				work = append(work, fmt.Sprintf("%d doc(s) to seal, %d task(s) to re-prove", len(feature.SealableDocs), feature.ReproveCount))
 			} else if !result.Adoption.Apply && feature.ReproveCount > 0 {
-				_, _ = fmt.Fprintf(w, " (%d task(s) to re-prove)", feature.ReproveCount)
+				work = append(work, fmt.Sprintf("%d task(s) to re-prove", feature.ReproveCount))
+			}
+			if len(feature.SealablePasses) > 0 {
+				work = append(work, fmt.Sprintf("%d recorded pass(es) to seal", len(feature.SealablePasses)))
+			}
+			if len(work) > 0 {
+				_, _ = fmt.Fprintf(w, " (%s)", strings.Join(work, ", "))
 			}
 			if len(feature.SealedDocs) > 0 {
 				_, _ = fmt.Fprintf(w, " sealed=%d", len(feature.SealedDocs))
@@ -408,6 +485,15 @@ func PrintText(w io.Writer, result Result) {
 			}
 			if feature.EvidencePersisted != nil && !*feature.EvidencePersisted {
 				_, _ = fmt.Fprintln(w, "  evidence not persisted; task results describe this attempt only")
+			}
+			for _, pass := range feature.SealablePasses {
+				_, _ = fmt.Fprintf(w, "  seal %s at %s\n", pass.TaskID, pass.Commit)
+			}
+			for _, pass := range feature.SealedPasses {
+				_, _ = fmt.Fprintf(w, "  sealed %s at %s\n", pass.TaskID, pass.Commit)
+			}
+			for _, pass := range feature.UnsealedPasses {
+				_, _ = fmt.Fprintf(w, "  unsealed %s (%s): %s\n", pass.TaskID, pass.Reason, pass.Detail)
 			}
 			printEvidenceWithRunDetails(w, feature.Evidence, "  ", result.Adoption.Apply)
 		}
@@ -435,6 +521,9 @@ func PrintText(w io.Writer, result Result) {
 			}
 			_, _ = fmt.Fprintln(w)
 			printEvidence(w, feature.Evidence, "  ")
+			if len(feature.DeliveryOnly) > 0 {
+				_, _ = fmt.Fprintf(w, "  only delivery proofs cover: %s\n", strings.Join(feature.DeliveryOnly, ", "))
+			}
 		}
 		switch {
 		case result.Release.Worktree.GitSkipped:

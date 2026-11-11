@@ -89,6 +89,15 @@ func CaptureTree(ctx context.Context, runner shell.Runner, root string) (Capture
 	return capture, true
 }
 
+// Committed reports that the working tree holds what its commit holds: the
+// capture names a commit and no path outside .walden/ differs from it. It is
+// what "no uncommitted path" means for an attestation, in the terms of the
+// code identity: a path differs exactly when it moves the digest, so the
+// identity of a committed capture is the identity of the tree of its commit.
+func (c Capture) Committed() bool {
+	return c.Commit != "" && len(c.Differing) == 0
+}
+
 // Current describes what the captured identity is made of: the commit it
 // rests on and each path that differs from it, in path order, as changed,
 // added or removed, with the untracked ones marked. In a repository without

@@ -300,22 +300,30 @@ var commandRegistry = []commandSpec{
 			"Refused, running nothing, with --all, when repeated or empty, or for an id that is not a completed leaf task.",
 			"It proves nothing about the feature: release check still judges every task, so finish with walden verify <feature>.",
 			emptyRunDetail,
+			"A delivered task is not proven again, with or without --all, and --task refuses it.",
+			"On a tree without uncommitted changes outside .walden/, a run without --task also proves each completed delivery task that holds neither an attestation nor a pass that awaits adoption, and a pass attests it.",
+			"A recorded pass that awaits adoption, recorded before the plan declared the delivery, is left for walden adopt <feature>; only --task proves its task again.",
 		},
 		BoolFlags: []flagSpec{
-			{Name: "--all", Description: "Re-prove every completed task, not just stale ones"},
+			{Name: "--all", Description: "Re-prove every completed task, not just stale ones, except delivered tasks and passes that await adoption"},
 			{Name: "--check", Description: "Report without persisting evidence"},
 			jsonFlag,
 		},
 		ValueFlags: []flagSpec{
-			{Name: "--task", Description: "Re-prove one completed task, whatever its state", Placeholder: "<id>"},
+			{Name: "--task", Description: "Re-prove one completed task, whatever its state, unless it is delivered", Placeholder: "<id>"},
 		},
 	},
 	{
 		Path:    "adopt",
 		Syntax:  "adopt [<feature>] [--apply] [--json]",
 		Summary: "Plan or apply brownfield adoption: seal recorded approvals, re-prove unrecorded work",
+		Details: []string{
+			"--apply seals as an attestation the recorded pass of a completed delivery task, without executing its proof, when the pass was recorded before the plan declared the delivery; the plan names each pass it can seal with the commit that holds its tree.",
+			"A pass is left unsealed when its execution provenance is not supported or its proof differs from the approved one in more than the declaration: --apply proves its task again.",
+			"A pass is also left unsealed when no commit among the last 200 reachable from HEAD holds its tree, or when its statements cannot be shown to read as they did: the pass stays, and walden verify <feature> --task <id> proves its task again.",
+		},
 		BoolFlags: []flagSpec{
-			{Name: "--apply", Description: "Execute the plan: seal absent fingerprints and re-prove evidence"},
+			{Name: "--apply", Description: "Execute the plan: seal absent fingerprints and recorded delivery passes, re-prove evidence"},
 			jsonFlag,
 		},
 	},
@@ -335,6 +343,7 @@ var commandRegistry = []commandSpec{
 					"Under a task whose record keeps step durations: how long that recorded execution took.",
 					"An explanation is exact or withheld: when a record lacks a fact, names a commit that is not in this repository, or keeps facts that do not rebuild its code identity, the report says so and names no path or statement. Re-proving the task writes a record with the facts available then.",
 					"Text lists show the first 10 items and the number omitted; --json carries them whole.",
+					"A delivered task is reported with the commit it was attested on, marked when adoption sealed the attestation, and with no explanation of later changes; a completed delivery task without an attestation says why its recorded pass is not one and what attests it.",
 				},
 				BoolFlags: []flagSpec{jsonFlag},
 			},
@@ -349,6 +358,10 @@ var commandRegistry = []commandSpec{
 				Path:    "release check",
 				Syntax:  "release check [<feature>] [--strict] [--allow-pending --reason <text>] [--json]",
 				Summary: "Certify the repository (or one feature) as releasable: chain, validation, decisions, evidence, worktree",
+				Details: []string{
+					"A delivered task satisfies the evidence criterion without being proven again: the verdict lists it with the commit it was attested on, and a releasable verdict states the number of delivered tasks in its summary.",
+					"For each feature the verdict lists the statements that only delivery proofs cover.",
+				},
 				BoolFlags: []flagSpec{
 					{Name: "--strict", Description: "Also require committed .walden/ state (final certification)"},
 					{Name: "--allow-pending", Description: "Waive pending tasks for this verdict; requires --reason"},

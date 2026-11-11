@@ -31,6 +31,22 @@ var approvedGuideDelta = []guideReplacement{
 	// Approved separately, for CLI v0.14.2: no evaluation measured this row.
 	{Old: "| `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |",
 		New: "| `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |\n| `walden verify <feature> --task <id>` | On CLI v0.14.2 or newer, re-prove one completed leaf task after a targeted repair; `release check` still judges every task, so finish with `walden verify <feature>`. |"},
+	// Approved with the plan that introduced delivery proofs: no evaluation
+	// measured these three changes. The guide names no version for them: the
+	// help of the installed CLI says whether it knows delivery proofs.
+	{Old: "Do not retrofit approved proofs outside an authorized revision and re-review cycle.",
+		New: "Do not retrofit approved proofs outside an authorized revision and re-review cycle.\n\n" +
+			"A proof that describes a delivery, not a behavior, was true when the work shipped and is not expected to hold forever: a version string in a document, a file that a one-time bootstrap task created. " +
+			"Where `walden verify --help` describes delivered tasks, a leaf can declare the metadata line `- Proof: delivery`, at the indentation of `Requirements:`; an earlier CLI skips the line and judges the proof as a regression. " +
+			"Once its proof passes on a committed tree, usually at the first `walden verify` after the work is committed, the task reads `delivered` and is not proven again. " +
+			"Declare it only for a fact about what shipped. " +
+			"A check that must keep holding gets a regression leaf of its own, and the declaration is never a way to silence a failing regression proof. " +
+			"It is a plan change that the user approves through the task-plan review: propose it, never add it on your own. " +
+			"After a declaration on a completed task, its recorded pass goes through `walden adopt <feature>` before any `walden verify`: the plan says whether apply can seal the pass without running the proof, and a run that proves the task again replaces the pass, with a failure when the delivered text has moved on."},
+	{Old: "Evidence states are derived: `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, and `pending`.",
+		New: "Evidence states are derived: `verified`, `delivered`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, and `pending`. `delivered` means that a delivery proof passed on the tree of the commit the report names: no run proves it again, with or without `--all`, and it is never `verified`."},
+	{Old: "New `v1alpha2` ledgers can contain untouched legacy records; use a compatible CLI and never delete or downgrade evidence to satisfy an old reader.",
+		New: "New `v1alpha2` ledgers can contain untouched legacy records, and a ledger that holds the attestation of a delivery proof is written as `v1alpha3`, which earlier CLIs refuse; use a compatible CLI and never delete or downgrade evidence to satisfy an old reader."},
 }
 
 // applyGuideDelta applies the replacements, or reverts them, requiring each

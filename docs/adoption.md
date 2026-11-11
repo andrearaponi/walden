@@ -26,8 +26,8 @@ The read-only plan reports technical classes and per-task evidence assessments:
 
 | Class | Meaning | What an authorized apply would do |
 | --- | --- | --- |
-| `backfill` | Recorded approvals lack fingerprints | Seal eligible current bodies, then re-prove applicable completed work in this scope. |
-| `re-prove` | Completed work lacks the requested current assurance | Run its needed proofs through verify. |
+| `backfill` | Recorded approvals lack fingerprints, or a recorded delivery pass can be sealed | Seal eligible current bodies and passes, then re-prove applicable completed work in this scope. |
+| `re-prove` | Completed work lacks the requested current assurance, or a recorded delivery pass is left unsealed | Run its needed proofs through verify. A pass left unsealed may stay as recorded: see [Seal recorded delivery passes](#seal-recorded-delivery-passes). |
 | `complete` | Nothing to adopt | Nothing; this is not a claim that every planned task is implemented. |
 | `blocked` | A present contradiction, incompatible plan, or unreadable ledger prevents adoption | Preserve it and report the specific blocker. |
 
@@ -73,6 +73,30 @@ Failures, blocked selections and apply errors produce exit `1`, with the per-fea
 
 A full strong certificate over a legacy portfolio may still require new executions. Avoiding automatic replay does not manufacture missing facts or exempt unknown features from an unqualified portfolio claim. History lookup has a current-body fast path and per-invocation reuse; its cost depends on available history, while apply costs what the selected proofs cost.
 
+## Seal recorded delivery passes
+
+A plan written before delivery proofs existed often holds proofs that describe a delivery: a version string in a document, a file that a bootstrap task created. They passed when the work shipped and are not expected to pass forever. Once the plan declares such a leaf with `- Proof: delivery` and is approved again, the pass its record already holds is the fact worth keeping: running the proof again would at best repeat it and at worst replace it with a failure. So `walden verify` leaves that pass alone unless `--task` names its task, and adoption can seal it:
+
+```bash
+walden adopt user-auth          # names each pass it can seal, with its commit
+walden adopt user-auth --apply  # seals them, without executing their proofs
+```
+
+Apply seals a pass as an attestation when four checks hold. They run in this order, and the first that fails leaves the pass unsealed with its reason:
+
+| Reason | Meaning | What proves the task again |
+| --- | --- | --- |
+| `no-provenance` | The execution provenance of the pass is not supported. | Apply, as for any task that is not verified. |
+| `proof-changed` | The recorded proof differs from the approved one in more than the declaration. | Apply, as above. |
+| `statements-unknown` | It cannot be established that the statements the task names read as they did at the pass. | `walden verify <feature> --task <id>` |
+| `no-commit` | No commit among the last 200 reachable from `HEAD` holds the tree the pass ran on. | `walden verify <feature> --task <id>` |
+
+The search compares code identities, most recent commit first. The pass need not have run on a committed tree: what counts is that a commit holds exactly the tree it ran on, `.walden/` aside, as when the work was committed right after `task complete`. No commit is found when the tree changed before it was committed, when the history was rewritten or when the commit lies beyond the limit.
+
+Sealing adds the attestation to the record and changes nothing else in it: the result, the steps, the date and the execution facts stay as they were written. The task then reads `delivered`, marked as sealed by adoption wherever it is reported. Sealing adds no observation of its own. It rests on what the record already says, a pass of that proof on that tree, and nothing shows that the proof would pass today. That is what a delivery proof means, and the reason to declare one only for a fact about what shipped: see [Delivery proofs](lifecycle.md#delivery-proofs).
+
+The order matters. After declaring a delivery on a completed task, review `walden adopt` before any `walden verify`. A pass left unsealed for `statements-unknown` or `no-commit` stays as recorded, and only `walden verify <feature> --task <id>` proves its task again, replacing the pass with what the proof gives now. A pass recorded after the declaration is not adoption's concern: the first `walden verify` on a tree without uncommitted changes attests it.
+
 ## Read an apply result
 
 Text mode reports each selected task before its proof starts and its accepted execution or rejection afterward, with measured elapsed time. It keeps the feature name and position, so progress remains attributable even in a large portfolio. JSON mode emits one final envelope, without progress text on stdout.
@@ -87,9 +111,9 @@ There is no automatic log capture or timing history. The ledger does not gain ra
 
 ## Format compatibility
 
-New records use ledger schema `v1alpha2`, with an explicit task-fingerprint scheme and completion/verify provenance. The reader still accepts `v1alpha1` and older missing-version ledgers. A new container may hold untouched legacy records; merely loading it or changing its container version does not promote them to trusted evidence.
+New records use ledger schema `v1alpha2`, with an explicit task-fingerprint scheme and completion/verify provenance. A ledger that holds an attestation is written as `v1alpha3`. The reader still accepts `v1alpha1` and older missing-version ledgers. A new container may hold untouched legacy records; merely loading it or changing its container version does not promote them to trusted evidence.
 
-Older binaries reject `v1alpha2`. Use a compatible reader; **do not delete or downgrade the ledger to satisfy an older binary**. Preserve an unreadable file for diagnosis or restore a justified known-good artifact. Unchanged document approvals and document schema `v1alpha1` do not need to change solely for this evidence upgrade.
+Older binaries reject `v1alpha2`, and releases before delivery proofs reject `v1alpha3`. Use a compatible reader; **do not delete or downgrade the ledger to satisfy an older binary**. Preserve an unreadable file for diagnosis or restore a justified known-good artifact. Unchanged document approvals and document schema `v1alpha1` do not need to change solely for this evidence upgrade.
 
 ## Retirement
 

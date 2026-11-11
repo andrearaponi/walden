@@ -1,0 +1,28 @@
+{
+  "schema_version": "v0beta1",
+  "command": "task-status",
+  "ok": true,
+  "result": {
+    "summary": "execution readiness for states",
+    "changed_files": null,
+    "skipped_files": null,
+    "current_phase": "tasks",
+    "task": {
+      "id": "1.7",
+      "title": "Stays pending",
+      "parent_id": "1",
+      "requirements": [
+        "R1.AC7"
+      ],
+      "design_refs": [
+        "Architecture"
+      ],
+      "verification": "command [\"sh\",\"-c\",\"test 7 -eq 7\"]"
+    },
+    "next_action": "Start task 1.7",
+    "warnings": [
+      "evidence: 5 completed task(s) not verified — 1.2 (stale-code): recorded and current code identities differ, 1.3 (stale-spec): recorded and current code identities differ; recorded task contract differs from the current definition, 1.4 (failed): recorded proof outcome is not passed, 1.5 (unattested): legacy record has no producer/purity attestation; binding recovery cannot supply it, 1.6 (unrecorded): ; inspect scope/gaps with `walden adopt states`, then request applicable proofs with `walden verify states`"
+    ],
+    "exit_code": 0
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "schema_version": "v0beta1",
+  "command": "evidence-status",
+  "ok": true,
+  "result": {
+    "summary": "evidence status for states: 1 verified, 1 failed, 1 stale-spec, 1 stale-code, 1 unattested, 1 unrecorded, 1 pending",
+    "changed_files": null,
+    "skipped_files": null,
+    "next_action": "Review selected scope and legacy assurance gaps with walden adopt states before requesting proof execution",
+    "warnings": null,
+    "evidence": [
+      {
+        "task_id": "1.1",
+        "state": "verified",
+        "passed": true,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:6311a978a5fff3b71df6c92f181736bcbecc58a57190650c330f2dcd55559db5"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "verify",
+            "policy": "verify-purity/v1",
+            "assertion_result": "passed",
+            "integrity": "pure",
+            "before_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+            "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+          }
+        },
+        "recorded_duration_ms": 2
+      },
+      {
+        "task_id": "1.2",
+        "state": "stale-code",
+        "passed": true,
+        "recorded_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:a9106e3a371f6ae6000dc1bcbdbcef03f3e22a63f15c38d500393d424403f289"
+        },
+        "code_freshness": "stale",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "complete",
+            "policy": "completion-post-state/v1",
+            "assertion_result": "passed",
+            "integrity": "post-state",
+            "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+          }
+        },
+        "gaps": [
+          {
+            "kind": "code-stale",
+            "message": "recorded and current code identities differ"
+          }
+        ],
+        "explanation": {
+          "code": {
+            "recorded_commit": "d35c8d3d9c0893dc4f28231424e2842c7087870a",
+            "paths": [
+              {
+                "path": "code/app.txt",
+                "kind": "changed"
+              }
+            ]
+          }
+        },
+        "recorded_duration_ms": 3
+      },
+      {
+        "task_id": "1.3",
+        "state": "stale-spec",
+        "passed": true,
+        "recorded_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "changed",
+          "source": "current-scheme",
+          "detail": "recorded task contract differs from the current definition"
+        },
+        "code_freshness": "stale",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "complete",
+            "policy": "completion-post-state/v1",
+            "assertion_result": "passed",
+            "integrity": "post-state",
+            "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+          }
+        },
+        "gaps": [
+          {
+            "kind": "code-stale",
+            "message": "recorded and current code identities differ"
+          },
+          {
+            "kind": "binding-changed",
+            "message": "recorded task contract differs from the current definition"
+          }
+        ],
+        "explanation": {
+          "code": {
+            "recorded_commit": "d35c8d3d9c0893dc4f28231424e2842c7087870a",
+            "paths": [
+              {
+                "path": "code/app.txt",
+                "kind": "changed"
+              }
+            ]
+          },
+          "spec": {
+            "approvals": [
+              "task"
+            ]
+          }
+        },
+        "recorded_duration_ms": 3
+      },
+      {
+        "task_id": "1.4",
+        "state": "failed",
+        "passed": false,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:94eb107f38ddef9cdfe56548c5e87f243789ade08c0ade9a9f64fcfc48cca61e"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "verify",
+            "policy": "verify-purity/v1",
+            "assertion_result": "failed",
+            "integrity": "pure",
+            "before_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+            "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+          }
+        },
+        "gaps": [
+          {
+            "kind": "proof-failed",
+            "message": "recorded proof outcome is not passed"
+          }
+        ],
+        "recorded_duration_ms": 2
+      },
+      {
+        "task_id": "1.5",
+        "state": "unattested",
+        "passed": true,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:fca3c6709c60885621acbd9867011cf3db5fd96ed2b449ccad789e2fb0884e3c"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "legacy-unattested",
+          "detail": "legacy record has no producer/purity attestation; binding recovery cannot supply it"
+        },
+        "gaps": [
+          {
+            "kind": "execution-legacy-unattested",
+            "message": "legacy record has no producer/purity attestation; binding recovery cannot supply it"
+          }
+        ],
+        "recorded_duration_ms": 2
+      },
+      {
+        "task_id": "1.6",
+        "state": "unrecorded",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+      },
+      {
+        "task_id": "1.7",
+        "state": "pending",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+      }
+    ],
+    "current_tree": {
+      "commit": "19654b825a469c540de9990a6d4ed9c96b3653fb"
+    },
+    "exit_code": 0
+  }
+}

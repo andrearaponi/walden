@@ -37,14 +37,22 @@ func FeatureInputs(feature spec.Feature, tree spec.TaskTree) (ChainFingerprints,
 	leafs := make([]LeafTask, 0, len(tree.LeafTasks()))
 	for _, task := range tree.LeafTasks() {
 		plan.Tasks[task.ID] = task
-		leafs = append(leafs, LeafTask{
+		leaf := LeafTask{
 			ID: task.ID, Completed: task.Completed, Fingerprint: spec.TaskDefinitionFingerprint(task), Definition: task,
-		})
+			Delivery: task.Proof.Delivery,
+		}
+		if leaf.Delivery {
+			leaf.Undeclared = spec.UndeclaredTaskDefinitionFingerprint(task)
+		}
+		leafs = append(leafs, leaf)
 	}
 	return ChainFingerprints{
 		Requirements: feature.Requirements.ApprovedFingerprint,
 		Design:       feature.Design.ApprovedFingerprint,
 		Plans:        map[string]PlanWitness{plan.Fingerprint: plan},
+		// The statements come from the body: it is the only place where the
+		// text of a statement lives.
+		Statements: spec.StatementFingerprints(feature.Requirements.Body),
 	}, leafs
 }
 

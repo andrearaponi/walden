@@ -1,0 +1,1 @@
+A second file, so that a code change leaves one path untouched.

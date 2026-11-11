@@ -1,0 +1,386 @@
+{
+  "schema_version": "v0beta1",
+  "command": "release-check",
+  "ok": false,
+  "result": {
+    "summary": "NOT RELEASABLE — 6 blocker(s) [portfolio: states, steady]",
+    "changed_files": null,
+    "skipped_files": null,
+    "completion": "with-pending",
+    "certified_commit": "19654b825a469c540de9990a6d4ed9c96b3653fb",
+    "blockers": [
+      "states: task 1.2 is stale-code: recorded and current code identities differ — inspect walden adopt states; request applicable proofs with walden verify states",
+      "states: task 1.3 is stale-spec: recorded and current code identities differ; recorded task contract differs from the current definition — inspect walden adopt states; request applicable proofs with walden verify states",
+      "states: task 1.4 is failed: recorded proof outcome is not passed — inspect walden adopt states; request applicable proofs with walden verify states",
+      "states: task 1.5 is unattested: legacy record has no producer/purity attestation; binding recovery cannot supply it — inspect walden adopt states; request applicable proofs with walden verify states",
+      "states: task 1.6 is unrecorded:  — inspect walden adopt states; request applicable proofs with walden verify states",
+      "states: task 1.7 is pending — execute it, or waive with --allow-pending --reason"
+    ],
+    "next_action": "Resolve the named blockers and retry walden release check --strict",
+    "warnings": null,
+    "release": {
+      "scope": {
+        "kind": "portfolio",
+        "features": [
+          "states",
+          "steady"
+        ],
+        "guarantee": "walden/evidence-integrity/v2"
+      },
+      "releasable": false,
+      "strict": true,
+      "features": [
+        {
+          "feature": "states",
+          "criteria": [
+            {
+              "name": "chain",
+              "passed": true
+            },
+            {
+              "name": "validation",
+              "passed": true
+            },
+            {
+              "name": "decisions",
+              "passed": true
+            },
+            {
+              "name": "evidence",
+              "passed": false,
+              "blockers": [
+                "task 1.2 is stale-code: recorded and current code identities differ — inspect walden adopt states; request applicable proofs with walden verify states",
+                "task 1.3 is stale-spec: recorded and current code identities differ; recorded task contract differs from the current definition — inspect walden adopt states; request applicable proofs with walden verify states",
+                "task 1.4 is failed: recorded proof outcome is not passed — inspect walden adopt states; request applicable proofs with walden verify states",
+                "task 1.5 is unattested: legacy record has no producer/purity attestation; binding recovery cannot supply it — inspect walden adopt states; request applicable proofs with walden verify states",
+                "task 1.6 is unrecorded:  — inspect walden adopt states; request applicable proofs with walden verify states",
+                "task 1.7 is pending — execute it, or waive with --allow-pending --reason"
+              ]
+            }
+          ],
+          "pending": [
+            "1.7"
+          ],
+          "evidence": [
+            {
+              "task_id": "1.1",
+              "state": "verified",
+              "passed": true,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:6311a978a5fff3b71df6c92f181736bcbecc58a57190650c330f2dcd55559db5"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "verify",
+                  "policy": "verify-purity/v1",
+                  "assertion_result": "passed",
+                  "integrity": "pure",
+                  "before_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+                  "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+                }
+              }
+            },
+            {
+              "task_id": "1.2",
+              "state": "stale-code",
+              "passed": true,
+              "recorded_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:a9106e3a371f6ae6000dc1bcbdbcef03f3e22a63f15c38d500393d424403f289"
+              },
+              "code_freshness": "stale",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "complete",
+                  "policy": "completion-post-state/v1",
+                  "assertion_result": "passed",
+                  "integrity": "post-state",
+                  "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+                }
+              },
+              "gaps": [
+                {
+                  "kind": "code-stale",
+                  "message": "recorded and current code identities differ"
+                }
+              ]
+            },
+            {
+              "task_id": "1.3",
+              "state": "stale-spec",
+              "passed": true,
+              "recorded_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "changed",
+                "source": "current-scheme",
+                "detail": "recorded task contract differs from the current definition"
+              },
+              "code_freshness": "stale",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "complete",
+                  "policy": "completion-post-state/v1",
+                  "assertion_result": "passed",
+                  "integrity": "post-state",
+                  "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+                }
+              },
+              "gaps": [
+                {
+                  "kind": "code-stale",
+                  "message": "recorded and current code identities differ"
+                },
+                {
+                  "kind": "binding-changed",
+                  "message": "recorded task contract differs from the current definition"
+                }
+              ]
+            },
+            {
+              "task_id": "1.4",
+              "state": "failed",
+              "passed": false,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:94eb107f38ddef9cdfe56548c5e87f243789ade08c0ade9a9f64fcfc48cca61e"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "verify",
+                  "policy": "verify-purity/v1",
+                  "assertion_result": "failed",
+                  "integrity": "pure",
+                  "before_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+                  "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+                }
+              },
+              "gaps": [
+                {
+                  "kind": "proof-failed",
+                  "message": "recorded proof outcome is not passed"
+                }
+              ]
+            },
+            {
+              "task_id": "1.5",
+              "state": "unattested",
+              "passed": true,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:fca3c6709c60885621acbd9867011cf3db5fd96ed2b449ccad789e2fb0884e3c"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "legacy-unattested",
+                "detail": "legacy record has no producer/purity attestation; binding recovery cannot supply it"
+              },
+              "gaps": [
+                {
+                  "kind": "execution-legacy-unattested",
+                  "message": "legacy record has no producer/purity attestation; binding recovery cannot supply it"
+                }
+              ]
+            },
+            {
+              "task_id": "1.6",
+              "state": "unrecorded",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+            },
+            {
+              "task_id": "1.7",
+              "state": "pending",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+            }
+          ]
+        },
+        {
+          "feature": "steady",
+          "criteria": [
+            {
+              "name": "chain",
+              "passed": true
+            },
+            {
+              "name": "validation",
+              "passed": true
+            },
+            {
+              "name": "decisions",
+              "passed": true
+            },
+            {
+              "name": "evidence",
+              "passed": true
+            }
+          ],
+          "evidence": [
+            {
+              "task_id": "1",
+              "state": "verified",
+              "passed": true,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:6781d6c1e609921af943147b7e9c519b292ed5cacd11e6663184c251c716a115"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "complete",
+                  "policy": "completion-post-state/v1",
+                  "assertion_result": "passed",
+                  "integrity": "post-state",
+                  "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+                }
+              }
+            },
+            {
+              "task_id": "2.1",
+              "state": "verified",
+              "passed": true,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:e9c91dd9fff9e607bba8c5f88f3ba53acdc1979caf60f4fa10032e1df75cd6f6"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "complete",
+                  "policy": "completion-post-state/v1",
+                  "assertion_result": "passed",
+                  "integrity": "post-state",
+                  "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+                }
+              }
+            },
+            {
+              "task_id": "2.2",
+              "state": "verified",
+              "passed": true,
+              "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+              "profile": {
+                "platform": "darwin/arm64",
+                "walden": "v0.14.5"
+              },
+              "binding": {
+                "state": "current",
+                "source": "current-scheme",
+                "effective_fingerprint": "sha256:afd18d84872727e145bfe915b1240eadf4d732983ff7b0b0b9e54364d12fffd5"
+              },
+              "code_freshness": "current",
+              "execution": {
+                "state": "supported",
+                "facts": {
+                  "origin": "complete",
+                  "policy": "completion-post-state/v1",
+                  "assertion_result": "passed",
+                  "integrity": "post-state",
+                  "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "worktree": {
+        "git_skipped": false,
+        "input_binding": "matched",
+        "inputs": [
+          {
+            "path": ".walden/specs/states/requirements.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs/states/design.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs/states/tasks.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/evidence/states.json",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs/steady/requirements.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs/steady/design.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs/steady/tasks.md",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/evidence/steady.json",
+            "state": "matched"
+          },
+          {
+            "path": ".walden/specs",
+            "state": "matched"
+          }
+        ]
+      }
+    },
+    "exit_code": 1
+  }
+}

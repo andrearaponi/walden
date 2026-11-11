@@ -1,0 +1,17 @@
+{
+  "schema_version": "v0beta1",
+  "command": "task-status",
+  "ok": true,
+  "result": {
+    "summary": "execution readiness for steady",
+    "changed_files": null,
+    "skipped_files": null,
+    "current_phase": "tasks",
+    "blockers": [
+      "implementation plan has no remaining runnable leaf tasks"
+    ],
+    "next_action": "No runnable tasks remain; implementation plan is complete",
+    "warnings": null,
+    "exit_code": 0
+  }
+}

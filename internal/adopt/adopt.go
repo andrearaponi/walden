@@ -41,6 +41,11 @@ type FeaturePlan struct {
 	BlockReason  string
 	Evidence     []evidence.TaskEvidence
 	Workload     Workload
+	// SealablePasses are the recorded passes of delivery tasks that apply
+	// seals as attestations, without executing their proofs.
+	SealablePasses []PassToSeal
+	// UnsealedPasses are those it cannot seal, each with its reason.
+	UnsealedPasses []UnsealedPass
 }
 
 // Workload describes declared proof steps, not tests or expanded commands.
@@ -67,6 +72,10 @@ type Totals struct {
 	Blocked      int
 	SealableDocs int
 	ReproveTasks int
+	// SealablePasses and UnsealedPasses count the recorded passes of
+	// delivery tasks in the scope.
+	SealablePasses int
+	UnsealedPasses int
 }
 
 // PlanReport is the read-only adoption plan.
@@ -80,6 +89,12 @@ type PlanReport struct {
 // Plan classifies every feature (or one, when named) and counts the work.
 // Strictly read-only: the plan is the reviewable decision.
 func Plan(ctx context.Context, root, featureName string) (PlanReport, error) {
+	return planWith(ctx, root, featureName, evidence.NewTreeSearch(gitRunner, root, evidence.SealSearchLimit))
+}
+
+// planWith plans with a search the caller owns. Apply passes the one it then
+// seals with, so the history is listed once for the plan and the sealing.
+func planWith(ctx context.Context, root, featureName string, search *evidence.TreeSearch) (PlanReport, error) {
 	names, err := adoptionTargets(root, featureName)
 	if err != nil {
 		return PlanReport{}, err
@@ -93,8 +108,10 @@ func Plan(ctx context.Context, root, featureName string) (PlanReport, error) {
 		Scope:    evidence.NewScope(featureName != "", names...),
 		Workload: WorkloadSummary{UnassessedFeatures: []string{}},
 	}
+	// One search over the history serves every feature of the run: it is
+	// asked only for a recorded pass that can otherwise be sealed.
 	for _, name := range names {
-		plan := classify(ctx, root, name, identity, identityOK)
+		plan := classify(ctx, root, name, identity, identityOK, search)
 		if plan.Workload.Available {
 			report.Workload.AssessedTasks += plan.Workload.Tasks
 			report.Workload.AssessedSteps += plan.Workload.Steps
@@ -115,6 +132,8 @@ func Plan(ctx context.Context, root, featureName string) (PlanReport, error) {
 		}
 		report.Totals.SealableDocs += len(plan.SealableDocs)
 		report.Totals.ReproveTasks += plan.ReproveCount
+		report.Totals.SealablePasses += len(plan.SealablePasses)
+		report.Totals.UnsealedPasses += len(plan.UnsealedPasses)
 	}
 	return report, nil
 }
@@ -139,7 +158,7 @@ func adoptionTargets(root, featureName string) ([]string, error) {
 
 // classify applies the lane's honesty rule: an absent fingerprint is
 // sealable; a present fingerprint that contradicts reality is blocked.
-func classify(ctx context.Context, root, name string, identity string, identityOK bool) FeaturePlan {
+func classify(ctx context.Context, root, name string, identity string, identityOK bool, search *evidence.TreeSearch) FeaturePlan {
 	plan := FeaturePlan{Name: name, Class: ClassComplete}
 
 	feature, err := spec.LoadFeature(root, name)
@@ -149,12 +168,12 @@ func classify(ctx context.Context, root, name string, identity string, identityO
 		return plan
 	}
 
-	var stepCounts map[string]int
-	plan.Evidence, stepCounts, err = assessEvidence(ctx, root, feature, identity, identityOK)
+	assessed, err := assessEvidence(ctx, root, feature, identity, identityOK)
 	if err != nil {
 		plan.Class, plan.BlockReason = ClassBlocked, err.Error()
 		return plan
 	}
+	plan.Evidence = assessed.entries
 	documents := []struct {
 		label    string
 		document spec.Document
@@ -187,18 +206,31 @@ func classify(ctx context.Context, root, name string, identity string, identityO
 		return plan
 	}
 
+	// The recorded passes of delivery tasks are assessed only here, on a
+	// feature whose chain is sound: a blocked feature is never sealed.
+	passes := assessPasses(ctx, name, assessed, search)
+	plan.SealablePasses, plan.UnsealedPasses = passes.sealable, passes.unsealed
+
+	// The count and the workload are what apply executes. A delivered task
+	// is not proven again, and neither is a task whose pass awaits adoption:
+	// apply seals that pass or leaves it as recorded.
 	for _, entry := range plan.Evidence {
-		if entry.State != evidence.StateVerified && entry.State != evidence.StatePending {
+		switch {
+		case entry.State == evidence.StateVerified, entry.State == evidence.StatePending, entry.State == evidence.StateDelivered:
+		case entry.AwaitsAdoption:
+		default:
 			plan.ReproveCount++
-			plan.Workload.Steps += stepCounts[entry.TaskID]
+			plan.Workload.Steps += assessed.stepCounts[entry.TaskID]
 		}
 	}
 	plan.Workload.Available = true
 	plan.Workload.Tasks = plan.ReproveCount
 	switch {
-	case len(plan.SealableDocs) > 0:
+	case len(plan.SealableDocs) > 0 || len(plan.SealablePasses) > 0:
 		plan.Class = ClassBackfill
-	case plan.ReproveCount > 0:
+	case plan.ReproveCount > 0 || len(plan.UnsealedPasses) > 0:
+		// A feature whose only open work is a pass left unsealed is not
+		// complete: its task must be proven again, by a run that names it.
 		plan.Class = ClassReprove
 	}
 	return plan
@@ -220,19 +252,30 @@ func chainContradiction(feature spec.Feature) string {
 	return ""
 }
 
+// featureEvidence is what the assessment of one feature read: the derived
+// entries, the declared steps of each leaf, and the inputs the entries were
+// derived from, which the assessment of the recorded passes reads too.
+type featureEvidence struct {
+	entries    []evidence.TaskEvidence
+	stepCounts map[string]int
+	ledger     evidence.Document
+	current    evidence.ChainFingerprints
+	leafs      []evidence.LeafTask
+}
+
 // assessEvidence never executes a profile probe or proof. Invalid approved
 // plans and unreadable ledgers are assessment blockers, not zero-work success.
-func assessEvidence(ctx context.Context, root string, feature spec.Feature, identity string, identityOK bool) ([]evidence.TaskEvidence, map[string]int, error) {
+func assessEvidence(ctx context.Context, root string, feature spec.Feature, identity string, identityOK bool) (featureEvidence, error) {
 	if !feature.Tasks.Exists || feature.Tasks.Status != "approved" {
-		return nil, nil, nil
+		return featureEvidence{}, nil
 	}
 	tree, err := spec.ParseTaskTree(feature.Tasks)
 	if err != nil {
-		return nil, nil, fmt.Errorf("tasks assessment unavailable: %w", err)
+		return featureEvidence{}, fmt.Errorf("tasks assessment unavailable: %w", err)
 	}
 	ledger, err := evidence.Load(root, feature.Name)
 	if err != nil {
-		return nil, nil, err
+		return featureEvidence{}, err
 	}
 	current, leafs := evidence.FeatureInputs(feature, tree)
 	evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, "")
@@ -244,5 +287,8 @@ func assessEvidence(ctx context.Context, root string, feature spec.Feature, iden
 			stepCounts[leaf.ID] = 1
 		}
 	}
-	return evidence.Derive(ledger, current, identity, identityOK, leafs), stepCounts, nil
+	return featureEvidence{
+		entries:    evidence.Derive(ledger, current, identity, identityOK, leafs),
+		stepCounts: stepCounts, ledger: ledger, current: current, leafs: leafs,
+	}, nil
 }

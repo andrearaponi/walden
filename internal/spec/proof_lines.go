@@ -75,6 +75,7 @@ func isStructuralLine(line string) bool {
 	return strings.HasPrefix(trimmed, "- [") ||
 		strings.HasPrefix(trimmed, "- Requirements:") ||
 		strings.HasPrefix(trimmed, "- Design:") ||
+		strings.HasPrefix(trimmed, proofKindPrefix) ||
 		strings.HasPrefix(trimmed, "- Verification:")
 }
 

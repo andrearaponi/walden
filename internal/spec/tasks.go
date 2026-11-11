@@ -9,7 +9,7 @@ import (
 
 var (
 	taskLinePattern     = regexp.MustCompile(`^( *)(- \[([ x])\] )([0-9]+(?:\.[0-9]+)*)\.? (.+?)\s*$`)
-	metadataLinePattern = regexp.MustCompile(`^( +)- (Requirements|Design|Verification):(.*)$`)
+	metadataLinePattern = regexp.MustCompile(`^( +)- (Requirements|Design|Proof|Verification):(.*)$`)
 	backtickRefPattern  = regexp.MustCompile("`([^`]+)`")
 )
 
@@ -17,6 +17,10 @@ var (
 type VerificationSpec struct {
 	LegacyCommand string
 	Steps         []VerificationStep
+	// Delivery is set when the task declares `- Proof: delivery`: its proof
+	// attests a delivery instead of a behavior that must keep holding. The
+	// declaration is part of the task's definition.
+	Delivery bool
 }
 
 // VerificationStep is one structured proof step executed without shell interpolation.
@@ -243,7 +247,7 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 			}
 
 			value := strings.TrimSpace(match[3])
-			if match[2] != "Verification" && value == "" {
+			if (match[2] == "Requirements" || match[2] == "Design") && value == "" {
 				return TaskTree{}, fmt.Errorf("line %d: empty %s metadata", index+1, match[2])
 			}
 
@@ -260,8 +264,16 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 				if len(currentTask.DesignRefs) == 0 {
 					return TaskTree{}, fmt.Errorf("line %d: invalid Design metadata for task %q", index+1, currentTask.ID)
 				}
+			case "Proof":
+				if err := parseProofKind(value, index, currentTask.ID); err != nil {
+					return TaskTree{}, err
+				}
+				currentTask.Proof.Delivery = true
 			case "Verification":
-				currentTask.Proof = VerificationSpec{}
+				// The Verification line starts the proof over. The declared
+				// kind is not part of what it replaces: the Proof line may
+				// sit before it.
+				currentTask.Proof = VerificationSpec{Delivery: currentTask.Proof.Delivery}
 				currentTask.verificationLine = index
 				currentTask.verificationIndent = indent
 				if value == "" {
@@ -281,7 +293,7 @@ func ParseTaskTree(document Document) (TaskTree, error) {
 			continue
 		case strings.HasPrefix(trimmed, "- ["):
 			return TaskTree{}, fmt.Errorf("line %d: invalid task indentation", index+1)
-		case strings.HasPrefix(trimmed, "- Requirements:"), strings.HasPrefix(trimmed, "- Design:"), strings.HasPrefix(trimmed, "- Verification:"):
+		case strings.HasPrefix(trimmed, "- Requirements:"), strings.HasPrefix(trimmed, "- Design:"), strings.HasPrefix(trimmed, proofKindPrefix), strings.HasPrefix(trimmed, "- Verification:"):
 			if currentTask != nil {
 				return TaskTree{}, fmt.Errorf(
 					"line %d: invalid metadata indentation for task %q: expected %s",
@@ -431,6 +443,9 @@ func parseTaskLine(match []string, index int) (*Task, error) {
 
 func validateTaskMetadata(task *Task) error {
 	if len(task.Children) > 0 {
+		if task.Proof.Delivery {
+			return nonLeafProofKindError(task.ID)
+		}
 		if len(task.Requirements) > 0 || len(task.DesignRefs) > 0 || task.Verification != "" {
 			return fmt.Errorf("non-leaf task %q cannot declare executable metadata", task.ID)
 		}
