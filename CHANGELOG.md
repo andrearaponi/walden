@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-11
+
 ### Added
 
 - **A plan can declare a delivery proof.** Some proofs describe a delivery, not a behavior: a version string in a document was true when the work shipped and is not expected to hold forever. Judged as a regression, such a proof fails as soon as the delivered text moves on. The metadata line `- Proof: delivery` on a leaf task now says that its proof attests a delivery; a task without the line holds a regression proof, as before. `delivery` is the only value: any other value, and the line on a task with subtasks, fail validation in a draft and in review. The declaration is part of the task-definition fingerprint, so it is a change of the plan that needs the plan's approval, and the CLI never adds or suggests it. `walden validate` warns about the statements that only delivery proofs cover, and `task status`, `task start` and `task complete` name the proof kind of a delivery task.

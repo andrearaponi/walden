@@ -1,3 +1,136 @@
+## Walden v0.15.0
+
+A plan can now say that a proof attests a delivery. Until this release every proof was judged as a regression that must keep passing. A proof that describes what shipped, such as a version string in a document or an evaluation observed once, failed as soon as the delivered text moved on, and the feature read NOT RELEASABLE until someone rewrote the proof. A delivery proof is attested once, on the tree of a commit, and is not proven again. **This changes the criteria of the release gate.**
+
+### Declare a delivery proof
+
+```markdown
+- [ ] 1. Name the release in the README
+  - Requirements: `R1.AC1`
+  - Design: Architecture
+  - Proof: delivery
+  - Verification:
+    - command: ["grep", "-q", "version 1.2", "README.md"]
+      covers: ["R1.AC1"]
+```
+
+- `- Proof: delivery` is a metadata line of a leaf task, and `delivery` is its only value. A task without the line holds a regression proof, as before.
+- The declaration is part of the task-definition fingerprint, so it is a change of the plan that needs the plan's approval. The CLI never adds or suggests it.
+- `walden validate` warns about the statements that only delivery proofs cover, before the plan is approved:
+
+```
+- statement(s) covered only by delivery proofs, which are not proven again once attested: R1.AC1
+```
+
+### Attested, then `delivered`
+
+A delivery proof that passes on a tree with no uncommitted path outside `.walden/` is attested: its record names the commit of that tree. `task complete` usually runs on work that is not committed yet, so the first `walden verify` after the commit proves the task again and attests it. With commit ids shortened here:
+
+```
+$ walden verify demo
+Summary: verification passed for demo: 1 task(s) re-proven, 1 skipped as verified
+- 1: delivered at 97a4c63a… [binding=current code=current execution=supported]
+```
+
+The README then moves on to the next version. The delivered task is kept, with or without `--all`, and `--task` refuses it:
+
+```
+$ walden verify demo --all
+Summary: verification passed for demo: 1 task(s) re-proven, 0 skipped as verified, 1 kept as delivered
+- 2: verified [binding=current code=current execution=supported]
+Kept as delivered: 1 at 97a4c63a…
+
+$ walden verify demo --task 1
+task "1" is delivered: its proof was attested at commit 97a4c63a… and is not run again — a delivered task is proven again only after its declaration or its proof changes in the approved plan, or after a statement it names changes
+```
+
+- **What keeps the state.** The task's definition is the attested one, and the statements it names read as they did. Later changes to the code do not touch it, and neither does a re-approval of the requirements or of the design that leaves those statements alone.
+- **What loses it.** A statement the task names is reworded or removed, or the task's definition changes, the removal of the declaration included. The task then reads `stale-spec` and is proven again.
+- **Without an attestation** a delivery task is judged as a regression task. `walden evidence status` says why its recorded pass is no attestation and what attests it.
+
+### The release gate names what it did not prove again
+
+```
+$ walden release check demo
+Summary: RELEASABLE — 1 feature(s) certified [feature: demo], 1 delivered task(s) not proven again, commit d40acb19b3c7
+- demo: chain=pass validation=pass decisions=pass evidence=pass
+  - 1: delivered at 97a4c63a… [binding=current code=stale execution=supported]
+  - 2: verified [binding=current code=current execution=supported]
+  only delivery proofs cover: R1.AC1
+```
+
+**Breaking (gate criteria contract): a delivered task no longer blocks.** `walden release check` accepts a `delivered` task under the `evidence` criterion without its proof being run again. The verdict never reports it as `verified`: it lists the task with the commit it was attested on, a releasable verdict states the number of delivered tasks, and each feature lists the statements that only delivery proofs cover. Nothing changes for a plan that declares no delivery proof.
+
+### A recorded pass is sealed, not replayed
+
+A plan written before this release often holds proofs that describe a delivery. Once the plan declares one, the pass its record already holds is the fact worth keeping: running the proof again would at best repeat it and at worst replace it with a failure. `walden verify` leaves that pass alone unless `--task` names its task, and `walden adopt --apply` seals it as an attestation without executing the proof:
+
+```
+$ walden evidence status legacy
+- 1: stale-spec (delivery proof, awaits adoption) [binding=changed code=stale execution=supported]
+
+$ walden verify legacy
+Summary: verification passed for legacy: 1 task(s) re-proven, 0 skipped as verified, 1 left for adoption
+Left for adoption: 1 — walden adopt legacy
+
+$ walden adopt legacy
+- legacy: backfill (1 recorded pass(es) to seal)
+  seal 1 at 11e75372…
+
+$ walden adopt legacy --apply
+Summary: ADOPTION — sealed 0 doc(s), verified 0, failed 0, skipped 1, blocked 0, errors 0, sealed 1 recorded pass(es)
+
+$ walden evidence status legacy
+- 1: delivered at 11e75372… (sealed by adoption) [binding=current code=stale execution=supported]
+```
+
+Four checks run in order, and the first that fails leaves the pass unsealed with its reason:
+
+| Reason | Meaning | What proves the task again |
+| --- | --- | --- |
+| `no-provenance` | The execution provenance of the pass is not supported. | Apply, as for any task that is not verified. |
+| `proof-changed` | The recorded proof differs from the approved one in more than the declaration. | Apply, as above. |
+| `statements-unknown` | It cannot be established that the statements the task names read as they did at the pass. | `walden verify <feature> --task <id>` |
+| `no-commit` | No commit among the last 200 reachable from `HEAD` holds the tree the pass ran on. | `walden verify <feature> --task <id>` |
+
+Sealing adds the attestation to the record and changes nothing else in it. The commit is searched by code identity, most recent first, so the pass need not have run on a committed tree: what counts is that a commit holds exactly the tree it ran on.
+
+### What it found
+
+On an isolated copy of this repository's own portfolio, 40 features, with the compiled CLI of this release:
+
+- **Nothing changes without a declaration.** 244 read commands gave the same states, verdicts and adoption plans as v0.14.5. The one difference was the version label of the binary in the profile diagnostics.
+- **Seven recorded passes were sealed**, each on a commit found between 13 and 69 commits back in the history, and each record was identical to before in every other field. Three features that only a delivery proof kept from certification became releasable.
+- **Ten other delivery proofs were not helped by the declaration.** Four passes had legacy provenance and six tasks held no recorded pass, and all ten proofs fail today. They need a rewritten proof or a retirement, as before.
+- **Seal before revising the requirements.** Records written before v0.14.5 keep no statement fingerprints. For such a record, a re-approval of the requirements before the sealing left the pass unsealed with `statements-unknown`, also when only the introduction had changed.
+- **Mixed leaves.** Most of the seven leaves held lasting checks beside the one-time observation. Declared whole, they moved up to 29 statements of a feature under "only delivery proofs cover". Splitting such a leaf changes its recorded proof, so the lasting checks belong in a new regression leaf.
+
+### Limits
+
+- A delivered task is not proven again. The verdict says what it accepted without proving, not that the proof still passes.
+- The attested commit is not checked against the history of what is certified: after a squash merge or in a shallow clone it may not be there.
+- A pass on a tree with uncommitted changes is no attestation, whatever its result.
+- A sealed attestation names the most recent commit that holds the tree the pass ran on. That can be a later commit with the same code, such as the merge of the branch.
+- The declaration is for a fact about what shipped. A check that must keep holding gets a regression leaf of its own, and the declaration is never a way to silence a failing regression proof.
+
+### Compatibility and distribution
+
+- **Gate change.** The acceptance of delivered tasks is a breaking change of the gate criteria, labeled as such in the changelog. Verdicts for plans that declare no delivery proof are those of v0.14.5.
+- **A ledger that holds an attestation is written as `v1alpha3`.** Any other ledger stays `v1alpha2`, and a ledger whose last attestation is gone goes back to it. An earlier CLI refuses a `v1alpha3` ledger, naming the version, so that it cannot prove a delivery again and replace its attestation. It also skips the declaration and judges a delivery task as a regression task. Once a plan declares a delivery proof, use this release or a newer one everywhere that repository is read, locally and in CI.
+- **JSON stays additive within `v0beta1`.** Evidence entries gain `delivery`, `attestation` and `awaits_adoption`; `verify` gains `kept` and `left_for_adoption`; `release check` gains `delivery_only` on each feature; `adopt` gains `sealable_passes`, `sealed_passes` and `unsealed_passes`; `evidence status` gains `explanation.attestation`; the task of `task status`, `task start` and `task complete` gains `proof`. The state vocabulary gains `delivered`: exhaustive clients must handle it, and it is not `verified`.
+- No command and no flag is added. The help of `verify`, `adopt`, `release check` and `evidence status` describes the behavior.
+- **The guide** says which proofs to declare as delivery proofs, that the declaration never silences a failing regression proof, and that a recorded pass goes through `walden adopt` before any `walden verify`. It tells the agent to read `walden verify --help` for the capability, names no version, and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 20 tasks of the approved `proof-lifecycle` specification re-proven against the release tree.
+- An end-to-end run with the compiled CLI on a small repository, which produced the reports above, a second apply that left the ledger byte-identical, and a portfolio verdict with two delivered tasks.
+- The run on a copy of this repository's portfolio described under "What it found". The portfolio itself was not touched.
+- The released v0.14.5 on ledgers written by this release: it refuses each ledger that holds an attestation, naming the version, and validates the plans that carry the declaration.
+- Guards recorded from the released v0.14.5 binary before any change: fingerprints, states, verdicts and JSON of a portfolio without declarations, each failing under a mutation.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+
 ## Walden v0.14.5
 
 Stale evidence now says what changed. Until this release a `stale-code` task reported that the recorded and current code identities differ, and a `stale-spec` task that the recorded bindings differ from the current chain: true, and no help in deciding whether the change concerns the proof. `walden evidence status` now names the paths, the approvals and the statements that changed since each proof ran, and shows what the current code identity is made of. The release also corrects the code identity of a renamed file.
