@@ -43,9 +43,9 @@ func Decode(data []byte, feature string) (Document, error) {
 		return Document{}, fmt.Errorf("parse: %w; retain the ledger for diagnosis", err)
 	}
 	switch document.SchemaVersion {
-	case "", "v1alpha1", SchemaVersion:
+	case "", "v1alpha1", SchemaVersion, AttestedSchemaVersion:
 	default:
-		return Document{}, fmt.Errorf("schema %s is unsupported; this binary writes %s — retain the ledger and use a compatible walden reader", document.SchemaVersion, SchemaVersion)
+		return Document{}, fmt.Errorf("schema %s is unsupported; this binary writes %s, and %s for a ledger that holds an attestation — retain the ledger and use a compatible walden reader", document.SchemaVersion, SchemaVersion, AttestedSchemaVersion)
 	}
 	if document.Feature != "" && document.Feature != feature {
 		return Document{}, fmt.Errorf("ledger belongs to feature %q, not %q — retain it and inspect its provenance", document.Feature, feature)
@@ -56,9 +56,10 @@ func Decode(data []byte, feature string) (Document, error) {
 	return document, nil
 }
 
-// Save persists the document atomically, stamping the schema version.
+// Save persists the document atomically, stamping the schema version its
+// content calls for: the version a document carries is never written back.
 func Save(root string, document Document) error {
-	document.SchemaVersion = SchemaVersion
+	document.SchemaVersion = document.schemaVersion()
 	path := DocumentPath(root, document.Feature)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -70,4 +71,17 @@ func Save(root string, document Document) error {
 		return fmt.Errorf("encode evidence document: %w", err)
 	}
 	return spec.WriteFileAtomic(path, append(data, '\n'))
+}
+
+// schemaVersion follows the content: a ledger in which a record holds an
+// attestation is written in the format earlier releases refuse, and any other
+// in the format they read. A ledger whose last attestation is gone goes back
+// to it: there is nothing left for an earlier release to replace.
+func (d Document) schemaVersion() string {
+	for _, record := range d.Tasks {
+		if record.Attestation != nil {
+			return AttestedSchemaVersion
+		}
+	}
+	return SchemaVersion
 }

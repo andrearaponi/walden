@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/andrearaponi/walden/internal/shell"
 	"github.com/andrearaponi/walden/internal/spec"
@@ -27,6 +25,24 @@ const (
 	ReasonIdentityMismatch        = "identity-mismatch"
 	ReasonNoStatementFingerprints = "no-statement-fingerprints"
 )
+
+// Reasons the recorded pass of a delivery task is no attestation. With
+// ReasonNoCommit they are checked in this order, and the first that holds is
+// reported: the record keeps no tree facts, no commit could be read, the tree
+// held uncommitted paths, the run did not read the proof as a delivery proof.
+const (
+	ReasonNoTree           = "no-tree"
+	ReasonUncommittedPaths = "uncommitted-paths"
+	ReasonUndeclaredRun    = "undeclared-run"
+)
+
+// AttestationExplanation says why the recorded pass of a completed delivery
+// task is no attestation and what attests the task. Unavailable holds the
+// reason code and Detail the sentence that goes with it.
+type AttestationExplanation struct {
+	Unavailable string `json:"unavailable"`
+	Detail      string `json:"detail"`
+}
 
 // PathChange is one path that differs between two trees.
 type PathChange struct {
@@ -74,8 +90,9 @@ type SpecExplanation struct {
 // the record was written. It sits beside the assessment Derive makes and
 // never feeds it, so no explanation can move a state.
 type Explanation struct {
-	Code *CodeExplanation `json:"code,omitempty"`
-	Spec *SpecExplanation `json:"spec,omitempty"`
+	Code        *CodeExplanation        `json:"code,omitempty"`
+	Spec        *SpecExplanation        `json:"spec,omitempty"`
+	Attestation *AttestationExplanation `json:"attestation,omitempty"`
 }
 
 // CommitListing is what listing one recorded commit gave: the output of
@@ -106,11 +123,18 @@ type ExplainInput struct {
 // independent dimensions of its assessment rather than the winning state.
 // It returns nil when there is nothing to explain.
 func Explain(record Record, entry TaskEvidence, input ExplainInput) *Explanation {
-	explanation := &Explanation{
-		Code: explainCode(record, entry, input),
-		Spec: explainSpec(record, entry, input),
+	// A delivered task is not explained. That the code and the documents
+	// moved on since the delivery is what the state allows, not a difference
+	// to account for.
+	if entry.State == StateDelivered {
+		return nil
 	}
-	if explanation.Code == nil && explanation.Spec == nil {
+	explanation := &Explanation{
+		Code:        explainCode(record, entry, input),
+		Spec:        explainSpec(record, entry, input),
+		Attestation: ExplainAttestation(record, entry, input.Feature),
+	}
+	if explanation.Code == nil && explanation.Spec == nil && explanation.Attestation == nil {
 		return nil
 	}
 	return explanation
@@ -146,8 +170,13 @@ func explainSpec(record Record, entry TaskEvidence, input ExplainInput) *SpecExp
 	}
 
 	// Fingerprints this CLI cannot read are absent, never compared: across
-	// two schemes every statement would read as changed.
+	// two schemes every statement would read as changed. An entry read
+	// through its attestation is explained from the statements its state
+	// came from: a sealed record may keep none of its own.
 	facts := record.Statements
+	if entry.Binding.Source == "attestation" && record.Attestation != nil {
+		facts = &record.Attestation.Statements
+	}
 	switch {
 	case facts == nil:
 		explanation.Unavailable = ReasonNoStatementFingerprints
@@ -163,7 +192,7 @@ func explainSpec(record Record, entry TaskEvidence, input ExplainInput) *SpecExp
 	for id := range facts.Fingerprints {
 		ids = append(ids, id)
 	}
-	sort.Slice(ids, func(i, j int) bool { return identifierLess(ids[i], ids[j]) })
+	sort.Slice(ids, func(i, j int) bool { return spec.StatementLess(ids[i], ids[j]) })
 	for _, id := range ids {
 		current, defined := input.Statements[id]
 		switch {
@@ -175,52 +204,6 @@ func explainSpec(record Record, entry TaskEvidence, input ExplainInput) *SpecExp
 	}
 	explanation.StatementsUnchanged = len(explanation.Statements) == 0
 	return explanation
-}
-
-// identifierLess orders statement identifiers as a requirements document
-// does: criteria by requirement and criterion number, then non-functional
-// requirements, then constraints.
-func identifierLess(a, b string) bool {
-	rankA, numbersA := identifierKey(a)
-	rankB, numbersB := identifierKey(b)
-	if rankA != rankB {
-		return rankA < rankB
-	}
-	for i := 0; i < len(numbersA) && i < len(numbersB); i++ {
-		if numbersA[i] != numbersB[i] {
-			return numbersA[i] < numbersB[i]
-		}
-	}
-	if len(numbersA) != len(numbersB) {
-		return len(numbersA) < len(numbersB)
-	}
-	return a < b
-}
-
-func identifierKey(id string) (rank int, numbers []int) {
-	switch {
-	case strings.HasPrefix(id, "NFR"):
-		rank = 1
-	case strings.HasPrefix(id, "C"):
-		rank = 2
-	}
-	digits := ""
-	flush := func() {
-		if digits != "" {
-			number, _ := strconv.Atoi(digits)
-			numbers = append(numbers, number)
-			digits = ""
-		}
-	}
-	for _, r := range id {
-		if r >= '0' && r <= '9' {
-			digits += string(r)
-			continue
-		}
-		flush()
-	}
-	flush()
-	return rank, numbers
 }
 
 // explainCode applies when the code is stale. The reasons it cannot explain

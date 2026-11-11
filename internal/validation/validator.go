@@ -294,8 +294,26 @@ func collectWarnings(feature spec.Feature, plan validationPlan) []string {
 	var warnings []string
 	if plan.validateTasks && feature.Tasks.Exists {
 		warnings = append(warnings, collectLegacyProofWarnings(feature.Tasks)...)
+		warnings = append(warnings, collectDeliveryOnlyWarnings(feature.Tasks)...)
 	}
 	return warnings
+}
+
+// collectDeliveryOnlyWarnings names the statements that only delivery proofs
+// cover: once their tasks are delivered nothing proves them again, and the
+// author should know before the plan is approved. It needs a plan that
+// parses, like the warning about the legacy proof format, so an incomplete
+// draft gets neither.
+func collectDeliveryOnlyWarnings(document spec.Document) []string {
+	tree, err := spec.ParseTaskTree(document)
+	if err != nil {
+		return nil
+	}
+	only := spec.DeliveryOnlyStatements(tree)
+	if len(only) == 0 {
+		return nil
+	}
+	return []string{"statement(s) covered only by delivery proofs, which are not proven again once attested: " + strings.Join(only, ", ")}
 }
 
 func collectLegacyProofWarnings(document spec.Document) []string {

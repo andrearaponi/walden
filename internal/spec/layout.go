@@ -20,7 +20,8 @@ func CheckTaskLayout(body string) error {
 		level int
 	}
 	var currentTask *owner
-	verificationIndent := -1 // -1 means no open structured verification block
+	verificationIndent := -1      // -1 means no open structured verification block
+	declared := map[string]bool{} // tasks that declare a proof kind
 
 	for index, line := range lines {
 		if verificationIndent >= 0 {
@@ -62,6 +63,11 @@ func CheckTaskLayout(body string) error {
 		if match := taskLinePattern.FindStringSubmatch(line); match != nil {
 			id := match[4]
 			currentTask = &owner{id: id, level: strings.Count(id, ".") + 1}
+			// A subtask line makes its parent a container: the declaration
+			// the parent holds is the defect the parser reports for it.
+			if parent, _, isChild := strings.Cut(id, "."); isChild && declared[parent] {
+				return nonLeafProofKindError(parent)
+			}
 			continue
 		}
 
@@ -78,6 +84,12 @@ func CheckTaskLayout(body string) error {
 					index+1, currentTask.id, metadataOffsetsLabel(currentTask.level),
 				)
 			}
+			if match[2] == "Proof" {
+				if err := parseProofKind(strings.TrimSpace(match[3]), index, currentTask.id); err != nil {
+					return err
+				}
+				declared[currentTask.id] = true
+			}
 			if match[2] == "Verification" && strings.TrimSpace(match[3]) == "" {
 				verificationIndent = indent
 			}
@@ -88,6 +100,7 @@ func CheckTaskLayout(body string) error {
 		if currentTask != nil &&
 			(strings.HasPrefix(trimmed, "- Requirements:") ||
 				strings.HasPrefix(trimmed, "- Design:") ||
+				strings.HasPrefix(trimmed, proofKindPrefix) ||
 				strings.HasPrefix(trimmed, "- Verification:")) {
 			// Column-zero metadata: the indented pattern cannot match it.
 			return fmt.Errorf(

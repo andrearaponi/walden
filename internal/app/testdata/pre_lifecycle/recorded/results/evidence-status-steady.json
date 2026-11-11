@@ -1,0 +1,101 @@
+{
+  "schema_version": "v0beta1",
+  "command": "evidence-status",
+  "ok": true,
+  "result": {
+    "summary": "evidence status for steady: 3 verified",
+    "changed_files": null,
+    "skipped_files": null,
+    "warnings": null,
+    "evidence": [
+      {
+        "task_id": "1",
+        "state": "verified",
+        "passed": true,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:6781d6c1e609921af943147b7e9c519b292ed5cacd11e6663184c251c716a115"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "complete",
+            "policy": "completion-post-state/v1",
+            "assertion_result": "passed",
+            "integrity": "post-state",
+            "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+          }
+        },
+        "recorded_duration_ms": 5
+      },
+      {
+        "task_id": "2.1",
+        "state": "verified",
+        "passed": true,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:e9c91dd9fff9e607bba8c5f88f3ba53acdc1979caf60f4fa10032e1df75cd6f6"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "complete",
+            "policy": "completion-post-state/v1",
+            "assertion_result": "passed",
+            "integrity": "post-state",
+            "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+          }
+        },
+        "recorded_duration_ms": 2
+      },
+      {
+        "task_id": "2.2",
+        "state": "verified",
+        "passed": true,
+        "recorded_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "current_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516",
+        "profile": {
+          "platform": "darwin/arm64",
+          "walden": "v0.14.5"
+        },
+        "binding": {
+          "state": "current",
+          "source": "current-scheme",
+          "effective_fingerprint": "sha256:afd18d84872727e145bfe915b1240eadf4d732983ff7b0b0b9e54364d12fffd5"
+        },
+        "code_freshness": "current",
+        "execution": {
+          "state": "supported",
+          "facts": {
+            "origin": "complete",
+            "policy": "completion-post-state/v1",
+            "assertion_result": "passed",
+            "integrity": "post-state",
+            "after_code_identity": "sha256:8f5039fb4f1f443b3e32f013b252be404336a1cfbf5bfeb91fc1b9197ae9d516"
+          }
+        },
+        "recorded_duration_ms": 2
+      }
+    ],
+    "current_tree": {
+      "commit": "19654b825a469c540de9990a6d4ed9c96b3653fb"
+    },
+    "exit_code": 0
+  }
+}

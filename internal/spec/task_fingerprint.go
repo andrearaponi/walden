@@ -24,6 +24,10 @@ type proofContract struct {
 	Kind          string         `json:"kind"`
 	LegacyCommand string         `json:"legacy_command"`
 	Steps         []stepContract `json:"steps"`
+	// Lifecycle holds the declared proof kind. It is omitted when the task
+	// declares none, so such a task keeps the bytes and the fingerprint it
+	// had before proof kinds existed, under the same scheme.
+	Lifecycle string `json:"lifecycle,omitempty"`
 }
 
 type stepContract struct {
@@ -41,6 +45,9 @@ func TaskDefinitionFingerprint(task *Task) string {
 	proof := proofContract{Kind: "steps", LegacyCommand: task.Proof.LegacyCommand, Steps: []stepContract{}}
 	if task.Proof.LegacyCommand != "" {
 		proof.Kind = "legacy"
+	}
+	if task.Proof.Delivery {
+		proof.Lifecycle = ProofKindDelivery
 	}
 	for _, step := range task.Proof.Steps {
 		proof.Steps = append(proof.Steps, stepContract{
@@ -92,4 +99,13 @@ func LegacyTaskDefinitionFingerprint(task *Task) string {
 func taskDigest(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// UndeclaredTaskDefinitionFingerprint is the fingerprint the task has without
+// its declared proof kind: the definition a record was bound to when it was
+// written before the plan declared the delivery.
+func UndeclaredTaskDefinitionFingerprint(task *Task) string {
+	undeclared := *task
+	undeclared.Proof.Delivery = false
+	return TaskDefinitionFingerprint(&undeclared)
 }

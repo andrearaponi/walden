@@ -49,16 +49,17 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	featureName, entries := reading.Feature, reading.Entries
 
 	counts := map[string]int{}
-	legacy := false
+	legacy, awaiting := false, false
 	rendered := make([]output.EvidenceStatus, 0, len(entries))
 	for _, entry := range entries {
 		counts[entry.State]++
 		legacy = legacy || entry.Execution.State == "legacy-unattested"
+		awaiting = awaiting || entry.AwaitsAdoption
 		rendered = append(rendered, output.EvidenceView(entry))
 	}
 
 	summaryParts := []string{}
-	for _, state := range []string{"verified", "failed", "stale-spec", "stale-code", "unattested", "unrecorded", "pending"} {
+	for _, state := range []string{"verified", "delivered", "failed", "stale-spec", "stale-code", "unattested", "unrecorded", "pending"} {
 		if counts[state] > 0 {
 			summaryParts = append(summaryParts, fmt.Sprintf("%d %s", counts[state], state))
 		}
@@ -73,6 +74,11 @@ func runEvidenceStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	result := output.Result{Summary: summary, Evidence: rendered, CurrentTree: reading.Current, ExitCode: 0}
 	if counts["stale-spec"]+counts["stale-code"]+counts["failed"]+counts["unattested"]+counts["unrecorded"] > 0 {
 		result.NextAction = fmt.Sprintf("Run walden verify %s to re-prove the current code", featureName)
+	}
+	if awaiting {
+		// A pass that awaits adoption is left alone by walden verify and can
+		// be sealed by adoption: adoption comes first.
+		result.NextAction = fmt.Sprintf("Review walden adopt %s before any walden verify: it can seal the recorded pass of each delivery task that awaits adoption", featureName)
 	}
 	if legacy {
 		result.NextAction = fmt.Sprintf("Review selected scope and legacy assurance gaps with walden adopt %s before requesting proof execution", featureName)

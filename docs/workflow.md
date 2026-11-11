@@ -107,6 +107,8 @@ walden verify user-auth --task 2.3 # re-prove one completed task, for a repair
 
 Establish the current contract and applicable feature scope before replaying old work; requirements can survive obsolete delivery tasks, and uncertain business intent needs a decision. At batch/feature/delivery closure, refresh the selected applicable evidence and report residual gaps. Code-only maintenance need not create a new spec, but raw tests alone do not refresh Walden evidence.
 
+A task whose proof the plan declares as a delivery proof is treated apart: once attested it reads `delivered` and no run proves it again, with or without `--all`. See [Delivery proofs](lifecycle.md#delivery-proofs).
+
 A reconstructed legacy binding is not execution attestation: `unattested` and independent provenance gaps remain explicit. Verify rejects mutations and contaminates later executions in that run; restoring bytes does not revive failed records. `--check` does not sandbox proof side effects. Environment drift remains diagnostic, not a substitute for proof binding or integrity.
 
 ## 8. Certify

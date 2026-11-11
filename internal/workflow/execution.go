@@ -123,7 +123,9 @@ func evidenceWarnings(ctx context.Context, root string, feature spec.Feature) []
 	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
 	notVerified := []string{}
 	for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
-		if derived.State == evidence.StateVerified || derived.State == evidence.StatePending {
+		// A delivered task is not among the tasks that are not verified: its
+		// proof attested a delivery and is not run again.
+		if derived.State == evidence.StateVerified || derived.State == evidence.StatePending || derived.State == evidence.StateDelivered {
 			continue
 		}
 		notVerified = append(notVerified, fmt.Sprintf("%s (%s): %s", derived.TaskID, derived.State, derived.GapSummary()))
@@ -358,7 +360,7 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 	if !identityOK {
 		facts.Integrity = "identity-unavailable"
 	}
-	ledger.Tasks[startContext.Task.ID] = evidence.Record{
+	record := evidence.Record{
 		TaskFingerprint:         executableTaskFingerprint(startContext.Task),
 		TaskFingerprintScheme:   spec.TaskFingerprintScheme,
 		Execution:               facts,
@@ -373,6 +375,12 @@ func CompleteTask(ctx context.Context, root, featureName, taskID string, runner 
 		Result:                  evidence.ResultPassed,
 		VerifiedAt:              completedAt,
 	}
+	// A delivery proof that passed is attested when the tree it left is the
+	// tree of its commit. The capture is the one the record is bound to.
+	if startContext.Task.Proof.Delivery && identityOK {
+		record.Attestation = evidence.Attest(record, capture)
+	}
+	ledger.Tasks[startContext.Task.ID] = record
 	if err := evidence.Save(root, ledger); err != nil {
 		return TaskCompletionResult{}, fmt.Errorf("record evidence before completion: %w", err)
 	}
@@ -544,22 +552,7 @@ func resolveProofCommands(task ExecutableTask) ([]proofCommand, string, error) {
 // no entry. A task that names none still records the scheme with an empty
 // set, so a later reader can tell "names no statement" from "no facts kept".
 func statementFacts(requirementsBody string, requirements []string, proof spec.VerificationSpec) *evidence.StatementFacts {
-	blocks := spec.StatementBlocks(requirementsBody)
-	facts := &evidence.StatementFacts{Scheme: spec.StatementScheme, Fingerprints: map[string]string{}}
-	add := func(id string) {
-		if block, defined := blocks[id]; defined {
-			facts.Fingerprints[id] = spec.StatementFingerprint(block)
-		}
-	}
-	for _, id := range requirements {
-		add(id)
-	}
-	for _, step := range proof.Steps {
-		for _, id := range step.Covers {
-			add(id)
-		}
-	}
-	return facts
+	return evidence.NamedStatements(spec.StatementFingerprints(requirementsBody), requirements, proof)
 }
 
 // executableTaskFingerprint bridges the execution view back to the spec

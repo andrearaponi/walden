@@ -1113,7 +1113,7 @@ func taskStartErrorResult(featureName string, err error) output.Result {
 }
 
 func toOutputTaskStatus(task workflow.ExecutableTask) *output.TaskStatus {
-	return &output.TaskStatus{
+	status := &output.TaskStatus{
 		ID:           task.ID,
 		Title:        task.Title,
 		ParentID:     task.ParentID,
@@ -1121,6 +1121,10 @@ func toOutputTaskStatus(task workflow.ExecutableTask) *output.TaskStatus {
 		DesignRefs:   append([]string(nil), task.DesignRefs...),
 		Verification: task.Verification,
 	}
+	if task.Proof.Delivery {
+		status.Proof = spec.ProofKindDelivery
+	}
+	return status
 }
 
 func taskCompleteSuccessResult(result workflow.TaskCompletionResult) output.Result {

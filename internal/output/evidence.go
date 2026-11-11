@@ -15,6 +15,18 @@ func printEvidence(w io.Writer, entries []EvidenceStatus, indent string) {
 func printEvidenceWithRunDetails(w io.Writer, entries []EvidenceStatus, indent string, runDetails bool) {
 	for _, entry := range entries {
 		_, _ = fmt.Fprintf(w, "%s- %s: %s", indent, entry.TaskID, entry.State)
+		switch {
+		case entry.Attestation != nil:
+			// A delivered task is named with the commit it was attested on.
+			_, _ = fmt.Fprintf(w, " at %s", entry.Attestation.Commit)
+			if entry.Attestation.Sealed {
+				_, _ = fmt.Fprint(w, " (sealed by adoption)")
+			}
+		case entry.Delivery && entry.AwaitsAdoption:
+			_, _ = fmt.Fprint(w, " (delivery proof, awaits adoption)")
+		case entry.Delivery:
+			_, _ = fmt.Fprint(w, " (delivery proof)")
+		}
 		if entry.Failure != "" {
 			_, _ = fmt.Fprintf(w, " (%s)", entry.Failure)
 		}
@@ -84,6 +96,9 @@ func printExplanation(w io.Writer, explanation *evidence.Explanation, indent str
 			_, _ = fmt.Fprintf(w, "%s  since commit %s: %s\n", indent, code.RecordedCommit, boundedList(paths))
 		}
 	}
+	if attestation := explanation.Attestation; attestation != nil {
+		_, _ = fmt.Fprintf(w, "%s  not attested: %s\n", indent, attestation.Detail)
+	}
 	if spec := explanation.Spec; spec != nil {
 		approvals := make([]string, 0, len(spec.Approvals))
 		for _, approval := range spec.Approvals {
@@ -121,6 +136,7 @@ func EvidenceView(entry evidence.TaskEvidence) EvidenceStatus {
 		Profile: entry.RecordedProfile, ProfileLegacy: entry.ProfileLegacy,
 		CodeFreshness: entry.CodeFreshness, Gaps: entry.Gaps,
 		Explanation: entry.Explanation, RecordedDurationMS: entry.RecordedDurationMS,
+		Delivery: entry.Delivery, Attestation: entry.Attestation, AwaitsAdoption: entry.AwaitsAdoption,
 	}
 	if entry.Binding.State != "" {
 		binding := entry.Binding

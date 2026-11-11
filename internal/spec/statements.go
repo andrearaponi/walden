@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -104,4 +105,50 @@ func opensFence(line string) bool {
 
 func indentation(line string) int {
 	return len(line) - len(strings.TrimLeft(line, " \t"))
+}
+
+// StatementLess orders statement identifiers as a requirements document
+// does: criteria by requirement and criterion number, then non-functional
+// requirements, then constraints.
+func StatementLess(a, b string) bool {
+	rankA, numbersA := statementKey(a)
+	rankB, numbersB := statementKey(b)
+	if rankA != rankB {
+		return rankA < rankB
+	}
+	for i := 0; i < len(numbersA) && i < len(numbersB); i++ {
+		if numbersA[i] != numbersB[i] {
+			return numbersA[i] < numbersB[i]
+		}
+	}
+	if len(numbersA) != len(numbersB) {
+		return len(numbersA) < len(numbersB)
+	}
+	return a < b
+}
+
+func statementKey(id string) (rank int, numbers []int) {
+	switch {
+	case strings.HasPrefix(id, "NFR"):
+		rank = 1
+	case strings.HasPrefix(id, "C"):
+		rank = 2
+	}
+	digits := ""
+	flush := func() {
+		if digits != "" {
+			number, _ := strconv.Atoi(digits)
+			numbers = append(numbers, number)
+			digits = ""
+		}
+	}
+	for _, r := range id {
+		if r >= '0' && r <= '9' {
+			digits += string(r)
+			continue
+		}
+		flush()
+	}
+	flush()
+	return rank, numbers
 }

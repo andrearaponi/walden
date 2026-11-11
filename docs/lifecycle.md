@@ -101,6 +101,7 @@ What the ledger deliberately does **not** hold is any state label. When you ask 
 | State | Meaning |
 | --- | --- |
 | `verified` | Required binding, available code identity and supported producer-policy facts match the current assessment. |
+| `delivered` | The task's proof is declared as a delivery proof and passed on the tree of a commit, which the report names. It is not proven again. |
 | `stale-spec` | A known contract or approval-chain mismatch exists. |
 | `stale-code` | Available recorded/current code identities differ. |
 | `failed` | A recorded assertion failure or known verification-policy violation blocks acceptance. |
@@ -112,9 +113,28 @@ What the ledger deliberately does **not** hold is any state label. When you ask 
 
 A stale state says what moved. `walden evidence status` names, for a `stale-code` task, the paths that changed, were added or were removed since its proof ran; for a `stale-spec` task, the approval that changed and, when it is the requirements, which of the statements the task names changed or are gone, or that none did. It also shows what the current identity is made of: the commit and the uncommitted paths, with untracked ones marked, so a stray copy or a forgotten edit is visible as an input. When a record lacks the facts, or the commit it names is gone, the report says so instead of guessing. None of this changes a state: the identity still covers the whole tree.
 
+### Delivery proofs
+
+Some proofs describe a delivery, not a behavior: `grep -q 'version 1.2' README.md` was true while the README named that release. Judged as a regression, such a proof fails as soon as the delivered text moves on, and the feature blocks until someone rewrites it. A plan can say instead that a leaf's proof attests a delivery, with the line `- Proof: delivery` (see the [spec format](reference/spec-format.md#tasksmd)).
+
+A delivery proof that passes on a tree with no uncommitted path outside `.walden/` is **attested**: its record names the commit of that tree. The task then reads `delivered`, with that commit, and stays delivered while two things hold: its definition is the attested one, and the statements it names read as they did. Later changes to the code do not touch it, and neither does a re-approval of the requirements or of the design that leaves those statements alone. It reads `stale-spec` when a statement it names is reworded or removed, or when its definition changes, the removal of the declaration included.
+
+`walden verify` never runs the proof of a delivered task, with or without `--all`, and refuses `--task` on it. `walden release check` accepts it, names it with its commit, states the number of delivered tasks in a releasable verdict and lists the statements that only delivery proofs cover.
+
+A delivery task without an attestation is judged as a regression task. `task complete` usually runs on work that is not committed yet, so its pass is no attestation: the first `walden verify` on the committed tree proves the task again and attests it. A pass recorded before the plan declared the delivery is another case. When it is a pass of the same proof with supported execution provenance, it awaits adoption: `walden verify` leaves it alone unless `--task` names its task, because a proof that no longer passes would replace it with a failure. `walden adopt` names such a pass with the commit that holds the tree it ran on, and `walden adopt --apply` seals it as an attestation without executing the proof. A pass it cannot seal is reported with its reason and with what proves its task again (see [Adoption](adoption.md#seal-recorded-delivery-passes)).
+
+The narrowing is deliberate, and it has limits:
+
+- a delivered task is not proven again: the verdict says what it accepted without proving, not that the proof still passes;
+- the attested commit is not checked against the history of what is certified: after a squash merge or in a shallow clone it may not be there;
+- a pass on a tree with uncommitted changes is no attestation, whatever its result;
+- an earlier CLI skips the declaration and judges a delivery task as a regression task, and it refuses a ledger that holds an attestation.
+
+Declare a delivery proof for a fact about what shipped. A check that must keep holding gets a regression leaf of its own, and the declaration is never a way to silence a failing regression proof.
+
 The ledger is a current-state map; historical recovery depends on actually preserved Git history. Normal feature-local verify prunes orphaned task entries, while inspection never prunes. A missing record is `unrecorded`; a corrupted or unsupported ledger is a read error, not an empty trusted map. Preserve it for diagnosis rather than deleting history as a universal remedy.
 
-New ledgers use `v1alpha2`; old records remain readable with explicit uncertainty. [Legacy binding recovery](adoption.md) can translate a justified full-plan witness without replay, but cannot manufacture old producer/purity facts. Binding, code freshness and execution provenance are reported separately even when one state takes precedence. Document schema and intact approvals remain unchanged.
+New ledgers use `v1alpha2`, or `v1alpha3` once a record holds an attestation; old records remain readable with explicit uncertainty. [Legacy binding recovery](adoption.md) can translate a justified full-plan witness without replay, but cannot manufacture old producer/purity facts. Binding, code freshness and execution provenance are reported separately even when one state takes precedence. Document schema and intact approvals remain unchanged.
 
 ## The environment
 

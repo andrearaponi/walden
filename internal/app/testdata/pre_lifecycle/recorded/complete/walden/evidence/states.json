@@ -1,0 +1,307 @@
+{
+  "schema_version": "v1alpha2",
+  "feature": "states",
+  "tasks": {
+    "1.1": {
+      "task_fingerprint": "sha256:6311a978a5fff3b71df6c92f181736bcbecc58a57190650c330f2dcd55559db5",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC1": "sha256:a1a5fbf5ca0def6efe6212f72ac2e9a11b36e4020ff24f2d94ec677f42d52c81"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 1 -eq 1"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 3
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:12Z"
+    },
+    "1.2": {
+      "task_fingerprint": "sha256:a9106e3a371f6ae6000dc1bcbdbcef03f3e22a63f15c38d500393d424403f289",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC2": "sha256:d1002f2c4d8dddbcab2a8ea87e47a047e91744e8987e23caff2cd9c8f4c6656d"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 2 -eq 2"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 3
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:12Z"
+    },
+    "1.3": {
+      "task_fingerprint": "sha256:12b055b9c205ce0e79f6d2f21e95d82432d0801e01c92d740d13b0fcb3c20e44",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC3": "sha256:3378af43fb47d52411c0e93e9769683591d1601e346f190209d3571b6759b976"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 3 -eq 3"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 2
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:12Z"
+    },
+    "1.4": {
+      "task_fingerprint": "sha256:94eb107f38ddef9cdfe56548c5e87f243789ade08c0ade9a9f64fcfc48cca61e",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC4": "sha256:a22bca65a7fdb07922564ccdd5058b59ebca313b25d8dcb3132f8a04e1488a1c"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test ! -e .walden/fail-flag"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 2
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:12Z"
+    },
+    "1.5": {
+      "task_fingerprint": "sha256:fca3c6709c60885621acbd9867011cf3db5fd96ed2b449ccad789e2fb0884e3c",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC5": "sha256:e2cc466c4b04c6d53386d6570fde1845c58ec143665d86c19c9eadfc8d238932"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 5 -eq 5"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 2
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:12Z"
+    },
+    "1.6": {
+      "task_fingerprint": "sha256:4c5e474e82873ed7e708066aa3c64604ffff59483cbd71b1e913024289871ec8",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC6": "sha256:9dc5670145b2ab14a93aa77d4f5392adf669028e371f1406523380a7998c7f41"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 6 -eq 6"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 3
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:13Z"
+    },
+    "1.7": {
+      "task_fingerprint": "sha256:2091ca0fa5f1c50c0b33022a06a08ed65f112fcf5969ad1d88f2c3127f33aa18",
+      "task_fingerprint_scheme": "walden/task-definition/v2",
+      "execution": {
+        "origin": "complete",
+        "policy": "completion-post-state/v1",
+        "assertion_result": "passed",
+        "integrity": "post-state",
+        "after_code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f"
+      },
+      "requirements_fingerprint": "sha256:f6c9c8e40c3db122c994b68fad2381f1ba12d0a85011b94c5072c6ad70619b16",
+      "design_fingerprint": "sha256:85258c3a8d22cba6c38529d597cb6718a048db5ae5db63bca9b5bb5366e54914",
+      "tasks_fingerprint": "sha256:ebfa70070a003922b141cb566037b3e93346b6c6474c41de46629dd6f3be613a",
+      "code_identity": "sha256:b67168c4f7c14751fa8ea8374202069bcdad1cda5ffaa1c9ee9b1b194f160f0f",
+      "tree": {
+        "commit": "bd31de47145da1c029b44e00ccdd4e2dbc867405"
+      },
+      "statements": {
+        "scheme": "walden/statement-block/v1",
+        "fingerprints": {
+          "R1.AC7": "sha256:6581dc9f91b12ee00bc37bfea256be4eda6dba2cdf52664a6ec2fabfa0b069a0"
+        }
+      },
+      "profile": {
+        "platform": "darwin/arm64",
+        "walden": "v0.14.5"
+      },
+      "steps": [
+        {
+          "command": [
+            "sh",
+            "-c",
+            "test 7 -eq 7"
+          ],
+          "expected_exit": 0,
+          "actual_exit": 0,
+          "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "duration_ms": 2
+        }
+      ],
+      "result": "passed",
+      "verified_at": "2026-11-10T18:56:13Z"
+    }
+  }
+}

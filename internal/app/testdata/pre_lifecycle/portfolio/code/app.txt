@@ -1,0 +1,2 @@
+A file the fixture treats as code.
+first line

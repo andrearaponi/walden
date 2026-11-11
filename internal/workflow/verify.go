@@ -27,16 +27,29 @@ type VerifyOutcome struct {
 }
 
 type VerifyResult struct {
-	Feature           string
-	Task              string   // the selected id; empty without a selection
-	Open              []string // completed tasks outside the selection not verified, in plan order
-	Outcomes          []VerifyOutcome
-	Failed            []string
-	Checked           bool
-	Skipped           []string
+	Feature  string
+	Task     string   // the selected id; empty without a selection
+	Open     []string // completed tasks outside the selection not verified, in plan order
+	Outcomes []VerifyOutcome
+	Failed   []string
+	Checked  bool
+	Skipped  []string
+	// Kept holds the delivered tasks the run did not prove again, with the
+	// commit each was attested on.
+	Kept []KeptTask
+	// Left holds the tasks whose recorded pass awaits adoption: the run left
+	// their proofs alone.
+	Left              []string
 	Pruned            []string
 	Warnings          []string
 	EvidencePersisted *bool
+}
+
+// KeptTask is a delivered task a run kept as it was.
+type KeptTask struct {
+	TaskID string
+	Commit string
+	Sealed bool
 }
 
 // VerifyTaskStart identifies an actual selected proof attempt.
@@ -63,9 +76,12 @@ type VerifyTaskFinish struct {
 
 // verifySelection decides which completed tasks one invocation re-proves:
 // those not verified by default, every one with all, exactly one with task.
+// attest is set by walden verify and not by the verify run of adoption: on a
+// committed tree it also proves the delivery tasks that hold no attestation.
 type verifySelection struct {
-	all  bool
-	task string
+	all    bool
+	task   string
+	attest bool
 }
 
 // VerifyOptions configures observation, never proof selection or policy.
@@ -81,7 +97,7 @@ type VerifyOptions struct {
 // source bytes within the invocation. Check mode has identical judgments but
 // no Walden writes. Commands themselves are not sandboxed or rolled back.
 func Verify(ctx context.Context, root, featureName string, all, check bool, runner shell.Runner) (VerifyResult, error) {
-	result, err := verify(ctx, root, featureName, verifySelection{all: all}, check, runner, nil)
+	result, err := verify(ctx, root, featureName, verifySelection{all: all, attest: true}, check, runner, nil)
 	if err != nil {
 		return VerifyResult{}, err
 	}
@@ -137,11 +153,18 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 		return VerifyResult{}, err
 	}
 	ledger.Feature = feature.Name
+	current, leafs := evidence.FeatureInputs(feature, tree)
+	if selection.task != "" {
+		// A delivered task is not proven again. The refusal comes before the
+		// first effect of the run: no probe, no capture, no proof, no write.
+		if err := refuseDelivered(ledger, current, leafs, selection.task); err != nil {
+			return VerifyResult{}, err
+		}
+	}
 	profile, err := runProfile(ctx, root)
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	current, leafs := evidence.FeatureInputs(feature, tree)
 	evidence.ResolvePlans(ctx, identityRunner, root, feature, ledger, &current, "")
 	// The pre-proof capture of each task is the one a record binds, so it is
 	// the one that also keeps the commit and the differing paths. The
@@ -154,17 +177,19 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 	}
 	selected := map[string]bool{}
 	result := VerifyResult{Feature: feature.Name, Task: selection.task, Checked: check}
-	for _, entry := range evidence.Derive(ledger, current, identity, initialOK, leafs) {
-		switch {
-		case entry.State == evidence.StatePending:
-		case selection.task != "":
-			if entry.TaskID == selection.task {
-				selected[entry.TaskID] = true
-			}
-		case !selection.all && entry.State == evidence.StateVerified:
-			result.Skipped = append(result.Skipped, entry.TaskID)
-		default:
-			selected[entry.TaskID] = true
+	entries := evidence.Derive(ledger, current, identity, initialOK, leafs)
+	choice := SelectProofs(entries, selection.all, selection.task, selection.attest && initialOK && initialCapture.Committed())
+	for _, id := range choice.Run {
+		selected[id] = true
+	}
+	result.Skipped, result.Left = choice.Skipped, choice.Left
+	kept := map[string]bool{}
+	for _, id := range choice.Kept {
+		kept[id] = true
+	}
+	for _, entry := range entries {
+		if kept[entry.TaskID] && entry.Attestation != nil {
+			result.Kept = append(result.Kept, KeptTask{TaskID: entry.TaskID, Commit: entry.Attestation.Commit, Sealed: entry.Attestation.Sealed})
 		}
 	}
 	if len(selected) > 0 && !initialOK {
@@ -305,6 +330,12 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 				}
 			}
 		}
+		// A delivery proof that passed is attested when the tree it ran on
+		// was the tree of its commit. The pre-proof capture is the one the
+		// record binds, and a rejected run holds no pass to attest.
+		if task.Proof.Delivery && preOK {
+			record.Attestation = evidence.Attest(record, preCapture)
+		}
 		// Check mode uses the same in-memory ledger; only Save is suppressed.
 		ledger.Tasks[task.ID] = record
 		result.Outcomes = append(result.Outcomes, outcome)
@@ -326,7 +357,9 @@ func verify(ctx context.Context, root, featureName string, selection verifySelec
 	assessments := map[string]evidence.TaskEvidence{}
 	for _, entry := range evidence.Derive(ledger, current, finalIdentity, previousOK, leafs) {
 		assessments[entry.TaskID] = entry
-		if selection.task != "" && entry.TaskID != selection.task && entry.State != evidence.StatePending && entry.State != evidence.StateVerified {
+		// A delivered task is not among the completed tasks that are not
+		// verified: nothing is left to prove for it.
+		if selection.task != "" && entry.TaskID != selection.task && entry.State != evidence.StatePending && entry.State != evidence.StateVerified && entry.State != evidence.StateDelivered {
 			result.Open = append(result.Open, entry.TaskID)
 		}
 	}
@@ -378,6 +411,21 @@ func checkTaskSelection(tree spec.TaskTree, feature, id string) error {
 		return nil
 	}
 	return fmt.Errorf("task %q is not a leaf task of %s", id, feature)
+}
+
+// refuseDelivered rejects a run that names a delivered task. The state is
+// derived without a code identity, which the reading of an attestation does
+// not need, so nothing is asked of git either.
+func refuseDelivered(ledger evidence.Document, current evidence.ChainFingerprints, leafs []evidence.LeafTask, id string) error {
+	for _, entry := range evidence.Derive(ledger, current, "", false, leafs) {
+		if entry.TaskID == id && entry.State == evidence.StateDelivered && entry.Attestation != nil {
+			return fmt.Errorf(
+				"task %q is delivered: its proof was attested at commit %s and is not run again — a delivered task is proven again only after its declaration or its proof changes in the approved plan, or after a statement it names changes",
+				id, entry.Attestation.Commit,
+			)
+		}
+	}
+	return nil
 }
 
 func formatProfileDrift(drifts []evidence.ProfileDrift) string {
@@ -486,6 +534,10 @@ func ReadEvidence(ctx context.Context, root, featureName string) (EvidenceReadin
 // commitToList reports the recorded commit whose tree an explanation needs:
 // only a stale record that kept its commit and its paths has one.
 func commitToList(record evidence.Record, entry evidence.TaskEvidence) (string, bool) {
+	// A delivered task is not explained, so git is asked nothing for it.
+	if entry.State == evidence.StateDelivered {
+		return "", false
+	}
 	if entry.CodeFreshness != "stale" || record.Tree == nil || record.Tree.Commit == "" || record.Tree.PathsOmitted > 0 {
 		return "", false
 	}

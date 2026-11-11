@@ -10,6 +10,10 @@ const (
 	StateUnattested = "unattested"
 	StateUnrecorded = "unrecorded"
 	StatePending    = "pending"
+	// StateDelivered is the state of a completed task whose delivery proof
+	// was attested on a commit. It is never reported as verified: the proof
+	// is not expected to pass on later code, and is not run again.
+	StateDelivered = "delivered"
 )
 
 type ChainFingerprints struct {
@@ -17,6 +21,9 @@ type ChainFingerprints struct {
 	Design       string
 	Plans        map[string]PlanWitness
 	PlanGaps     map[string]string
+	// Statements holds the fingerprint of each statement the requirements
+	// define now. An attestation is compared with it, statement by statement.
+	Statements map[string]string
 }
 
 type LeafTask struct {
@@ -24,6 +31,20 @@ type LeafTask struct {
 	Completed   bool
 	Fingerprint string
 	Definition  *spec.Task
+	// Delivery reports that the plan declares the task's proof as a delivery
+	// proof.
+	Delivery bool
+	// Undeclared is the fingerprint the definition has without that
+	// declaration, empty for a task that declares none. A pass recorded
+	// before the declaration is bound to it.
+	Undeclared string
+}
+
+// AttestedCommit is what a report shows of an attestation: the commit and
+// whether adoption sealed it.
+type AttestedCommit struct {
+	Commit string `json:"commit"`
+	Sealed bool   `json:"sealed"`
 }
 
 type Gap struct {
@@ -58,6 +79,14 @@ type TaskEvidence struct {
 	// RecordedDurationMS is how long the recorded execution took, filled
 	// the same way; nil when the record keeps no measurement.
 	RecordedDurationMS *int64
+	// Delivery reports that the task declares a delivery proof.
+	Delivery bool
+	// Attestation is set when the state is delivered.
+	Attestation *AttestedCommit
+	// AwaitsAdoption reports a pass recorded before the plan declared the
+	// delivery, for the same proof and with supported provenance: only
+	// adoption can seal it, and only a run that names its task replaces it.
+	AwaitsAdoption bool
 }
 
 // Derive is a pure assessment of explicit inputs. Missing observations never
@@ -68,7 +97,7 @@ func Derive(document Document, current ChainFingerprints, currentIdentity string
 		currentIdentity = ""
 	}
 	for _, task := range tasks {
-		entry := TaskEvidence{TaskID: task.ID, CurrentIdentity: currentIdentity}
+		entry := TaskEvidence{TaskID: task.ID, CurrentIdentity: currentIdentity, Delivery: task.Delivery}
 		record, recorded := document.Tasks[task.ID]
 		if !recorded {
 			entry.State = StateUnrecorded
@@ -82,6 +111,7 @@ func Derive(document Document, current ChainFingerprints, currentIdentity string
 		entry.RecordedProfile, entry.ProfileLegacy = record.Profile, record.Profile == nil
 		entry.Binding = assessBinding(record, current, task)
 		entry.Execution = assessExecution(record)
+		entry.AwaitsAdoption = AwaitsAdoption(record, task)
 		entry.CodeFreshness = "current"
 		switch {
 		case currentIdentity == "" || record.CodeIdentity == "":
@@ -114,6 +144,17 @@ func Derive(document Document, current ChainFingerprints, currentIdentity string
 			entry.State = StatePending
 		case record.Result != ResultPassed || entry.Execution.State == "rejected":
 			entry.State = StateFailed
+		case attestationRead(record, entry.Execution):
+			// The attestation reading. The task is judged on its definition
+			// and on the statements it names, as they were attested: the code
+			// identity and the document fingerprints take no part, so their
+			// gaps are not reported either.
+			entry.Binding, entry.Gaps = readAttestation(record, current, task)
+			entry.State = StateStaleSpec
+			if len(entry.Gaps) == 0 {
+				entry.State = StateDelivered
+				entry.Attestation = &AttestedCommit{Commit: record.Attestation.Commit, Sealed: record.Attestation.Sealed}
+			}
 		case chainChanged || entry.Binding.State == "changed" || entry.Binding.State == "contradictory":
 			entry.State = StateStaleSpec
 		case entry.CodeFreshness == "stale":

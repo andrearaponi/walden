@@ -134,7 +134,7 @@ walden evidence status greeting-service   # derived states and diagnostic profil
 walden verify greeting-service            # re-runs proofs for anything no longer verified
 ```
 
-States are **derived at read time** — `verified`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, `pending`. The view separates contract binding, code freshness and execution provenance. Use `walden adopt greeting-service` for a legacy assessment without proofs or probes; a recovered hash cannot invent missing historical purity. Choose the current contract scope before replay, and aggregate checks at declared batch/delivery checkpoints rather than after every edit.
+States are **derived at read time** — `verified`, `delivered`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, `pending`. `delivered` belongs to a plan that declares a [delivery proof](lifecycle.md#delivery-proofs); this one declares none. The view separates contract binding, code freshness and execution provenance. Use `walden adopt greeting-service` for a legacy assessment without proofs or probes; a recovered hash cannot invent missing historical purity. Choose the current contract scope before replay, and aggregate checks at declared batch/delivery checkpoints rather than after every edit.
 
 ## Certify
 
