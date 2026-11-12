@@ -166,7 +166,7 @@ main:focus { outline: none; }   /* the skip link's landing point, not a control 
 .doc pre {
   background: var(--pine-deep); color: #e9e5d8;
   border-radius: 8px; padding: 1rem 1.2rem; margin: 1.1rem 0 1.4rem;
-  overflow-x: auto; font-size: 0.8rem; line-height: 1.7;
+  overflow-x: auto; font-size: 0.8rem; line-height: 1.7; tab-size: 4;
 }
 .doc pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; overflow-wrap: normal; }
 
