@@ -1,6 +1,6 @@
 # Walden Documentation
 
-Walden is a spec-driven delivery kernel: a deterministic CLI that takes a feature from intention to certified release through reviewed documents, executable proofs, and durable evidence. These pages are the reference for the mechanism, organized by what you are trying to do.
+Walden proves that your code meets its spec, and shows what is no longer proven when either one changes. It is a deterministic CLI that takes a feature from intention to certified release through reviewed documents, executable proofs, and durable evidence. These pages are the reference for the mechanism, organized by what you are trying to do.
 
 ## Learn
 

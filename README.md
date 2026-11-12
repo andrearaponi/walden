@@ -5,7 +5,7 @@
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)](go.mod)
 [![skills.sh](https://skills.sh/b/andrearaponi/walden)](https://skills.sh/andrearaponi/walden)
 
-Walden is an open-source, spec-driven delivery kernel: a deterministic CLI that takes a feature from intention to certified release through reviewed documents, executable proofs, and durable evidence.
+Walden proves that your code meets its spec, and shows what is no longer proven when either one changes. It is an open-source, deterministic CLI that takes a feature from intention to certified release through reviewed documents, executable proofs, and durable evidence.
 
 <p align="center">
   <img src="site/walden-og.jpg" alt="Walden — Intention before code. Proof before completion." />
