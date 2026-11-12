@@ -1,0 +1,44 @@
+name: Feature request
+description: Something Walden cannot do today, or makes harder than it should be.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write in English. A real case is worth more than a general description: show the statements, commands and output involved.
+  - type: textarea
+    id: case
+    attributes:
+      label: The case
+      description: "What you were doing and where Walden got in the way, with the real material: the requirements or tasks involved, the command you ran and what it printed."
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today
+      description: "The workaround, if there is one, and what it costs you."
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you would expect
+      description: "The behaviour you want. You do not need to design it."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Specs and review gates
+        - Tasks, proofs and evidence
+        - Adoption and retirement
+        - Consolidation
+        - AI skills
+        - Install, update and CI
+        - Documentation and site
+        - Not sure
+    validations:
+      required: false

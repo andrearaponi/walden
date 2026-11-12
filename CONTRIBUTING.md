@@ -38,12 +38,12 @@ For small fixes and improvements, a pull request with clear context is sufficien
 
 ## Reporting Issues
 
-Use GitHub Issues to report bugs or request features. Include:
+Open an issue from one of the forms: bug report, feature request or question. Please write in English.
 
-- What you expected to happen
-- What actually happened
-- Steps to reproduce
-- CLI version (`walden version`)
+- A bug report needs the exact command, everything it printed (output with `--json` is the most useful) and the output of `walden version`.
+- A feature request needs the real case: the requirements, tasks or commands involved, and what you do today.
+
+Security vulnerabilities do not go in a public issue: see [SECURITY.md](SECURITY.md).
 
 ## Code of Conduct
 

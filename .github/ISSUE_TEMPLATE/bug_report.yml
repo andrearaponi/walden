@@ -1,0 +1,45 @@
+name: Bug report
+description: Walden did something different from what its documentation says.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write in English and paste text, not screenshots.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: "What you ran, what Walden did, and what you expected instead."
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Command and output
+      description: "The exact command and everything it printed. Output with `--json` is the most useful."
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Walden version
+      description: "Output of `walden version`."
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: "Operating system, architecture, and how you installed Walden."
+      placeholder: "macOS arm64, installer script"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: "A public repository, or the smallest spec files that show the problem. Remove anything private first."
+    validations:
+      required: false

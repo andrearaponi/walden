@@ -1,0 +1,15 @@
+name: Question
+description: Something about Walden that the documentation does not answer.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write in English. The documentation is at https://andrearaponi.github.io/walden/docs/.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: "What you are trying to understand, and what you have already read or tried."
+    validations:
+      required: true
