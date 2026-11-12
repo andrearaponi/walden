@@ -362,7 +362,7 @@ func pageHTML(current page, body string) string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>` + escape(title) + ` · Walden Docs</title>
-  <meta name="description" content="Walden documentation — the spec-driven delivery kernel: lifecycle, workflow, adoption, and full CLI/JSON references." />
+  <meta name="description" content="Walden documentation — proof that your code meets its spec: lifecycle, workflow, adoption, and full CLI/JSON references." />
   <link rel="icon" href="` + site + `walden.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
