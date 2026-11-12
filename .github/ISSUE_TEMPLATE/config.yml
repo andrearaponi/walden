@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://andrearaponi.github.io/walden/docs/
+    about: Quickstart, lifecycle, daily workflow, adoption, CI and the CLI and JSON references.
+  - name: Security vulnerability
+    url: https://github.com/andrearaponi/walden/security/policy
+    about: Do not open a public issue. Follow the security policy instead.
