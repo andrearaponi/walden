@@ -9,6 +9,12 @@ curl -fsSL https://raw.githubusercontent.com/andrearaponi/walden/main/install.sh
 walden version
 ```
 
+If the shell answers `command not found: walden`, `~/.local/bin` is not on your PATH yet. The installer prints the line to add; put it in your shell profile to keep it:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
 Alternatively, install the guide first with Skills CLI:
 
 ```bash
@@ -24,7 +30,7 @@ git init my-project && cd my-project
 walden repo init
 ```
 
-This creates `.walden/` (a `constitution.md` for stable project context, a `lessons.md`, a scoped `.gitignore`) and a generated CI workflow (`.github/workflows/validate-walden.yml`) pinned to the version that generated it.
+This creates `.walden/` (a `constitution.md` for stable project context, a `lessons.md`, a scoped `.gitignore`) and two files under `.github/`: a pull request template and a generated CI workflow (`workflows/validate-walden.yml`) pinned to the version that generated it.
 
 ```bash
 walden feature init "Greeting Service"
@@ -81,7 +87,42 @@ Approval does more than flip a status: it records a SHA-256 **fingerprint of the
 
 ## Phase 2 — Design
 
-Fill the six sections in the generated `design.md`: Architecture, Options Considered, Simplicity And Elegance Review, Failure Modes And Tradeoffs, Verification Plan, and Requirement Coverage. Additional sections are optional; do not invent an alternative or irrelevant detail just to fill a template. Coverage and verification must still be substantive. The validator checks structure, not the quality of these decisions. Then:
+Fill the six sections in the generated `design.md`: Architecture, Options Considered, Simplicity And Elegance Review, Failure Modes And Tradeoffs, Verification Plan, and Requirement Coverage. Additional sections are optional; do not invent an alternative or irrelevant detail just to fill a template. Coverage and verification must still be substantive. The validator checks structure, not the quality of these decisions.
+
+For this feature, keep the frontmatter and replace the template body:
+
+```markdown
+# Feature Design
+
+## Architecture
+
+A single Go package with one function, `Greet(name string) (string, error)`, and a `main` that passes the first argument to it, prints the result and exits non-zero on error.
+
+## Options Considered
+
+A `--name` flag instead of a positional argument: rejected, because the requirement names `greet <name>`.
+
+## Simplicity And Elegance Review
+
+One pure function holds the rule. `main` only wires the argument and the exit code, so the rule can be tested without running a process.
+
+## Failure Modes And Tradeoffs
+
+An empty name returns an error that names the missing argument, and the process exits non-zero. There is no other failure: the command does no I/O beyond standard output.
+
+## Verification Plan
+
+A Go test, `TestGreet`, calls `Greet` with a name and with an empty string, and checks the exact greeting and the error.
+
+## Requirement Coverage
+
+| Requirement | Covered By |
+| --- | --- |
+| `R1` | `Greet` and `TestGreet` |
+| `NFR1` | `Greet` does no I/O; `TestGreet` runs in milliseconds |
+```
+
+Then:
 
 ```bash
 walden validate greeting-service
@@ -93,7 +134,7 @@ The design's approval binds to the requirements' fingerprint. If requirements ch
 
 ## Phase 3 — Tasks
 
-Edit `tasks.md`: a two-level plan where every leaf task names the acceptance criteria it implements, the design section it follows, and — the part that matters — an executable **proof**:
+Edit `tasks.md`, again keeping the frontmatter: a two-level plan where every leaf task names the acceptance criteria it implements, the design section it follows, and — the part that matters — an executable **proof**:
 
 ```markdown
 # Implementation Plan
@@ -101,7 +142,7 @@ Edit `tasks.md`: a two-level plan where every leaf task names the acceptance cri
 - [ ] 1. Greeting command
   - [ ] 1.1 Implement greet with argument validation
     - Requirements: `R1.AC1`, `R1.AC2`, `NFR1`
-    - Design: Command Surface
+    - Design: Architecture
     - Verification:
       - command: ["go", "test", "-v", "-count=1", "-run", "^TestGreet$", "./..."]
         expect_output: "--- PASS: TestGreet"
@@ -116,7 +157,66 @@ walden review approve greeting-service --phase tasks
 
 ## Execute
 
-Write the code and the test, then complete the task — the CLI runs the proof and refuses the completion if it fails:
+The proof above is a Go test, so this example needs Go. With another stack, change the proof command and write the equivalent test: a proof is any command whose exit code and output tell success from failure.
+
+Create the module:
+
+```bash
+go mod init example.com/greet
+```
+
+Save the code as `greet.go`:
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+)
+
+// Greet returns the greeting for name, or an error naming the missing argument.
+func Greet(name string) (string, error) {
+	if name == "" {
+		return "", errors.New("missing argument: name")
+	}
+	return "Hello, " + name + "!", nil
+}
+
+func main() {
+	name := ""
+	if len(os.Args) > 1 {
+		name = os.Args[1]
+	}
+	greeting, err := Greet(name)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println(greeting)
+}
+```
+
+And the test as `greet_test.go`:
+
+```go
+package main
+
+import "testing"
+
+func TestGreet(t *testing.T) {
+	got, err := Greet("Ada")
+	if err != nil || got != "Hello, Ada!" {
+		t.Fatalf("Greet(%q) = %q, %v", "Ada", got, err)
+	}
+	if _, err := Greet(""); err == nil || err.Error() != "missing argument: name" {
+		t.Fatalf("Greet(\"\") error = %v, want the named missing argument", err)
+	}
+}
+```
+
+Then complete the task — the CLI runs the proof and refuses the completion if it fails:
 
 ```bash
 walden task status greeting-service     # readiness and next runnable task
@@ -138,14 +238,18 @@ States are **derived at read time** — `verified`, `delivered`, `stale-spec`, `
 
 ## Certify
 
+The verdict names a commit and refuses uncommitted changes outside `.walden/`, so commit first:
+
 ```bash
+git add -A
+git commit -m "Greeting service"
 walden release check
 ```
 
 One deterministic verdict over the reported scope: approved fresh chains, validation, resolved decision markers, current execution assurance, pending work completed or explicitly waived, and the worktree policy. The gate executes no proofs or profile probes and writes nothing. Add `--strict` to bind the exact judged spec/evidence inputs to the named commit, even when ignored. A named-feature pass is not a repository-wide certificate; non-strict mode does not attest that local metadata is committed.
 
 ```text
-Summary: RELEASABLE — 1 feature(s) certified, completion complete, commit 3f2a91c40d77
+Summary: RELEASABLE — 1 feature(s) certified [portfolio: greeting-service], commit 3f2a91c40d77
 ```
 
 ## The same loop, driven by an agent
