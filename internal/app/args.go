@@ -206,9 +206,15 @@ var commandRegistry = []commandSpec{
 		Summary: "Repository-level operations",
 		Subcommands: []commandSpec{
 			{
-				Path:      "repo init",
-				Syntax:    "repo init [--json]",
-				Summary:   "Initialize Walden in the current repository",
+				Path:    "repo init",
+				Syntax:  "repo init [--json]",
+				Summary: "Initialize Walden in the current repository",
+				Details: []string{
+					"Creates the bootstrap files that are missing and keeps every file that exists.",
+					"The only change to an existing file is the version of the workflow's walden install target, set to the version of this CLI.",
+					"A workflow that names no walden install target is kept as it is, with a warning.",
+					"To regenerate a file from its template, delete it and run the command again.",
+				},
 				BoolFlags: []flagSpec{jsonFlag},
 			},
 		},

@@ -23,7 +23,9 @@ Release assets are named `walden-<tag>-<os>-<arch>` for `darwin`/`linux` × `amd
 
 ### `walden repo init [--json]`
 
-Initializes Walden in the current repository: `.walden/` (`constitution.md`, `lessons.md`, scoped `.gitignore`), a PR template, and the generated CI workflow pinned to this CLI version. Initializes git first if absent. Idempotent.
+Initializes Walden in the current repository: `.walden/` (`constitution.md`, `lessons.md`, scoped `.gitignore`), a PR template, and the generated CI workflow pinned to this CLI version. Initializes git first if absent.
+
+It is safe to run again, and on a repository that already has some of these files: it creates the files that are missing and keeps the ones that exist. A filled constitution, recorded lessons and your own PR template are never overwritten. The only change it makes to an existing file is the version in the workflow's `go install …/cmd/walden@<version>` step, which it sets to the version of this CLI; the rest of the workflow stays as you left it. A workflow that does not install the CLI that way is kept, with a warning. To regenerate a file from its template, delete it and run the command again.
 
 ### `walden feature init <name> [--json]`
 

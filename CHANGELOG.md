@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Fixed
+
+- **`walden repo init` no longer overwrites files that exist.** Since v0.1.0 a run wrote its template over every bootstrap file that differed from it. A second run replaced a filled `.walden/constitution.md`, the lessons that `walden lesson log` recorded in `.walden/lessons.md`, a customised `.walden/.gitignore` or pull request template, and an adjusted workflow. A first run replaced a pull request template the repository already had. The command exited 0 with no warning, and content that was never committed was lost. A run now creates the files that are missing and keeps the ones that exist. The only change it makes to an existing file is the version in the install step of `.github/workflows/validate-walden.yml`, which it sets to the version of the running CLI: the pin is still refreshed after an upgrade, and the rest of the workflow keeps the adjustments made to it. A workflow that does not install the CLI with `go install` is kept, with a warning. A run no longer restores a template: to regenerate a file, delete it and run the command again. The JSON result keeps its fields, and kept files are listed under `skipped_files`.
+
 ## [0.15.0] - 2026-11-11
 
 ### Added
