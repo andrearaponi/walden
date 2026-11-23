@@ -153,6 +153,7 @@ func runRepoInit(args []string, stdout io.Writer, stderr io.Writer) int {
 			GitInitialized:        report.GitInitialized,
 			GitAlreadyInitialized: report.GitAlreadyInitialized,
 			NextAction:            "Run walden feature init <name>",
+			Warnings:              report.Warnings,
 			ExitCode:              0,
 		}
 

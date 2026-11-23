@@ -1,22 +1,27 @@
 package repo
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/andrearaponi/walden/internal/spec"
 	"github.com/andrearaponi/walden/templates"
 )
 
 type bootstrapFile struct {
-	Source     string
-	Target     string
-	Executable bool
+	Source string
+	Target string
+	// RefreshPin marks the generated workflow, the one bootstrap file whose
+	// existing content repo init edits: the version of its install targets.
+	RefreshPin bool
 }
 
 // InitReport describes the file-level outcome of repository bootstrap.
@@ -26,6 +31,8 @@ type InitReport struct {
 	SkippedFiles          []string
 	GitAlreadyInitialized bool
 	GitInitialized        bool
+	// Warnings are non-blocking notes about files the run left as they were.
+	Warnings []string
 }
 
 var repoBootstrapFiles = []bootstrapFile{
@@ -33,7 +40,7 @@ var repoBootstrapFiles = []bootstrapFile{
 	{Source: "walden/gitignore", Target: ".walden/.gitignore"},
 	{Source: "walden/lessons.md", Target: ".walden/lessons.md"},
 	{Source: "github/pull_request_template.md", Target: ".github/pull_request_template.md"},
-	{Source: "github/workflows/validate-walden.yml", Target: ".github/workflows/validate-walden.yml"},
+	{Source: "github/workflows/validate-walden.yml", Target: ".github/workflows/validate-walden.yml", RefreshPin: true},
 }
 
 var gitInitRunner = runGitInit
@@ -42,11 +49,25 @@ var gitInitRunner = runGitInit
 // binary's version, so generated CI installs the exact CLI that wrote it.
 const versionToken = "{{WALDEN_VERSION}}"
 
-// Init bootstraps a repository with the baseline Walden file layout. The
-// version is stamped into templates carrying the version token: release
-// versions become exact pins, source builds fall back to "latest".
+// noInstallTargetWarning tells the user why an existing workflow kept its pin
+// and how to get the current template back.
+const noInstallTargetWarning = "%s names no walden install target, so its pin was not refreshed: delete the file and run walden repo init again to regenerate it from the current template"
+
+// Init bootstraps a repository with the baseline Walden file layout. It
+// creates the bootstrap files that are missing and never overwrites one that
+// exists. The one edit it makes to an existing file is the version of the
+// workflow's install targets, set to the pin of this binary: a release
+// version is an exact pin, a source build falls back to "latest".
 func Init(root string, version string) (InitReport, error) {
 	report := InitReport{}
+	pin := installPin(version)
+
+	// Read what the run may edit before it writes anything: a failure here
+	// leaves the repository as it was, git and directories included.
+	existing, err := readRefreshable(root)
+	if err != nil {
+		return InitReport{}, err
+	}
 
 	gitState, err := ensureGitRepository(root)
 	if err != nil {
@@ -66,20 +87,38 @@ func Init(root string, version string) (InitReport, error) {
 		if err != nil {
 			return InitReport{}, fmt.Errorf("read bootstrap template %q: %w", file.Source, err)
 		}
-		content = []byte(strings.ReplaceAll(string(content), versionToken, installPin(version)))
+		content = []byte(strings.ReplaceAll(string(content), versionToken, pin))
 
-		state, err := writeManagedFile(root, file, content)
+		created, err := createFile(root, file.Target, content)
 		if err != nil {
 			return InitReport{}, err
 		}
-
-		switch state {
-		case "created":
+		if created {
 			report.CreatedFiles = append(report.CreatedFiles, file.Target)
-		case "updated":
-			report.UpdatedFiles = append(report.UpdatedFiles, file.Target)
-		default:
+			continue
+		}
+
+		// The file exists. It is kept as it is unless its content was read
+		// for a pin refresh; one that appeared after that read waits for the
+		// next run.
+		current, read := existing[file.Target]
+		if !read {
 			report.SkippedFiles = append(report.SkippedFiles, file.Target)
+			continue
+		}
+
+		refreshed, found := refreshPin(current, pin)
+		switch {
+		case !found:
+			report.SkippedFiles = append(report.SkippedFiles, file.Target)
+			report.Warnings = append(report.Warnings, fmt.Sprintf(noInstallTargetWarning, file.Target))
+		case bytes.Equal(refreshed, current):
+			report.SkippedFiles = append(report.SkippedFiles, file.Target)
+		default:
+			if err := replaceFile(root, file.Target, refreshed); err != nil {
+				return InitReport{}, err
+			}
+			report.UpdatedFiles = append(report.UpdatedFiles, file.Target)
 		}
 	}
 
@@ -95,6 +134,26 @@ func installPin(version string) string {
 		return version
 	}
 	return "latest"
+}
+
+// installTarget matches the module path of the walden command and the
+// version after it. A version starts and ends with a letter or a digit and
+// holds letters, digits and . _ + / - in between, so neither the shell
+// syntax that can follow it (a space, a quote, ; & | or a closing
+// parenthesis) nor the full stop of a sentence is taken for part of it.
+var installTarget = regexp.MustCompile(`(github\.com/andrearaponi/walden/cmd/walden@)[0-9A-Za-z](?:[0-9A-Za-z._+/-]*[0-9A-Za-z])?`)
+
+// refreshPin returns the workflow with the version of every install target
+// set to pin, and whether the workflow names an install target at all. Only
+// the versions change: every other byte of the workflow is returned as it is.
+func refreshPin(workflow []byte, pin string) (refreshed []byte, found bool) {
+	if !installTarget.Match(workflow) {
+		return workflow, false
+	}
+
+	// A dollar sign in the replacement would be read as a group reference.
+	literalPin := strings.ReplaceAll(pin, "$", "$$")
+	return installTarget.ReplaceAll(workflow, []byte("${1}"+literalPin)), true
 }
 
 func isReleaseTag(version string) bool {
@@ -159,38 +218,77 @@ func runGitInit(root string) error {
 	return errors.New(strings.Join(failures, "; "))
 }
 
-func writeManagedFile(root string, file bootstrapFile, content []byte) (string, error) {
-	targetPath := filepath.Join(root, file.Target)
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return "", fmt.Errorf("create parent directory for %q: %w", file.Target, err)
-	}
-
-	mode := fs.FileMode(0o644)
-	if file.Executable {
-		mode = 0o755
-	}
-
-	existing, err := os.ReadFile(targetPath)
-	switch {
-	case err == nil:
-		if string(existing) == string(content) {
-			if chmodErr := os.Chmod(targetPath, mode); chmodErr != nil {
-				return "", fmt.Errorf("set mode for %q: %w", file.Target, chmodErr)
-			}
-
-			return "skipped", nil
+// readRefreshable returns the current content of every existing bootstrap
+// file whose pin a run refreshes. It is the only read of an existing
+// bootstrap file, and it happens before any write.
+func readRefreshable(root string) (map[string][]byte, error) {
+	existing := map[string][]byte{}
+	for _, file := range repoBootstrapFiles {
+		if !file.RefreshPin {
+			continue
 		}
 
-		if writeErr := os.WriteFile(targetPath, content, mode); writeErr != nil {
-			return "", fmt.Errorf("update %q: %w", file.Target, writeErr)
+		content, err := os.ReadFile(filepath.Join(root, file.Target))
+		switch {
+		case err == nil:
+			existing[file.Target] = content
+		case errors.Is(err, os.ErrNotExist):
+			// Missing: the run creates it from the template.
+		default:
+			return nil, fmt.Errorf("read %q: %w", file.Target, err)
 		}
-		return "updated", nil
-	case errors.Is(err, os.ErrNotExist):
-		if writeErr := os.WriteFile(targetPath, content, mode); writeErr != nil {
-			return "", fmt.Errorf("create %q: %w", file.Target, writeErr)
-		}
-		return "created", nil
-	default:
-		return "", fmt.Errorf("read %q: %w", file.Target, err)
 	}
+
+	return existing, nil
+}
+
+// createFile writes content to a target where nothing exists yet. It reports
+// false, writing nothing, when the file is already there. Creation is
+// exclusive, so no bootstrap file is opened for writing once it exists and a
+// file that appears during the run cannot be truncated.
+func createFile(root, target string, content []byte) (bool, error) {
+	path := filepath.Join(root, target)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, fmt.Errorf("create parent directory for %q: %w", target, err)
+	}
+
+	handle, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("create %q: %w", target, err)
+	}
+
+	_, writeErr := handle.Write(content)
+	if closeErr := handle.Close(); writeErr == nil {
+		writeErr = closeErr
+	}
+	if writeErr != nil {
+		// The file is this run's own: a partial template must not stay to
+		// be taken, by the next run, for a file the user wrote.
+		_ = os.Remove(path)
+		return false, fmt.Errorf("create %q: %w", target, writeErr)
+	}
+
+	return true, nil
+}
+
+// replaceFile swaps the content of an existing target atomically, so a write
+// that fails leaves the previous bytes, and gives the new file the
+// permission bits the previous one had.
+func replaceFile(root, target string, content []byte) error {
+	path := filepath.Join(root, target)
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("update %q: %w", target, err)
+	}
+	if err := spec.WriteFileAtomic(path, content); err != nil {
+		return fmt.Errorf("update %q: %w", target, err)
+	}
+	if err := os.Chmod(path, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("update %q: %w", target, err)
+	}
+
+	return nil
 }
