@@ -1,3 +1,53 @@
+## Walden v0.15.2
+
+`walden validate` no longer says VALID on an evidence ledger it cannot read. `validate` judged the three documents of a feature and never opened its ledger, `.walden/evidence/<feature>.json`. A ledger that a merge left with git's conflict markers is not JSON, and validation still passed. The generated CI workflow runs only `validate`, so the broken ledger went through the pull request and surfaced at delivery, when `walden release check` blocked.
+
+### Validation fails on a ledger that cannot be read
+
+`walden validate` now reads the ledger of every feature it validates and fails when the file exists and cannot be read. With conflict markers left in a ledger:
+
+```
+$ walden validate demo --all
+Summary: INVALID: evidence ledger .walden/evidence/demo.json cannot be read: it holds git conflict markers (parse: invalid character '<' looking for beginning of value; retain the ledger for diagnosis)
+```
+
+The command exits 1 and leaves the ledger as it is. It tells three causes apart: a file that is not JSON, a schema version this CLI does not support, and a ledger that names another feature. When the file holds conflict markers the summary says so, because the parser only reports an unexpected character.
+
+A run with no feature name applies the check to every feature. The one whose ledger cannot be read is reported as invalid with the same summary, the others keep their verdict, and the run exits 1.
+
+### What does not change
+
+- A missing ledger is an empty ledger, as for every other command.
+- A ledger that can be read does not change the verdict. Stale or failed evidence stays with `walden evidence status`, `walden verify` and `walden release check`.
+- `walden review approve` validates the documents of a phase, as before, and does not read the ledger. `walden release check` keeps its criteria: it already blocked on a ledger it could not read.
+
+### CI gets the check when its pin is refreshed
+
+The generated workflow installs the release its pin names, so it runs this check only once the pin names v0.15.2 or later. Run `walden repo init` again after updating: since v0.15.1 it replaces the version in the install step and keeps every other file.
+
+### Limits
+
+- A ledger written by a later release cannot be read by this one, and `validate` reports the unsupported schema version. A workflow pinned to a release earlier than the one that wrote the ledger fails on it until the pin is refreshed.
+- A ledger that is valid JSON but was merged wrongly, such as one that holds the record of a task twice, can be read: the last record wins, as for every command.
+- Ledger files of features that no longer exist under `.walden/specs/` are not read.
+- The check finds a broken ledger. It does not resolve the conflict.
+
+### Compatibility and distribution
+
+- JSON stays additive within `v0beta1`: no new field. The finding travels in `summary`, and in the `summary` of the feature in a portfolio run.
+- `walden validate` exits 1 for a feature whose ledger cannot be read, where it exited 0. No verdict of `walden release check` changes and no approval is refused.
+- No ledger field, document status or evidence state changes.
+- The guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- Both tasks of the approved `validate-ledger-readability` specification re-proven against the release tree.
+- Six new tests. Four were seen failing on v0.15.1 for the behavior each one names; two pin what already held: a missing or readable ledger does not change the verdict, and `review approve` does not read the ledger.
+- With the compiled CLI: the reported steps give INVALID with exit 1 and leave the ledger untouched. On the ledgers of a repository with 21 features and on the 42 features of this repository's portfolio, which hold 39 ledgers, five of them with attestations, the verdicts are those of v0.15.1. With conflict markers put in one of those ledgers, v0.15.1 answers VALID and this release answers INVALID, naming the file.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+- Not checked: Windows.
+
 ## Walden v0.15.1
 
 `walden repo init` no longer overwrites files that exist. Since v0.1.0 a run wrote its template over every bootstrap file that differed from it, and said nothing. A second run replaced a filled constitution, the lessons recorded by `walden lesson log`, a customised `.gitignore` or pull request template and an adjusted workflow; a first run replaced a pull request template the repository already had. Content that was never committed was lost. The documented way to refresh the workflow's pin after an upgrade was such a run.
