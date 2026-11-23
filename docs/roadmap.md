@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.15.2
+## Current Release: v0.15.3
 
 The open source core today includes:
 
@@ -16,7 +16,7 @@ The open source core today includes:
 - Stale evidence that explains itself: `walden evidence status` names the paths and the criteria that changed since a proof ran and shows what the current code identity is made of, and each record keeps how long its proof took. The code identity keeps covering the whole tree: a measurement on a real portfolio showed that narrowing it to declared inputs recovers almost no evidence and can keep a false green
 - Delivery proofs: a plan can declare that a leaf's proof attests a delivery (`- Proof: delivery`), a fact that was true when the work shipped and is not expected to hold forever. Once the proof passes on a committed tree the task reads `delivered` with that commit and is not proven again; `walden release check` accepts it, names it and lists the statements that only delivery proofs cover, and `walden adopt --apply` seals a pass recorded before the declaration without executing its proof
 - Aggregate release gate (`walden release check`): one deterministic releasability verdict per declared feature/portfolio scope — chain freshness, full-spec validation, decision-marker lint, evidence states, clean-worktree policy — judging only, executing nothing; pending work blocks by default, with recorded waivers (`--allow-pending --reason`), completion classes, and a certified commit in every verdict
-- Brownfield adoption lane (`walden adopt`): read-only classification and declared-step workload with explicit unavailable features, fingerprint backfill for recorded approvals, non-executing legacy binding/freshness/provenance assessment and explicitly scoped re-proving; apply retains failure/integrity diagnoses, final evidence assessments, persistence outcomes, task progress and measured durations
+- Brownfield adoption lane (`walden adopt`): read-only classification and declared-step workload with explicit unavailable features, fingerprint backfill for recorded approvals, refused for a chain whose own record says it is stale, non-executing legacy binding/freshness/provenance assessment and explicitly scoped re-proving; apply retains failure/integrity diagnoses, final evidence assessments, persistence outcomes, task progress and measured durations
 - Contract consolidation (`walden consolidate`): pending contract changes counted since the last consolidation, advisory reminders at two and three, a read-only report with the bounded review scope, deterministic findings and statement comparisons, and a CLI-checked current-contract view with its coherence review, sealed only after explicit approval
 - Retirement convention (`.walden/RETIRED.md`) and the `walden-history` companion skill for sourced chronicles over committed spec history
 - Documentation pack (quickstart, lifecycle, workflow, adoption, CI, and full CLI/JSON/format references)

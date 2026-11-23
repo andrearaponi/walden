@@ -1,3 +1,75 @@
+## Walden v0.15.3
+
+`walden adopt` no longer seals a chain whose own record says it is stale. A design or a plan approved before fingerprints records the approval time of the upstream it was reviewed against. Releases before v0.4.0 called the chain stale when that time differed from the upstream's, as it does after the upstream is revised and approved again. `walden adopt` never read it: it planned such a feature as `backfill`, and `--apply` joined the downstream to the new upstream, so the chain read fresh without a review.
+
+If you ran `walden adopt --apply` with v0.10.0 to v0.15.2 on documents approved before v0.4.0, run `walden adopt` once after updating. It writes nothing, and it names the links to look at.
+
+### A legacy link whose times differ blocks its feature
+
+Where a design or a plan records no source fingerprint and the approval time it records differs from the upstream's `approved_at`, the feature is `blocked`. Among the lines of the plan:
+
+```
+$ walden adopt demo
+Summary: ADOPTION PLAN — 0 backfill, 0 re-prove, 0 complete, 1 blocked (0 doc(s) to seal, 0 task(s) to re-prove)
+- demo: blocked (design.md records requirements.md approved at 2026-11-23T11:50:38Z, but requirements.md was approved at 2026-11-23T11:50:39Z: design.md was approved against another approval — run walden reconcile demo and re-approve)
+```
+
+v0.15.2 planned that feature as `backfill` with three documents to seal. Nothing in it is sealed now. `walden adopt demo --apply` exits 1 and leaves its documents as they are, and a run on the whole portfolio adopts the other features and reports this one. The sealer reads the links again before it writes, so the rule does not depend on the plan having been read.
+
+The way out is the one the reason names. `walden reconcile <feature>` returns the approved documents to draft, each is opened for review and approved again, and the plan then reports the feature by its new seals.
+
+A link that records no approval time, under an upstream that carries one, counts as a link whose times differ. A chain whose times agree is adopted as before: v0.15.2 and this release seal the same documents byte for byte alike.
+
+### A sealed link whose times differ is reported
+
+A link that already carries a fingerprint is judged by fingerprints alone, so the class of its feature does not change. When the time it records differs from the upstream's, the plan warns:
+
+```
+$ walden adopt demo
+Summary: ADOPTION PLAN — 0 backfill, 0 re-prove, 1 complete, 0 blocked (0 doc(s) to seal, 0 task(s) to re-prove)
+Next action: See the adoption guide for each link the warnings name, then approve its downstream documents again
+Warnings:
+- demo: design.md is sealed to requirements.md but records it approved at 2026-11-23T11:50:38Z, and requirements.md was approved at 2026-11-23T11:50:39Z: either requirements.md was approved again without a change, or a backfill by v0.10.0 to v0.15.2 joined them without a review — the adoption guide says how to tell; to clear this, open for review the approved documents below requirements.md, the last one first, and approve them again, the first one first
+```
+
+Two histories leave that record, and the documents do not say which one is theirs:
+
+- **The upstream was approved again without a change.** v0.4.0 to v0.9.0 let an upstream be approved again while its downstream stayed approved; v0.9.1 and later refuse that approval. Nothing is missing.
+- **A backfill joined a chain the times called stale**, with v0.10.0 to v0.15.2. A review is missing.
+
+The adoption guide, `docs/adoption.md`, has a section on these links. It gives the search of the git history that tells the two histories apart, and the steps that clear the warning: open for review the approved documents below the upstream, the last one first, and approve them again, the first one first. An apply run names the same links, ahead of the warnings of its proofs.
+
+### What does not change
+
+- Only `adopt` reads the times. `status`, `validate`, `reconcile`, `release check` and the review gates judge a chain as before: where fingerprints are present, they alone decide freshness.
+- A chain that an earlier release sealed keeps reading fresh. It is reported, not blocked and not unsealed.
+- A feature blocked for a fingerprint that no longer matches its document is reported for that, as before.
+- The trust assumption of the backfill stays for the body of a document: an edit made between a recorded approval and the backfill cannot be seen.
+
+### Limits
+
+- The plan does not tell the two histories of a reported link apart, because the documents do not record which command wrote a fingerprint. The search of the guide needs the git history of the document.
+- A chain approved under fingerprints, whose upstream was approved again without a change, is warned although it misses no review. Approving its downstream documents again clears the warning.
+- The times are compared as text, as the releases that judged by them compared them. Two notations of one instant differ.
+- The second question of the report, sealing recorded approvals without proving completed work again, is not part of this release.
+
+### Compatibility and distribution
+
+- **Breaking (adoption contract):** a feature that v0.15.2 planned as `backfill` can now be `blocked`, and `walden adopt --apply` exits 1 for it. No verdict of `walden release check` changes and no approval is refused.
+- JSON stays additive within `v0beta1`: no new field. The block uses the `class` and the `reason` a blocked feature already has, and the warning is carried by `result.warnings`.
+- No class, flag, document status or evidence state is added.
+- The skill guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All five tasks of the approved `adopt-legacy-link-check` specification re-proven against the release tree.
+- Twelve new tests on three sets of real documents: approved by v0.1.0, sealed by `adopt --apply` of v0.15.2, and approved under fingerprints by v0.4.0. Eleven were seen failing before their code was written; one pins what already held, for a legacy chain whose times agree.
+- Every tag from v0.1.0 to v0.15.2 was built and asked to approve again, unchanged, the requirements of a chain it had approved: v0.1.0 to v0.3.0 record the approval without fingerprints, v0.4.0 to v0.9.0 record it under fingerprints, v0.9.1 to v0.15.2 refuse it.
+- With the compiled CLI: the steps of the report give `1 blocked` where v0.15.0 gave `1 backfill`, `--apply` exits 1 and leaves the documents, and after `reconcile` and the new approvals the feature is `complete`. On the three sets of documents the block, the warning and both remedies behave as described, and `status`, `validate`, `release check` and `task status` answer as v0.15.2 does. On copies of 143 portfolios that hold 5,547 features, one feature moves from `backfill` to `blocked`, one feature present in two copies is warned, and no other class changes.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+- Not checked: Windows.
+
 ## Walden v0.15.2
 
 `walden validate` no longer says VALID on an evidence ledger it cannot read. `validate` judged the three documents of a feature and never opened its ledger, `.walden/evidence/<feature>.json`. A ledger that a merge left with git's conflict markers is not JSON, and validation still passed. The generated CI workflow runs only `validate`, so the broken ledger went through the pull request and surfaced at delivery, when `walden release check` blocked.
