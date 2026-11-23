@@ -33,6 +33,7 @@ var nav = []page{
 	{"adoption.md", "adoption.html", "Brownfield Adoption", "Operate"},
 	{"consolidation.md", "consolidation.html", "Contract Consolidation", "Operate"},
 	{"ci.md", "ci.html", "CI Integration", "Operate"},
+	{"branches.md", "branches.html", "Parallel Branches", "Operate"},
 	{"reference/cli.md", "reference/cli.html", "CLI Commands", "Reference"},
 	{"reference/json.md", "reference/json.html", "JSON Contract", "Reference"},
 	{"reference/spec-format.md", "reference/spec-format.html", "Spec File Format", "Reference"},

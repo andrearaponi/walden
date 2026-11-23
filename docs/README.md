@@ -18,6 +18,7 @@ Walden proves that your code meets its spec, and shows what is no longer proven 
 - **[Brownfield Adoption](adoption.md)** — bringing a repository with existing specs into the current contract: `walden adopt`, triaging the partition, and retiring superseded eras.
 - **[Contract Consolidation](consolidation.md)** — keeping a growing portfolio consistent in small steps: pending contract changes, the bounded review scope, and the approved current-contract view.
 - **[CI Integration](ci.md)** — the generated validation workflow, evidence in pipelines, and gating releases on the certification verdict.
+- **[Parallel Branches](branches.md)** — several features in flight at once: what a merge does to evidence and approvals, how to resolve the conflicts it leaves under `.walden/`, and how to avoid most of them.
 
 ## Reference
 
@@ -35,6 +36,7 @@ Walden proves that your code meets its spec, and shows what is no longer proven 
 - *Working with a coding agent?* [The Agentic Flow](agentic.md) — delegate repetitive authoring and CLI operations while retaining human review and approval.
 - *Adopting it on an existing repository?* [The Spec Lifecycle](lifecycle.md), then [Brownfield Adoption](adoption.md).
 - *Using it every day?* [The Daily Workflow](workflow.md) with [CLI Commands](reference/cli.md) at hand.
+- *Running several features or agents in parallel?* [Parallel Branches](branches.md), then [CI Integration](ci.md).
 - *Building tooling on top?* [JSON Contract](reference/json.md), then [Spec File Format](reference/spec-format.md).
 
 Documentation describes the released version whose tag matches this checkout. Version history lives in the [CHANGELOG](../CHANGELOG.md); agent-facing operational instructions live in the skill guide ([`skill/walden/SKILL.md`](../skill/walden/SKILL.md)), distributed through the Skills CLI and intentionally self-contained.
