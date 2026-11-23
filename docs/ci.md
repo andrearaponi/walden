@@ -4,9 +4,11 @@ Walden's commands are deterministic, exit-code honest, and split cleanly between
 
 ## Spec validation on every PR
 
-`walden repo init` generates `.github/workflows/validate-walden.yml`, pinned to the CLI version that generated it (`go install …/cmd/walden@vX.Y.Z`). It runs `walden validate <feature> --all --json` for every feature whenever `.walden/**` changes — structural validation, traceability, freshness — so a PR cannot merge a broken or stale spec chain unnoticed.
+`walden repo init` generates `.github/workflows/validate-walden.yml`, pinned to the CLI version that generated it (`go install …/cmd/walden@vX.Y.Z`). It runs `walden validate <feature> --all --json` for every feature whenever `.walden/**` changes — structural validation, traceability, freshness — so a PR cannot merge a broken or stale spec chain unnoticed. It also fails on an evidence ledger that cannot be read, such as one a merge left with conflict markers.
 
 The workflow is ordinary generated code: review it, commit it, adjust triggers to taste. Running `walden repo init` again after a CLI upgrade refreshes the pin and keeps your adjustments: it replaces the version in the install step and nothing else. To regenerate the workflow from the current template, delete it and run `walden repo init` again.
+
+The workflow runs the release its pin names. A check that a later release adds to `walden validate` reaches your CI when the pin is refreshed.
 
 ## Evidence in pipelines: produce and judge
 

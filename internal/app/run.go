@@ -269,7 +269,7 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runValidatePortfolio(root, scope, jsonMode, stdout, stderr)
 	}
 
-	result, err := validation.ValidateFeatureWithScope(root, positional[0], scope)
+	result, err := validateFeature(root, positional[0], scope)
 	if err != nil {
 		return emitResult("validate", errorResult(fmt.Errorf("validate feature: %w", err)), jsonMode, stdout, stderr)
 	}
@@ -369,7 +369,7 @@ func runValidatePortfolio(root string, scope validation.Scope, jsonMode bool, st
 	features := make([]output.FeatureValidation, 0, len(names))
 	invalid := 0
 	for _, name := range names {
-		result, err := validation.ValidateFeatureWithScope(root, name, scope)
+		result, err := validateFeature(root, name, scope)
 		if err != nil {
 			return emitResult("validate", errorResult(fmt.Errorf("validate feature %s: %w", name, err)), jsonMode, stdout, stderr)
 		}

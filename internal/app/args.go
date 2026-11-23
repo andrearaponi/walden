@@ -383,6 +383,10 @@ var commandRegistry = []commandSpec{
 		Path:    "validate",
 		Syntax:  "validate [<feature>] [--all] [--json]",
 		Summary: "Check EARS, traceability, and freshness (all features when no name is given)",
+		Details: []string{
+			"Also fails when the evidence ledger of a feature, .walden/evidence/<feature>.json, cannot be read: after a merge that left conflict markers in it, for instance.",
+			"A ledger that is missing or readable does not change the verdict: evidence status, verify and release check judge its content.",
+		},
 		BoolFlags: []flagSpec{
 			{Name: "--all", Description: "Validate the full spec, not just the current phase"},
 			jsonFlag,
