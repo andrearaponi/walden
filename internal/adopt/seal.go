@@ -1,6 +1,8 @@
 package adopt
 
 import (
+	"errors"
+
 	"github.com/andrearaponi/walden/internal/spec"
 )
 
@@ -10,11 +12,19 @@ import (
 // untouched: the seal records what was already approved, nothing more.
 // Idempotent — a sealed chain yields zero writes — and inert on documents
 // whose fingerprints are present, wrong included: those are blocked upstream
-// and never reach here with intent to write.
+// and never reach here with intent to write. A link without a fingerprint
+// whose times disagree is refused with an error, before anything is written.
 func sealFeature(root, name string) ([]string, error) {
 	feature, err := spec.LoadFeature(root, name)
 	if err != nil {
 		return nil, err
+	}
+
+	// The classifier keeps such a feature away from here. This second
+	// reading holds when the documents changed since the plan, or when the
+	// sealer is reached by another path: nothing is stamped or saved.
+	if reason := legacyLinkDisagreement(feature); reason != "" {
+		return nil, errors.New(reason)
 	}
 
 	requirements, design, tasks := feature.Requirements, feature.Design, feature.Tasks

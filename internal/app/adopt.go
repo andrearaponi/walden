@@ -94,6 +94,7 @@ func printAdoptTaskFinish(w io.Writer, feature string, event workflow.VerifyTask
 
 func adoptPlanResult(report adopt.PlanReport) output.Result {
 	status := &output.AdoptionStatus{Scope: &report.Scope, Workload: adoptionWorkloadSummary(report.Workload)}
+	var warnings []string
 	for _, feature := range report.Features {
 		view := output.AdoptionFeature{
 			Feature: feature.Name, Class: feature.Class, SealableDocs: append([]string(nil), feature.SealableDocs...),
@@ -107,6 +108,11 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 			view.SealablePasses = append(view.SealablePasses, output.AdoptionPass{TaskID: pass.TaskID, Commit: pass.Commit})
 		}
 		view.UnsealedPasses = unsealedPassViews(feature.UnsealedPasses)
+		// What the plan reports and does not act on, as an apply run names
+		// the warnings of its features.
+		for _, warning := range feature.Warnings {
+			warnings = append(warnings, feature.Name+": "+warning)
+		}
 		status.Features = append(status.Features, view)
 	}
 
@@ -127,6 +133,11 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 		// Apply would execute nothing for a pass left unsealed.
 		nextAction = "Prove again the task of each pass left unsealed with the walden verify command its entry names"
 	}
+	if len(warnings) > 0 && nextAction == "" {
+		// Nothing to seal, prove or unblock. What is left is to find out
+		// which history each reported link has, and to record a review.
+		nextAction = "See the adoption guide for each link the warnings name, then approve its downstream documents again"
+	}
 	// The passes are named in the summary only when the scope holds some, so
 	// a portfolio without delivery proofs is summarized as before.
 	passes := ""
@@ -141,6 +152,7 @@ func adoptPlanResult(report adopt.PlanReport) output.Result {
 			totals.Backfill, totals.Reprove, totals.Complete, totals.Blocked, totals.SealableDocs, totals.ReproveTasks, passes),
 		Adoption:   status,
 		NextAction: nextAction,
+		Warnings:   warnings,
 		ExitCode:   0,
 	}
 }

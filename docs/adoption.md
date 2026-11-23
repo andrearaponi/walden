@@ -29,7 +29,7 @@ The read-only plan reports technical classes and per-task evidence assessments:
 | `backfill` | Recorded approvals lack fingerprints, or a recorded delivery pass can be sealed | Seal eligible current bodies and passes, then re-prove applicable completed work in this scope. |
 | `re-prove` | Completed work lacks the requested current assurance, or a recorded delivery pass is left unsealed | Run its needed proofs through verify. A pass left unsealed may stay as recorded: see [Seal recorded delivery passes](#seal-recorded-delivery-passes). |
 | `complete` | Nothing to adopt | Nothing; this is not a claim that every planned task is implemented. |
-| `blocked` | A present contradiction, incompatible plan, or unreadable ledger prevents adoption | Preserve it and report the specific blocker. |
+| `blocked` | A present contradiction, an upstream approval time recorded before fingerprints that differs from the upstream's, an incompatible plan, or an unreadable ledger prevents adoption | Preserve it and report the specific blocker. |
 
 The evidence view separates:
 
@@ -67,11 +67,45 @@ Apply is explicitly proof-executing. With no feature selector it applies to the 
 
 Approval backfill is a separate trust assumption: an absent seal can be added to a recorded approval's current body, but intervening pre-fingerprint edits cannot be detected. A present contradictory seal needs human reconciliation, never automatic resealing. Backfill cannot establish what a historical proof executed.
 
+The assumption covers the body of a document, not its link. A design or a plan approved before fingerprints records the approval time of the upstream it was reviewed against (`source_requirements_approved_at`, `source_design_approved_at`). When that time differs from the upstream's `approved_at`, the upstream was approved again and the downstream was not reviewed against it: releases before v0.4.0 report that chain as stale. Such a feature is `blocked`, and nothing in it is sealed. The way out is `walden reconcile <feature>` and a new approval of its documents.
+
 Apply records actual outcomes through the hardened verify lane. A mutation or unavailable required identity rejects the affected verification and contaminates later executions in that invocation. Restoring source bytes does not revive those failed records; a new valid execution is needed. Assertion outcomes and policy failures remain distinct.
 
 Failures, blocked selections and apply errors produce exit `1`, with the per-feature partition retained. Resume by classification after addressing the cause. Do not fix historical failures by weakening a current contract, silently declaring a spec obsolete, or rerunning live deployment/bootstrap work without authorization.
 
 A full strong certificate over a legacy portfolio may still require new executions. Avoiding automatic replay does not manufacture missing facts or exempt unknown features from an unqualified portfolio claim. History lookup has a current-body fast path and per-invocation reuse; its cost depends on available history, while apply costs what the selected proofs cost.
+
+## Sealed links that record another approval
+
+`walden adopt` warns about a link that is sealed and whose recorded upstream approval time differs from the upstream's. The warning names the feature, the downstream document, both times and the two histories that can have left them, and the plan writes nothing. The class of the feature does not change, and `walden status` and `walden release check` keep reading the chain as fresh: the seal binds the content as it is.
+
+Two histories leave that record, and the documents alone do not say which one is theirs:
+
+- **The upstream was approved again without a change.** From v0.4.0 to v0.9.0 an upstream could be opened for review and approved again while its downstream stayed approved; v0.9.1 and later refuse that approval. When the content of the upstream did not change, the fingerprint the downstream recorded at its own approval still matches. Nothing is missing.
+- **A backfill joined a chain that the times called stale.** From v0.10.0 to v0.15.2 the backfill joined every link without a fingerprint and never read the approval time the link records. Where the upstream had been approved again after the downstream, it wrote the fingerprint of the new upstream into a document that was never reviewed against it. A review is missing.
+
+A repository that never ran `walden adopt --apply` has only the first history. Otherwise the commit that wrote the fingerprint of the link tells them apart. Search the history of the reported document, a design in the first command and a plan in the second:
+
+```bash
+git log -p -S'source_requirements_fingerprint: sha256' -- .walden/specs/<feature>/design.md
+git log -p -S'source_design_fingerprint: sha256' -- .walden/specs/<feature>/tasks.md
+```
+
+The search prints the commits that added or removed the fingerprint of the link, the most recent first. Read the first one it prints: it wrote the fingerprint the link holds now. An approval sets `approved_at` in that commit, together with the fingerprint. An adoption adds fingerprints and leaves `approved_at` as it was. When the history cannot tell, because `.walden/` is not committed or the two changes share a commit, treat the review as missing.
+
+Where a review is missing, read the downstream document against its upstream before you approve it again: the new approval is the record of that review. Where nothing is missing, the same steps only make the link record the current approval.
+
+The warning stays until the link records the current approval. Record it with `walden review open` and `walden review approve` on the approved documents below the upstream: open them the last one first, approve them again the first one first.
+
+```bash
+walden adopt                                      # each link is named in the warnings
+walden review open <feature> --phase tasks        # the last approved document first
+walden review open <feature> --phase design
+walden review approve <feature> --phase design    # then approve again, the first one first
+walden review approve <feature> --phase tasks
+```
+
+When the reported document is the plan, only the plan is opened and approved. `walden reconcile` does not help here: it has nothing to repair in a chain that reads fresh.
 
 ## Seal recorded delivery passes
 
