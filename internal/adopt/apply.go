@@ -101,6 +101,9 @@ func ApplyWithOptions(ctx context.Context, root, featureName string, runner shel
 			options.FeatureStarted(featurePlan.Name, index+1, total)
 		}
 		adoption := FeatureAdoption{Name: featurePlan.Name, Class: featurePlan.Class, Workload: featurePlan.Workload}
+		// What the plan reports about the links stays in front of what the
+		// proof run reports, for every class.
+		adoption.Warnings = append([]string(nil), featurePlan.Warnings...)
 		finishFeature := func() {
 			elapsed := now().Sub(featureStarted)
 			adoption.Elapsed = &elapsed
@@ -153,7 +156,7 @@ func ApplyWithOptions(ctx context.Context, root, featureName string, runner shel
 			}
 			result, verifyErr := workflow.VerifyWithOptions(ctx, root, featurePlan.Name, false, false, runner, observation)
 			adoption.Outcomes = result.Outcomes
-			adoption.Warnings = result.Warnings
+			adoption.Warnings = append(adoption.Warnings, result.Warnings...)
 			adoption.EvidencePersisted = result.EvidencePersisted
 			if verifyErr != nil {
 				report.Totals.Errors++

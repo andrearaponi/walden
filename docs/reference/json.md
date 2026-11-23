@@ -201,6 +201,8 @@ The criterion names and producer/judge split remain stable. Hardened identity, p
 
 Planning executes no proof or environment probe. `complete` means nothing to adopt, not that every planned feature task is complete. Apply executes only its explicit scope and exits `1` for failures, blocked selections or errors, retaining the partition. Technical classes do not decide current business applicability.
 
+A link without a fingerprint whose recorded upstream approval time differs from the upstream's gives its feature the class `blocked`, with the cause in `reason`. A sealed link whose times differ does not change the class: plan and apply name it in `result.warnings`, with the feature in front. See [Sealed links that record another approval](../adoption.md#sealed-links-that-record-another-approval).
+
 `sealable_passes` and `sealed_passes` are `{task_id, commit}`: the recorded pass of a completed delivery task, written before the plan declared the delivery, with the commit that holds the tree the pass ran on. The plan lists what apply can seal as an attestation; apply lists what it sealed, without executing the proof. `unsealed_passes` are `{task_id, reason, detail}` for the passes left as they were: `reason` is `no-provenance`, `proof-changed`, `statements-unknown` or `no-commit`, and `detail` ends with what proves the task again. The three lists are omitted when empty.
 
 A feature with a pass to seal has class `backfill`. A feature whose only open work is a pass left unsealed for `statements-unknown` or `no-commit` has class `re-prove` with no task to re-prove: apply executes nothing for it, and `walden verify <feature> --task <id>` proves the task again. A task whose pass awaits adoption is counted neither in `reprove_count` nor in the workload, and a pass left unsealed does not change the exit code.
@@ -250,7 +252,7 @@ The paths below are inside `result.adoption`, except the explicitly named warnin
 | `features[].evidence[].elapsed_ms` | Time in the attempted proof steps, including runner wait/timeout cleanup, excluding progress rendering, probes and identity capture. |
 | `features[].evidence_persisted` | Present only when the verifier attempted a ledger write: true after success, false after failure. A pruning-only write does not imply a proof execution. |
 | `features[].reason` | Feature-level blocker/error, separate from individual `evidence[].failure` diagnoses. |
-| `result.warnings` | Feature-qualified verifier warnings, including run-contamination diagnostics. |
+| `result.warnings` | Feature-qualified warnings: the reports on sealed links whose times differ, then the verifier's, including run-contamination diagnostics. |
 
 Durations are measured monotonic intervals in integer milliseconds, not an ETA or historical estimate. Enclosing intervals are not sums of nested measurements. Measured zero remains present; skipped tasks have no new outcome or duration. No duration, raw-output tail or new diagnostic sidecar is stored in the ledger.
 

@@ -27,7 +27,8 @@ const (
 	ClassReprove = "re-prove"
 	// ClassComplete: nothing to adopt.
 	ClassComplete = "complete"
-	// ClassBlocked: a present fingerprint contradicts reality — human
+	// ClassBlocked: a present fingerprint contradicts reality, or a link
+	// without one records another approval of its upstream — human
 	// territory, never written by the lane.
 	ClassBlocked = "blocked"
 )
@@ -46,6 +47,9 @@ type FeaturePlan struct {
 	SealablePasses []PassToSeal
 	// UnsealedPasses are those it cannot seal, each with its reason.
 	UnsealedPasses []UnsealedPass
+	// Warnings name what the plan saw and does not act on: a sealed link
+	// whose recorded upstream approval time differs from the upstream's.
+	Warnings []string
 }
 
 // Workload describes declared proof steps, not tests or expanded commands.
@@ -157,7 +161,9 @@ func adoptionTargets(root, featureName string) ([]string, error) {
 }
 
 // classify applies the lane's honesty rule: an absent fingerprint is
-// sealable; a present fingerprint that contradicts reality is blocked.
+// sealable; a present fingerprint that contradicts reality is blocked, and
+// so is a link without a fingerprint whose own record says the downstream
+// followed another approval of its upstream.
 func classify(ctx context.Context, root, name string, identity string, identityOK bool, search *evidence.TreeSearch) FeaturePlan {
 	plan := FeaturePlan{Name: name, Class: ClassComplete}
 
@@ -198,13 +204,27 @@ func classify(ctx context.Context, root, name string, identity string, identityO
 		}
 	}
 
-	// Chain contradictions: both sides sealed, link disagrees. Empty links
-	// beside sealable upstreams are repairable, never blocking.
+	// Chain contradictions: both sides sealed, link disagrees. An empty link
+	// is not one of them: the next check decides whether it is repairable.
 	if reason := chainContradiction(feature); reason != "" {
 		plan.Class = ClassBlocked
 		plan.BlockReason = reason
 		return plan
 	}
+
+	// An empty link is repairable only when its times agree. One whose
+	// times disagree blocks the feature, and nothing in it is sealed.
+	if reason := legacyLinkDisagreement(feature); reason != "" {
+		plan.Class = ClassBlocked
+		plan.BlockReason = reason
+		plan.SealableDocs = nil
+		return plan
+	}
+
+	// A sealed link whose times disagree does not change the class: the
+	// plan reports it, and a person finds which history left it and gives
+	// the review where one is missing.
+	plan.Warnings = sealedLinkWarnings(feature)
 
 	// The recorded passes of delivery tasks are assessed only here, on a
 	// feature whose chain is sound: a blocked feature is never sealed.

@@ -9,6 +9,8 @@ import (
 // treated: the text walden v0.14.5 prints for each, with the sentences and
 // the flag descriptions the design of proof kinds fixes. The text is stated
 // here and not read from the command catalog, so a stray line fails too.
+// The help of adopt opens with the two sentences on the approval time a link
+// records, which came later: a change to that help changes this text too.
 
 const deliveryVerifyHelp = `Usage:
   walden verify <feature> [--all] [--check] [--task <id>] [--json]
@@ -33,6 +35,8 @@ const deliveryAdoptHelp = `Usage:
   walden adopt [<feature>] [--apply] [--json]
       Plan or apply brownfield adoption: seal recorded approvals, re-prove unrecorded work
 
+  A document approved before fingerprints blocks its feature when the upstream approval time it records differs from the upstream's: nothing in that feature is sealed; run walden reconcile <feature> and approve again.
+  The plan warns when a sealed document records an upstream approval time that differs from the upstream's: the upstream was approved again without a change, or a backfill by v0.10.0 to v0.15.2 joined them without a review.
   --apply seals as an attestation the recorded pass of a completed delivery task, without executing its proof, when the pass was recorded before the plan declared the delivery; the plan names each pass it can seal with the commit that holds its tree.
   A pass is left unsealed when its execution provenance is not supported or its proof differs from the approved one in more than the declaration: --apply proves its task again.
   A pass is also left unsealed when no commit among the last 200 reachable from HEAD holds its tree, or when its statements cannot be shown to read as they did: the pass stays, and walden verify <feature> --task <id> proves its task again.
