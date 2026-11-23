@@ -41,6 +41,8 @@ Current phase, blockers, and the next action. Read-only.
 
 Structural validation: frontmatter contract, EARS criteria shape, traceability (task references to criteria and design sections), proof coverage (`covers:`), freshness of the approval chain. Without `--all`, validates up to the current phase; with it, the full spec. With no feature name, validates the whole portfolio. Exit `1` on any finding.
 
+It also fails when the feature's evidence ledger, `.walden/evidence/<feature>.json`, cannot be read: a file that is not JSON, as after a merge that left conflict markers in it, a schema version this CLI does not support, or a ledger that names another feature. The summary names the file and the cause. A missing ledger is not a finding, and the content of a readable ledger is not judged here: stale or failed evidence stays with `evidence status`, `verify` and `release check`.
+
 ### `walden review open <feature> --phase <requirements|design|tasks> [--json]`
 
 Opens the review gate: moves the phase document to `in-review`. Refuses out-of-order phases and a document holding unresolved content: an open `[decision: …]` marker or an HTML comment that never closes. The refusal names the document, the body line of each finding and how to clear it; quoting the text in a code span, a fenced block or a proof line of `tasks.md` is one way ([spec format](spec-format.md#unresolved-content)).

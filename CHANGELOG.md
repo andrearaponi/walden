@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Fixed
+
+- **`walden validate` no longer says VALID on an evidence ledger it cannot read.** `validate` judged the three documents of a feature and never opened `.walden/evidence/<feature>.json`. A ledger that a merge left with git's conflict markers is not JSON, and `walden validate <feature> --all` still answered VALID. The generated CI workflow runs only `validate`, so the broken ledger passed the pull request and surfaced at delivery, when `walden release check` blocked. `validate` now fails, for one feature and for the portfolio, when the ledger exists and cannot be read: a file that is not JSON, a schema version the CLI does not support, or a ledger that names another feature. The summary names the file and the cause, and says so when the file holds conflict markers. A missing ledger and the content of a readable one do not change the verdict. `walden review approve` and `walden release check` are unchanged, and the JSON result gains no field. A repository gets the check in CI when the pin of its workflow is refreshed: run `walden repo init` again after upgrading.
+
 ## [0.15.1] - 2026-11-23
 
 ### Fixed
