@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.15.0
+## Current Release: v0.15.1
 
 The open source core today includes:
 
@@ -21,7 +21,7 @@ The open source core today includes:
 - Retirement convention (`.walden/RETIRED.md`) and the `walden-history` companion skill for sourced chronicles over committed spec history
 - Documentation pack (quickstart, lifecycle, workflow, adoption, CI, and full CLI/JSON/format references)
 - Example project with shell-safe verification, validated in CI as a compatibility fixture
-- Repository bootstrap and feature scaffolding templates (generated CI pinned to the generating version)
+- Repository bootstrap and feature scaffolding templates (generated CI pinned to the generating version). `walden repo init` is safe to run again: it creates the files that are missing, keeps the ones that exist, and changes only the pin of an existing workflow
 - Apache-2.0 license
 
 ## Near-Term (Open Source)
