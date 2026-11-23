@@ -1,3 +1,75 @@
+## Walden v0.15.1
+
+`walden repo init` no longer overwrites files that exist. Since v0.1.0 a run wrote its template over every bootstrap file that differed from it, and said nothing. A second run replaced a filled constitution, the lessons recorded by `walden lesson log`, a customised `.gitignore` or pull request template and an adjusted workflow; a first run replaced a pull request template the repository already had. Content that was never committed was lost. The documented way to refresh the workflow's pin after an upgrade was such a run.
+
+If you are on an earlier release, update before you run `walden repo init` on a repository that is already initialized.
+
+### Existing files are kept
+
+A run creates the bootstrap files that are missing and keeps the ones that exist: `.walden/constitution.md`, `.walden/lessons.md`, `.walden/.gitignore` and `.github/pull_request_template.md`. On a repository whose constitution and pull request template were filled in:
+
+```
+$ walden repo init
+Summary: repository initialized
+Skipped files:
+- .walden/constitution.md
+- .walden/.gitignore
+- .walden/lessons.md
+- .github/pull_request_template.md
+- .github/workflows/validate-walden.yml
+Git: repository already initialized
+Next action: Run walden feature init <name>
+Exit code: 0
+```
+
+Creation is exclusive: a file is written only where none exists, so no comparison with the template decides whether content survives. A first run on a repository that already has a pull request template creates the other four files and lists that one as skipped.
+
+### The pin is refreshed in place
+
+The one change a run makes to an existing file is the version in the install step of `.github/workflows/validate-walden.yml`, which it sets to the version of the running CLI. After an upgrade from v0.14.5 the workflow is listed as updated and differs by one line:
+
+```diff
+-        run: go install github.com/andrearaponi/walden/cmd/walden@v0.14.5
++        run: go install github.com/andrearaponi/walden/cmd/walden@v0.15.1
+```
+
+Every other byte of the workflow stays, so the triggers and steps you adjusted survive the refresh. The new content replaces the file atomically and keeps its permission bits.
+
+A workflow that does not install the CLI with `go install` is kept and reported. That includes the workflow written by v0.1.0, which ran a script instead:
+
+```
+Warnings:
+- .github/workflows/validate-walden.yml names no walden install target, so its pin was not refreshed: delete the file and run walden repo init again to regenerate it from the current template
+```
+
+If the existing workflow cannot be read, the run fails naming it, before git is initialized and before any file is created.
+
+### Limits
+
+- A run no longer restores a template. To regenerate a file from the current template, delete it and run the command again.
+- A template that changes in a later release does not reach a file that exists.
+- The refresh matches text, not YAML: an install target inside a comment is refreshed too.
+- A run with an older binary sets the older pin, as before.
+- A workflow that is a symbolic link is replaced by a regular file when its pin is refreshed.
+- Content that an earlier release already replaced is not recovered.
+
+### Compatibility and distribution
+
+- JSON stays additive within `v0beta1`: no new field. Kept files appear under `skipped_files`, a refreshed workflow under `updated_files`, and `warnings` carries the one entry above.
+- A first run on an empty repository creates the same five files as before.
+- `walden repo init --help`, the CLI reference and the CI guide now say what a run does to existing files.
+- No gate, ledger field, document status or evidence state changes.
+- The guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All 4 tasks of the approved `repo-init-rerun-safety` specification re-proven against the release tree.
+- Twelve tests written before the code and seen failing on v0.15.0 for the behavior each one names. The tests that pin the workflow pin and `.walden/.gitignore` are unchanged.
+- With the compiled CLI on temporary repositories: the reported steps leave `git status` empty; a recorded lesson, a customised `.gitignore`, an adjusted workflow and a constitution that was never committed are kept; a run after v0.14.5 changes the single line of the pin; a pull request template older than the first run is kept; the v0.1.0 workflow is kept with the warning.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+- Not checked: Windows.
+
 ## Walden v0.15.0
 
 A plan can now say that a proof attests a delivery. Until this release every proof was judged as a regression that must keep passing. A proof that describes what shipped, such as a version string in a document or an evaluation observed once, failed as soon as the delivered text moved on, and the feature read NOT RELEASABLE until someone rewrote the proof. A delivery proof is attested once, on the tree of a commit, and is not proven again. **This changes the criteria of the release gate.**
