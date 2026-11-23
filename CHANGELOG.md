@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-11-23
+
 ### Fixed
 
 - **Breaking (adoption contract): `walden adopt` no longer seals a chain whose own record says it is stale.** A design or a plan approved before fingerprints records the approval time of the upstream it was reviewed against. Releases before v0.4.0 called the chain stale when that time differed from the upstream's, as it does after the upstream is revised and approved again. `walden adopt` never read it: it planned such a feature as `backfill`, and `--apply` joined the downstream to the new upstream, so the chain read fresh without a review. A feature with a link that has no fingerprint and whose times differ is now `blocked`, where v0.15.2 planned a `backfill`. Nothing in it is sealed, and the way out is `walden reconcile <feature>` and a new approval. A chain whose times agree is adopted as before. The plan also warns about a link that is already sealed and whose times differ. A backfill by v0.10.0 to v0.15.2 leaves that record on a chain it joined this way; so does an upstream approved again without a change by v0.4.0 to v0.9.0, where nothing is missing. The class does not change, and `status` and `release check` keep reading the chain as fresh; the adoption guide says how to tell the two apart and how to record the review. If you ran `walden adopt --apply` on documents approved before v0.4.0, run `walden adopt` once: it writes nothing and names such links. The JSON result gains no field: the block uses the `class` and the `reason` a blocked feature already has, and the warning is carried by the `warnings` of the result.
