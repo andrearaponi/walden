@@ -2,7 +2,7 @@
 
 This is the public roadmap for Walden. It distinguishes committed open source work from exploratory and enterprise-only work.
 
-## Current Release: v0.16.0
+## Current Release: v0.16.1
 
 The open source core today includes:
 
@@ -12,7 +12,7 @@ The open source core today includes:
 - AI skill for Claude Code, Codex, Copilot, and OpenCode, distributed through the Skills CLI independently of the binary
 - One-liner installer consuming checksum-verified release binaries
 - Self-update from GitHub releases (`walden update`) with fail-closed verification and rollback
-- Execution evidence ledger: task completions bound to spec fingerprints and a code identity, derived states including explicit unattested legacy assurance, `walden verify` with per-proof identities and sticky contamination, per-step proof timeouts, `expect_exit`/`expect_output` assertions, and execution profiles with declared environment probes
+- Execution evidence ledger: task completions bound to spec fingerprints and a code identity of the files under the Walden root, uncommitted ones included, whether the root is the top level of its repository or a subdirectory of it, derived states including explicit unattested legacy assurance, `walden verify` with per-proof identities and sticky contamination, per-step proof timeouts, `expect_exit`/`expect_output` assertions, and execution profiles with declared environment probes
 - Stale evidence that explains itself: `walden evidence status` names the paths and the criteria that changed since a proof ran and shows what the current code identity is made of, and each record keeps how long its proof took. The code identity keeps covering the whole tree: a measurement on a real portfolio showed that narrowing it to declared inputs recovers almost no evidence and can keep a false green
 - Delivery proofs: a plan can declare that a leaf's proof attests a delivery (`- Proof: delivery`), a fact that was true when the work shipped and is not expected to hold forever. Once the proof passes on a committed tree the task reads `delivered` with that commit and is not proven again; `walden release check` accepts it, names it and lists the statements that only delivery proofs cover, and `walden adopt --apply` seals a pass recorded before the declaration without executing its proof
 - Criterion trace (`walden trace`): one read-only report that joins each acceptance criterion with the leaf tasks that name it, the proof steps that cover it and the evidence state of their leaf, and lists the holes by kind, a criterion without a proof apart from a proof that is not standing; as text, as a Markdown table for a pull request, or as JSON. It judges nothing: `walden release check` stays the gate

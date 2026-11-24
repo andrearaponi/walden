@@ -1,3 +1,102 @@
+## Walden v0.16.1
+
+Evidence follows the working tree when the Walden root is a subdirectory of its repository. The root is the directory that holds `.walden/`. It is usually the top level of a git repository. It can also be a directory of a larger one, as the example this repository ships, `examples/todo-app-demo`, is. Git reports the status of a working tree with paths from the top level, and the capture of the tree looked for those paths under the root. In a subdirectory it found none and passed over them, so the code identity was the one of the commit, whatever the tree held. The identity has been built this way since the evidence ledger exists, v0.8.0.
+
+If you keep a Walden root inside a larger repository, run `walden verify <feature> --all` for its features once after updating. Evidence recorded there by an earlier release is not examined again, and a record made on a tree with uncommitted paths carries the identity of its commit. With the root at the top level nothing changes.
+
+### An uncommitted change reaches the evidence
+
+A repository whose Walden root is `pkg/app` holds one feature, with a delivery task and a regression task completed and committed. A file that the regression proof reads is changed and not committed:
+
+```
+$ walden evidence status demo
+Summary: evidence status for demo: 1 delivered, 1 stale-code
+Current identity: commit fd150b9551efe65da5fa9b1602760715a71df79d plus 1 uncommitted path(s)
+- changed status.txt
+```
+
+v0.16.0 answered `1 verified, 1 delivered` and `no uncommitted path`, and `walden verify demo` answered that nothing needed verifying. The proof now runs, and fails on the change:
+
+```
+$ walden verify demo
+verification failed for demo: 1.2
+Next action: Fix the failing proofs and rerun walden verify demo
+```
+
+`walden task status` warns about the stale task, and `walden trace` and `walden release check` report the same state. The paths a record keeps and a report names are relative to the root.
+
+### What a root in a subdirectory no longer lets through
+
+With v0.16.0 and the same files in two repositories, one with the root at the top level and one with the root in a subdirectory:
+
+| Situation | Root at the top level | Root in a subdirectory |
+| --- | --- | --- |
+| A proof passes only on uncommitted content, which is then discarded | `stale-code`, NOT RELEASABLE | `verified`, RELEASABLE, also with `--strict` |
+| A delivery proof passes on a tree with uncommitted paths | not attested | attested, and `delivered` from then on |
+| A proof changes a file during `walden verify --all` | its task fails and the file is named | it passes |
+
+A root in a subdirectory now answers as the root at the top level does, in all three. It derives the identity the same files give a root at the top level, in every state of the working tree: a path modified, staged, untracked, deleted or renamed, a changed mode. A change under `.walden/` still leaves the identity as it is, and so does a change to a file outside the root.
+
+### The release gate in a subdirectory
+
+Two more faults were on the safe side. An uncommitted path under the root's `.walden/` blocked in default mode, where at the top level it warns. With the ledger alone uncommitted:
+
+```
+$ walden release check demo
+Summary: RELEASABLE — 1 feature(s) certified [feature: demo], 1 delivered task(s) not proven again, commit fd150b9551ef
+```
+
+```
+Warnings:
+- uncommitted under .walden/ (not blocking): pkg/app/.walden/evidence/demo.json
+```
+
+Under `--strict` the same path blocks, as at the top level. And strict certification of the portfolio looked for `.walden/specs` at the top level of the commit, so it could not pass. With everything committed:
+
+```
+$ walden release check --strict
+Summary: RELEASABLE — 1 feature(s) certified [portfolio: demo], 1 delivered task(s) not proven again, commit cc31b9398550
+```
+
+An uncommitted path that is not under the root's `.walden/` blocks, under the root or anywhere else in the repository. The gate names every path as git does, from the top level.
+
+### A path that cannot be placed
+
+When git reports an uncommitted path and does not say where the root lies in its working tree, or reports a path that is not under the root, the code identity is unavailable: tasks read `unattested`, `walden verify` refuses to run and `walden release check` blocks. Such a path used to be passed over without a word. A git that answers the status answers this question too; the rule is there so that no path is ever left out of an identity in silence.
+
+### What does not change
+
+- With the root at the top level: every answer. The manifest, its keys and its digest are as they were, so no recorded evidence goes stale because of the upgrade, in either layout.
+- The identity of a root in a subdirectory covers the files under it and no file outside it, as its committed part always did.
+- No command gains a flag, no help text changes, and the JSON result and the ledger gain no field.
+- Authoring in a subdirectory is as it was: `walden feature init` asks for `.git` in the root, and `walden repo init` creates a repository in a directory that has none, also inside another repository.
+
+### Limits
+
+- A proof that reads a file outside the root is not protected by the identity: a change to that file leaves the evidence as it was.
+- Evidence recorded in a subdirectory by an earlier release is not examined again, and nothing in a record tells one made on uncommitted content from a sound one. `walden verify <feature> --all` proves the regression tasks again. A delivered task stays delivered until its proof or its statements change.
+- The gate judges the working tree of the whole repository: an uncommitted file in another directory blocks the certificate of this root.
+- When a path cannot be placed, the texts are the ones for an identity that is not available, and the gate's says that there is no usable git repository.
+- On a tree with uncommitted paths a capture asks git one more read-only question, `git rev-parse --show-prefix`, and a release check asks it twice.
+
+### Compatibility and distribution
+
+- **Breaking (gate criteria contract):** with the root in a subdirectory, three verdicts of `walden release check` change. A proof that passed on uncommitted content no longer certifies once that content is gone. An uncommitted path under the root's `.walden/` warns in default mode, where it blocked. Strict certification of the portfolio can pass, where it could not. No verdict changes with the root at the top level.
+- JSON stays additive within `v0beta1`: no new field. The ledger keeps its schema version and its fields.
+- No flag, evidence state or help text is added or changed.
+- The skill guide does not change and still works with CLI v0.10.4 or newer.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All five tasks of the approved `subdirectory-root` specification re-proven against the release tree.
+- 16 new tests in seven files, and 12 files that hold what v0.16.0 wrote in each layout. Every test through the commands runs the same steps with the root at the top level and in a subdirectory. They were written first and run on the code as it was: in a subdirectory the identity did not move in eight of eleven states of the tree, a delivery proof was attested on a tree with uncommitted paths, `release check` certified with and without `--strict`, and a proof that changed a file passed. The halves at the top level, the tests on files outside the root and the test on recorded ledgers passed before and after: they hold what must not move.
+- Five temporary changes that each break one property, the placement, the refusal of a path outside the root, the refusal when git does not answer, the `.walden/` of the root and the listing of the portfolio, each failed a test.
+- With the compiled CLI: the outputs above, on a repository this release built. Beside v0.16.0, the help of 32 commands and groups is the same. On copies of 143 portfolios that hold 5,547 features, documents only, `validate --all --json`, `release check --json` and `trace --json` give the same bytes. On copies of the 92 of those portfolios that are under git, with their repositories: for the 85 with the root at the top level, `release check --json` and `adopt --json` give the same bytes, on the tree as cloned and with one changed and one untracked path; for the 7 with the root in a subdirectory they give the same bytes on the tree as cloned, and with the two paths the only fields that differ are 35 values of `current_identity` in each command.
+- In a clone of this repository, with `complete` broken in `examples/todo-app-demo` and not committed, v0.16.0 answers `3 verified` and that nothing needs verifying; this release answers `3 stale-code` and fails the two proofs that read the change.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+- Not checked: Windows.
+
 ## Walden v0.16.0
 
 `walden trace <feature>` joins criteria, proofs and evidence in one report. A reviewer asks one question for each acceptance criterion: which proof covers it, and is that proof still standing? The answer was in three places. The requirements hold the criteria. The plan holds the leaf tasks that name them and the proof steps that declare, in `covers`, what they prove. The evidence ledger holds what each proof did. To learn that a criterion is covered by the second step of a task, and that the evidence of that task is stale, a person read `tasks.md` beside the output of another command.
