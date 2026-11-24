@@ -85,6 +85,22 @@ The report also explains what it derives. Before the entries it shows what the c
 
 A delivered task is reported with the commit it was attested on, marked `(sealed by adoption)` when adoption wrote the attestation, and is not explained: that the code moved on since a delivery is what the state allows. A delivery task in any other state is marked `(delivery proof)`, or `(delivery proof, awaits adoption)` when it holds a pass that adoption can seal. When it holds a recorded pass that is no attestation, the report says why, in one line: the proof ran on a tree with uncommitted paths, no commit could be read, the record keeps no commit and no paths, or the pass was recorded by a run that did not read the proof as a delivery proof. The line then names what attests the task: a pass of `walden verify` on a tree without uncommitted changes or, for a pass that awaits adoption, `walden adopt`. See [Delivery proofs](../lifecycle.md#delivery-proofs).
 
+### `walden trace <feature> [--markdown] [--json]`
+
+Joins what three files hold: each acceptance criterion of the requirements, the leaf tasks whose `Requirements` line names it, the proof steps whose `covers` lists it, and the evidence state of the leaf task each step belongs to. The criteria come in the order of the document; a non-functional requirement or a constraint follows them when a leaf names it or a step covers it. The state of a leaf is the one `release check` derives, and a step of a leaf that declares a delivery proof is marked `(delivery proof)`.
+
+The report lists three kinds of hole, the criteria that lack a proof first:
+
+- `unnamed`: a criterion that no leaf task names. `walden validate --all` fails on such a plan.
+- `uncovered`: a criterion that a leaf names and no proof step covers, with the leaves that name it. They are the criteria `validate --json` lists under `proof_reference_coverage`.
+- `not-standing`: a statement covered by a step of a leaf whose state is neither `verified` nor `delivered`, with the leaf, the step and the state.
+
+The summary counts the holes of each kind, so a missing proof is told from a proof that is not standing. After a change to the code every regression proof is `stale-code` until `walden verify` runs again: a trace has no hole of the third kind at delivery, after a verify on the tree it reads.
+
+Three formats. Text by default: the summary, one entry for each statement and the holes. `--markdown` prints a table with one row for each pair of statement and proof step, then the holes, and nothing else: it is made to be pasted into a pull request. `--json` carries every field, with the design references of each leaf as the plan writes them; see the [JSON reference](json.md#trace-trace---json). Text and Markdown show a command of more than 120 characters cut to 120, the last one being `…`; JSON carries it whole. `--markdown` and `--json` cannot be combined.
+
+The trace shows what the plan declares and whether its proofs still stand. It does not judge whether a proof proves its statement, and it is not a gate: a completed report exits `0` with holes, writes nothing in the repository and runs no proof and no environment probe. `walden release check` judges, and `evidence status` explains a state. A feature without a specification, or a document, a plan or a ledger that cannot be read, is an error that names the file and the cause.
+
 ### `walden verify <feature> [--all] [--check] [--task <id>] [--json]`
 
 Re-executes the proofs of completed tasks against the current tree: those no longer `verified` by default, every one with `--all`, delivery proofs aside (see below). Fresh evidence replaces each task's record; `--check` reports without persisting anything. A failing proof never aborts the run — every selected task is re-proven and failures are collected. Exit `1` if any proof failed; in text mode such a run prints its warnings on stderr.

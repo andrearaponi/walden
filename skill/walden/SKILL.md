@@ -84,6 +84,7 @@ Use commands for mechanics; use `walden --help` and command help for syntax deta
 | `walden verify <feature> --all` | Force every completed task's proof to run, including currently verified tasks. |
 | `walden verify <feature> --check` | Report without persisting the ledger; add `--all` to force all completed proofs. |
 | `walden verify <feature> --task <id>` | On CLI v0.14.2 or newer, re-prove one completed leaf task after a targeted repair; `release check` still judges every task, so finish with `walden verify <feature>`. |
+| `walden trace <feature> [--markdown]` | On CLI v0.16.0 or newer, list each acceptance criterion with the proof steps that cover it and their evidence state, and the holes: a criterion that no task names, a criterion that no proof step covers, a proof that is not standing. Read-only; `release check` still judges. `--markdown` prints a table for a pull request: run it after `walden verify <feature>`. |
 | `walden release check [<feature>] [--strict]` | Judge existing evidence and release blockers; never executes proofs or publishes. |
 | `walden adopt [<feature>] [--apply]` | Inspect legacy bindings/freshness/provenance without proofs or probes; apply executes selected proofs and needs authorization. |
 | `walden consolidate` | Read-only report: contract changes since the last consolidation, review scope, deterministic findings, comparisons of each change with its linked statements, and identifiers. |

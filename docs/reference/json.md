@@ -302,6 +302,56 @@ All additions remain optional for consumers of older compatible CLIs: missing fi
 
 Warnings about a suggested or due consolidation, a stale view or an unknown state appear in `result.warnings` of `status` and the report; `feature init` adds only the due warning, and `release check` uses `release.repository_warnings`.
 
+## Trace (`trace --json`)
+
+`walden trace <feature> --json` reports `result.trace`: the statements of the feature with the proof steps that cover them, the leaves of its plan and the holes. No other command sets the block. `result.summary` states the number of statements and of holes, the holes by kind.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `feature` | string | The feature the trace reads. |
+| `statements` | array | One entry for each listed statement: every acceptance criterion in the order of the requirements, then the non-functional requirements and the constraints that a leaf names or a step covers. |
+| `leaves` | array | Every leaf task of the plan, in plan order. |
+| `holes` | array | The holes, by kind: `unnamed`, then `uncovered`, then `not-standing`. |
+
+A statement:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | The identifier of the statement. |
+| `kind` | string | `criterion`, `nfr` or `constraint`. |
+| `named_by` | string[] | The leaf tasks whose `Requirements` line names the statement; empty when none does. |
+| `proofs` | array | The proof steps whose `covers` lists the statement; empty when none does. |
+
+A proof step:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `task_id` | string | The leaf task the step belongs to. |
+| `step` | int | The position of the step in that leaf, from 1. |
+| `command` | string[] | The whole command, as the plan declares it. |
+| `delivery` | bool | Present and true when the leaf declares a delivery proof. |
+| `state` | string | The evidence state of the leaf, as `release check` derives it. |
+
+A leaf:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | The identifier of the leaf task. |
+| `design_refs` | string[] | The references of its `Design` line as the plan writes them. They are not resolved against the design. |
+| `delivery` | bool | Present and true when the leaf declares a delivery proof. |
+| `state` | string | The evidence state of the leaf. |
+
+A hole:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `kind` | string | `unnamed`: no leaf names the criterion. `uncovered`: a leaf names it and no proof step covers it. `not-standing`: a step covers the statement on a leaf that is neither `verified` nor `delivered`. |
+| `statement` | string | The identifier of the statement. |
+| `named_by` | string[] | The leaves that name the statement, present when there are any. |
+| `task_id`, `step`, `state` | string, int, string | For `not-standing`: the leaf, the step and the state of the leaf. |
+
+The lists are always arrays. The holes of the first two kinds are the criteria `walden validate` judges: `unnamed` are the ones it fails a plan on, `uncovered` the ones it lists under `coverage.proof_reference_coverage`. A trace judges nothing: holes do not change the exit code.
+
 ## Error paths and stability
 
 Errors use the same envelope with `ok: false`, a diagnostic summary and `exit_code: 1`; there is no separate error format. A successful status/plan read is not a certification verdict merely because its process exits zero.
