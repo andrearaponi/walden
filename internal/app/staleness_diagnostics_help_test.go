@@ -131,6 +131,14 @@ func TestUsageCommandsBlock(t *testing.T) {
 	}
 	want := strings.Replace(usageCommandsV0144, before, after, 1)
 
+	// The command added since, walden trace: its two lines come before those
+	// of release check. The recorded block stays the one of v0.14.4.
+	const releaseCheck = "  release check [<feature>] [--strict] [--allow-pending --reason <text>] [--json]\n"
+	if strings.Count(want, releaseCheck) != 1 {
+		t.Fatal("the recorded block does not hold the line of release check exactly once")
+	}
+	want = strings.Replace(want, releaseCheck, traceUsageLines+releaseCheck, 1)
+
 	var stdout, stderr bytes.Buffer
 	if code := Run([]string{"--help"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("--help exited %d: %s", code, stderr.String())
@@ -143,8 +151,9 @@ func TestUsageCommandsBlock(t *testing.T) {
 	}
 
 	// One line for evidence status, saying that the report explains what
-	// changed; the line of every other command as v0.14.4 printed it.
+	// changed; the two lines of trace; the line of every other command as
+	// v0.14.4 printed it.
 	if got := usage[start:end]; got != want {
-		t.Errorf("the commands block differs from the block of v0.14.4 with the line of evidence status replaced, %s", firstDifference(got, want))
+		t.Errorf("the commands block differs from the block of v0.14.4 with the line of evidence status replaced and the lines of trace added, %s", firstDifference(got, want))
 	}
 }

@@ -257,7 +257,15 @@ func collectCoverageReport(feature spec.Feature, plan validationPlan) *CoverageR
 	if !plan.validateTasks || !feature.Tasks.Exists || !plan.validateRequirements || !feature.Requirements.Exists {
 		return nil
 	}
+	report := Coverage(feature)
+	return &report
+}
 
+// Coverage reports the acceptance criteria that no Requirements line of the
+// plan names and those that no proof step covers, as the validator reads
+// them. It judges nothing: the validator fails a plan on the first list and
+// carries the second in its result.
+func Coverage(feature spec.Feature) CoverageReport {
 	acceptanceCriteria := collectAcceptanceCriteriaIDs(feature.Requirements.Body)
 
 	// Task reference coverage (existing behavior, now reported as a metric).
@@ -278,7 +286,7 @@ func collectCoverageReport(feature spec.Feature, plan validationPlan) *CoverageR
 	}
 	proofMissing := sortedKeys(setDiff(acceptanceCriteria, proofCovers))
 
-	return &CoverageReport{
+	return CoverageReport{
 		TaskReferenceCoverage: CoverageStatus{
 			Complete: len(taskMissing) == 0,
 			Missing:  taskMissing,

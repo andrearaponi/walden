@@ -132,11 +132,7 @@ func (r ReleaseReport) WaivedTasks() []string {
 // evidence — and executes no proofs and persists nothing: verify produces
 // evidence, release check judges it.
 func ReleaseCheck(ctx context.Context, root, featureName string, opts Options) (ReleaseReport, error) {
-	root, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return ReleaseReport{}, fmt.Errorf("resolve repository root: %w", err)
-	}
-	root, err = filepath.Abs(root)
+	root, err := resolveRoot(root)
 	if err != nil {
 		return ReleaseReport{}, err
 	}
@@ -144,20 +140,10 @@ func ReleaseCheck(ctx context.Context, root, featureName string, opts Options) (
 	if err != nil {
 		return ReleaseReport{}, err
 	}
-	commit, commitErr := evidence.Commit(ctx, gitRunner, root, "HEAD")
+	code := captureCodeIdentity(ctx, root)
+	commit, commitErr, identity, identityOK := code.commit, code.commitErr, code.digest, code.ok
 	report := ReleaseReport{Scope: evidence.NewScope(featureName != "", features...), Strict: opts.Strict, AllowPending: opts.AllowPending, WaiverReason: opts.WaiverReason,
 		CertifiedCommit: commit, CommittedInputBinding: "not-requested"}
-	var manifest evidence.Manifest
-	var identityOK bool
-	if commit != "" {
-		manifest, identityOK = evidence.CaptureManifestAtCommit(ctx, gitRunner, root, commit)
-	} else {
-		manifest, identityOK = evidence.CaptureManifest(ctx, gitRunner, root)
-	}
-	identity := ""
-	if identityOK {
-		identity = manifest.Digest()
-	}
 	var inputs []inputSnapshot
 	for _, name := range features {
 		snapshot := captureFeature(root, name, opts.Strict)
@@ -197,6 +183,51 @@ func ReleaseCheck(ctx context.Context, root, featureName string, opts Options) (
 	}
 	sort.Strings(report.WorktreeBlockers)
 	return report, nil
+}
+
+// resolveRoot returns the repository root with its symbolic links resolved.
+func resolveRoot(root string) (string, error) {
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve repository root: %w", err)
+	}
+	return filepath.Abs(root)
+}
+
+// codeIdentity is the commit a run reads and the identity of its working
+// tree, uncommitted changes included.
+type codeIdentity struct {
+	commit    string
+	commitErr error
+	digest    string
+	ok        bool
+}
+
+// captureCodeIdentity resolves HEAD and captures the identity of the working
+// tree anchored to it, or of a repository without a commit.
+func captureCodeIdentity(ctx context.Context, root string) codeIdentity {
+	commit, commitErr := evidence.Commit(ctx, gitRunner, root, "HEAD")
+	var manifest evidence.Manifest
+	var ok bool
+	if commit != "" {
+		manifest, ok = evidence.CaptureManifestAtCommit(ctx, gitRunner, root, commit)
+	} else {
+		manifest, ok = evidence.CaptureManifest(ctx, gitRunner, root)
+	}
+	code := codeIdentity{commit: commit, commitErr: commitErr, ok: ok}
+	if ok {
+		code.digest = manifest.Digest()
+	}
+	return code
+}
+
+// deriveLeafEvidence derives the evidence of each leaf of a plan from its
+// ledger and the captured identity. It is the one derivation of the gate:
+// what reads a state without judging it calls it too.
+func deriveLeafEvidence(ctx context.Context, root string, feature spec.Feature, tree spec.TaskTree, ledger evidence.Document, identity string, identityOK bool, commit string) []evidence.TaskEvidence {
+	current, leafs := evidence.FeatureInputs(feature, tree)
+	evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, commit)
+	return evidence.Derive(ledger, current, identity, identityOK, leafs)
 }
 
 // releaseTargets resolves the feature list for the run.
@@ -293,9 +324,7 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 			if snapshot.LedgerErr != nil {
 				evidenceCriterion.Blockers = append(evidenceCriterion.Blockers, fmt.Sprintf("%v — retain the ledger and inspect it with a compatible reader", snapshot.LedgerErr))
 			} else {
-				current, leafs := evidence.FeatureInputs(feature, tree)
-				evidence.ResolvePlans(ctx, gitRunner, root, feature, ledger, &current, commit)
-				for _, derived := range evidence.Derive(ledger, current, identity, identityOK, leafs) {
+				for _, derived := range deriveLeafEvidence(ctx, root, feature, tree, ledger, identity, identityOK, commit) {
 					certification.Evidence = append(certification.Evidence, derived)
 					switch derived.State {
 					case evidence.StateVerified:

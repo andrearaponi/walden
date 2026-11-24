@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/andrearaponi/walden/internal/evidence"
+	"github.com/andrearaponi/walden/internal/trace"
 )
 
 // Result is the shared structured output model for CLI commands.
@@ -54,7 +55,11 @@ type Result struct {
 	Waiver        *WaiverStatus         `json:"waiver,omitempty"`
 	Consolidation *ConsolidationStatus  `json:"consolidation,omitempty"`
 	Content       string                `json:"content,omitempty"`
-	ExitCode      int                   `json:"exit_code"`
+	// Trace is the report of `walden trace`: the statements of a feature
+	// with the proof steps that cover them, the leaves of its plan and the
+	// holes. Only that command sets it.
+	Trace    *trace.Report `json:"trace,omitempty"`
+	ExitCode int           `json:"exit_code"`
 }
 
 // KeptDelivery is a delivered task a verify run kept as it was.
@@ -541,6 +546,8 @@ func PrintText(w io.Writer, result Result) {
 	if result.Consolidation != nil {
 		printConsolidation(w, result.Consolidation)
 	}
+
+	printTrace(w, result.Trace)
 
 	if len(result.Blockers) > 0 {
 		_, _ = fmt.Fprintln(w, "Blockers:")

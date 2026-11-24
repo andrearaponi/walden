@@ -358,6 +358,23 @@ var commandRegistry = []commandSpec{
 		},
 	},
 	{
+		Path:    "trace",
+		Syntax:  "trace <feature> [--markdown] [--json]",
+		Summary: "Report each statement of a feature with the proof steps that cover it and their evidence state",
+		Details: []string{
+			"A row is one statement, a criterion or a non-functional requirement or constraint the plan names, with one proof step whose covers lists it and the evidence state of the leaf task that step belongs to.",
+			"A hole is a criterion that no leaf task names (unnamed), a criterion that no proof step covers (uncovered), or a covered statement whose leaf task is neither verified nor delivered (not-standing).",
+			"The summary counts the holes of each kind, and they are listed in that order: the criteria that lack a proof come first.",
+			"Text by default; --markdown prints a table and the holes, to paste into a pull request; --json carries every field.",
+			"Text and --markdown show a command of more than 120 characters cut to 120, the last one being …; --json carries it whole, with the design references of each leaf task as the plan writes them.",
+			"A report and not a gate: it exits 0 with holes, writes nothing in the repository and runs no proof. walden release check judges, and walden evidence status explains a state.",
+		},
+		BoolFlags: []flagSpec{
+			{Name: "--markdown", Description: "Print a Markdown table and the list of holes, and nothing else"},
+			jsonFlag,
+		},
+	},
+	{
 		Path:    "release",
 		Syntax:  "release <subcommand>",
 		Summary: "Release certification operations",

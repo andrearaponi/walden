@@ -144,6 +144,12 @@ func TestJSONErrorContract(t *testing.T) {
 			wantCommand: "evidence-status",
 		},
 		{
+			name:          "trace on a missing feature",
+			args:          []string{"trace", "nope", "--json"},
+			wantCommand:   "trace",
+			wantInSummary: "nope",
+		},
+		{
 			name:        "release check with invalid feature name",
 			args:        []string{"release", "check", "!!!", "--json"},
 			wantCommand: "release-check",

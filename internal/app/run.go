@@ -76,6 +76,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runAdopt(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
+	case "trace":
+		return runTrace(args[1:], stdout, stderr)
 	case "release":
 		return runRelease(args[1:], stdout, stderr)
 	case "review":
