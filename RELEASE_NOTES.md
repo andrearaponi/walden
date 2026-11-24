@@ -1,3 +1,114 @@
+## Walden v0.16.0
+
+`walden trace <feature>` joins criteria, proofs and evidence in one report. A reviewer asks one question for each acceptance criterion: which proof covers it, and is that proof still standing? The answer was in three places. The requirements hold the criteria. The plan holds the leaf tasks that name them and the proof steps that declare, in `covers`, what they prove. The evidence ledger holds what each proof did. To learn that a criterion is covered by the second step of a task, and that the evidence of that task is stale, a person read `tasks.md` beside the output of another command.
+
+### One entry for each criterion
+
+On a repository with one feature, whose delivery task and regression task are both completed:
+
+```
+$ walden trace demo
+Summary: trace for demo: 4 statement(s), 1 hole(s): 0 unnamed, 1 uncovered, 0 not-standing
+Trace:
+- R1.AC1: named by 1.1
+  - 1.1 step 1, delivered (delivery proof): grep -q released notes.txt
+- R1.AC2: named by 1.2
+  - 1.2 step 1, verified: sh -c "test -f main.go"
+- R1.AC3: named by 1.2
+- NFR1: named by 1.2
+  - 1.2 step 1, verified: sh -c "test -f main.go"
+Holes:
+- R1.AC3: named by 1.2, covered by no proof step
+Exit code: 0
+```
+
+Every acceptance criterion is listed, in the order of the requirements, with the leaf tasks whose `Requirements` line names it and the proof steps whose `covers` lists it. Each step carries the evidence state of the leaf it belongs to, the one `walden release check` derives, and the steps of a leaf that declares a delivery proof are marked. A non-functional requirement or a constraint follows the criteria when a leaf names it or a step covers it.
+
+`walden release check demo` certifies this feature: a criterion that a task names and no proof step covers is not one of its criteria. `walden validate` lists it in its JSON result. The trace names it beside the task.
+
+### Three kinds of hole, counted apart
+
+- `unnamed`: a criterion that no leaf task names. `walden validate --all` fails on such a plan.
+- `uncovered`: a criterion that a leaf names and no proof step covers, with the leaves that name it.
+- `not-standing`: a statement covered by a step of a leaf that is neither `verified` nor `delivered`, with the leaf, the step and the state.
+
+The summary counts each kind and the list opens with the criteria that lack a proof, because the two need different work. A missing proof needs a change of the plan. A proof that is not standing usually needs `walden verify`: the code identity is the one of the repository, so after a change every regression proof is `stale-code` until it runs again. The same repository after a change to one file, in the summary and the holes of its report:
+
+```
+$ walden trace demo
+Summary: trace for demo: 4 statement(s), 3 hole(s): 0 unnamed, 1 uncovered, 2 not-standing
+```
+
+```
+Holes:
+- R1.AC3: named by 1.2, covered by no proof step
+- R1.AC2: 1.2 step 1 is stale-code
+- NFR1: 1.2 step 1 is stale-code
+```
+
+The delivered task adds no hole: its proof attested a delivery and is not expected to pass on later code.
+
+### A table for a pull request, and JSON
+
+`--markdown` prints a table with one row for each pair of statement and proof step, then the holes, and nothing else:
+
+```
+$ walden trace demo --markdown
+| Statement | Named by | Proof step | Evidence | Command |
+| --- | --- | --- | --- | --- |
+| `R1.AC1` | 1.1 | 1.1 step 1 (delivery proof) | delivered | `grep -q released notes.txt` |
+| `R1.AC2` | 1.2 | 1.2 step 1 | stale-code | `sh -c "test -f main.go"` |
+| `R1.AC3` | 1.2 | | | |
+| `NFR1` | 1.2 | 1.2 step 1 | stale-code | `sh -c "test -f main.go"` |
+
+Holes: 3 (0 unnamed, 1 uncovered, 2 not-standing)
+
+- `R1.AC3`: named by 1.2, covered by no proof step
+- `R1.AC2`: 1.2 step 1 is stale-code
+- `NFR1`: 1.2 step 1 is stale-code
+```
+
+A `|` inside a command is escaped, so it does not open a cell. Text and Markdown show a command of more than 120 characters cut to 120, the last one being `…`.
+
+`--json` carries every field in the block `result.trace`: each statement with its kind, its leaves and its proof steps, each step with its whole command, and each leaf with its state and its design references as the plan writes them. The JSON reference, `docs/reference/json.md`, lists the fields. `--markdown` and `--json` cannot be combined.
+
+### The skill guide lists the command
+
+The command table of the skill guide gains one row for `walden trace`, under the condition CLI v0.16.0 or newer. An agent that follows the table can run the trace and put its table in a pull request, and the row says that `walden release check` still judges.
+
+### What does not change
+
+- No verdict of `walden validate`, `walden release check` or a review gate changes. The trace reads through two functions those commands already ran: on 5,547 features of real portfolios this release and v0.15.3 print the same bytes for `validate --all --json` and `release check --json`.
+- The help of every other command is as v0.15.3 printed it. `walden --help` gains the two lines of `trace`.
+- The JSON result of the other commands gains no field.
+- No evidence state, ledger field or document field is added.
+
+### Limits
+
+- A trace shows what the plan declares in `covers`. It does not judge whether a proof proves its statement.
+- On a tree that moved since its last `walden verify`, most holes are `not-standing`. The trace is made for the moment of delivery, after a verify.
+- A large feature gives a long table: of 5,541 features traced on real portfolios, two give a Markdown output longer than the 65,536 characters of a comment. Nothing splits it.
+- One feature for each run, and nothing is posted: the table is yours to paste.
+- The design references of a task are reported as written, in JSON only, and are not checked against the design.
+- A plan that does not parse fails the trace, naming the file and the line.
+
+### Compatibility and distribution
+
+- No breaking change: a new command, and no gate criterion or approval rule changes.
+- JSON stays additive within `v0beta1`: one new block, `result.trace`, set only by the new command.
+- The skill guide gains one row and still works with CLI v0.10.4 or newer. Update the binary and the guide independently.
+- Update the binary with `walden update` on supported systems. Windows users replace the executable from the release assets.
+
+### Verification
+
+- All six tasks of the approved `criterion-trace` specification re-proven against the release tree.
+- 28 new tests in twelve files. 24 were seen failing before their code was written; three pin responses that existed before code moved, and one asserts that the results of the other commands hold no `trace` key.
+- With the compiled CLI: the outputs above, on a repository this release built from `repo init` to `task complete`. On copies of 143 portfolios that hold 5,547 features, the same bytes as v0.15.3 for `validate --all --json` and `release check --json`; a trace for 5,541 features and a failure that names the plan for the six that do not parse; in each of the 5,316 features the validator accepts, the `uncovered` holes are the criteria it lists under `proof_reference_coverage`. On a portfolio with ledgers and git, the state of every leaf of 44 features is the one `release check` reports.
+- The trace was seen to start no proof and no environment probe, and to leave every file of a repository as it was, the git index included. Four temporary changes that break one of those properties each failed the test meant for it.
+- GitHub's Markdown API rendered the table the tests expect as rows of five cells, each command intact.
+- `go vet ./...`, `go build ./...`, `go test ./...`, with `go test -race ./...` in CI.
+- Not checked: Windows.
+
 ## Walden v0.15.3
 
 `walden adopt` no longer seals a chain whose own record says it is stale. A design or a plan approved before fingerprints records the approval time of the upstream it was reviewed against. Releases before v0.4.0 called the chain stale when that time differed from the upstream's, as it does after the upstream is revised and approved again. `walden adopt` never read it: it planned such a feature as `backfill`, and `--apply` joined the downstream to the new upstream, so the chain read fresh without a review.
