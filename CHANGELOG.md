@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 ### Added
 
 - **`walden trace <feature>` joins criteria, proofs and evidence in one report.** For each acceptance criterion it shows the leaf tasks that name it, the proof steps whose `covers` lists it and the evidence state of their leaf, as `release check` derives it. Until now the answer took `tasks.md` beside the output of two commands. The report lists three kinds of hole: a criterion that no leaf names, a criterion that no proof step covers, and a proof whose leaf is neither `verified` nor `delivered`. The summary counts each kind, so a missing proof is told from one to run again. Text by default; `--markdown` prints a table to paste into a pull request; `--json` adds the block `result.trace`, with every command whole and the design references of each leaf as the plan writes them. The command is read-only and is not a gate: it exits 0 with holes, writes nothing in the repository and runs no proof and no environment probe, and `walden release check` stays the judge. It shows what the plan declares, not whether a proof proves its statement. No existing command changes, and the JSON result of the others gains no field.
+- **The guide lists `walden trace`.** Its command table names the command for CLI v0.16.0 or newer, says that `walden release check` still judges, and points at `--markdown` for a pull request. The guide still supports v0.10.4 or newer compatible releases: update the binary and the guide independently.
 
 ## [0.15.3] - 2026-11-23
 

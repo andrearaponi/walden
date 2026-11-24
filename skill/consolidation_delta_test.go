@@ -47,6 +47,12 @@ var approvedGuideDelta = []guideReplacement{
 		New: "Evidence states are derived: `verified`, `delivered`, `stale-spec`, `stale-code`, `failed`, `unattested`, `unrecorded`, and `pending`. `delivered` means that a delivery proof passed on the tree of the commit the report names: no run proves it again, with or without `--all`, and it is never `verified`."},
 	{Old: "New `v1alpha2` ledgers can contain untouched legacy records; use a compatible CLI and never delete or downgrade evidence to satisfy an old reader.",
 		New: "New `v1alpha2` ledgers can contain untouched legacy records, and a ledger that holds the attestation of a delivery proof is written as `v1alpha3`, which earlier CLIs refuse; use a compatible CLI and never delete or downgrade evidence to satisfy an old reader."},
+	// Approved separately, for CLI v0.16.0: no evaluation measured this row.
+	// It comes before the row of release check, whose text no other
+	// replacement touches, so that the delta reverts in any order.
+	{Old: "| `walden release check [<feature>] [--strict]` | Judge existing evidence and release blockers; never executes proofs or publishes. |",
+		New: "| `walden trace <feature> [--markdown]` | On CLI v0.16.0 or newer, list each acceptance criterion with the proof steps that cover it and their evidence state, and the holes: a criterion that no task names, a criterion that no proof step covers, a proof that is not standing. Read-only; `release check` still judges. `--markdown` prints a table for a pull request: run it after `walden verify <feature>`. |\n" +
+			"| `walden release check [<feature>] [--strict]` | Judge existing evidence and release blockers; never executes proofs or publishes. |"},
 }
 
 // applyGuideDelta applies the replacements, or reverts them, requiring each
