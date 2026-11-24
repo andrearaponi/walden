@@ -255,6 +255,11 @@ func (r *dynamicIdentityRunner) Run(_ context.Context, _ string, args ...string)
 	if len(args) >= 3 && args[2] == "ls-tree" {
 		return shell.Response{ExitCode: 0, Stdout: "100644 blob aaa\tmain.go\n"}, nil
 	}
+	if len(args) >= 3 && args[2] == "rev-parse" {
+		// One empty line answers both questions git is asked this way: the
+		// root is the top level of its working tree, and no commit is named.
+		return shell.Response{ExitCode: 0, Stdout: "\n"}, nil
+	}
 	if len(args) >= 3 && args[2] == "hash-object" {
 		content, err := os.ReadFile(r.root + "/" + args[len(args)-1])
 		if err != nil {

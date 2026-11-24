@@ -96,6 +96,8 @@ Completions and verifications write to `.walden/evidence/<feature>.json` — the
 - the [execution profile](#the-environment) of the machine that ran it,
 - `result: passed | failed` and a timestamp.
 
+The working tree of that photograph is the one under the root, the directory that holds `.walden/`. When the root is a subdirectory of its repository, the code identity covers the files under the root, uncommitted ones included, and no file outside it. A proof that reads a file elsewhere in the repository is not protected by the identity: a change to that file leaves the evidence as it was.
+
 What the ledger deliberately does **not** hold is any state label. When you ask — `walden evidence status`, or any command that reads evidence — Walden takes today's photographs and compares:
 
 | State | Meaning |

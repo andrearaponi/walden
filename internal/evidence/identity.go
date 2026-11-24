@@ -208,6 +208,25 @@ func captureParts(ctx context.Context, runner shell.Runner, root, revision strin
 		return captureResult{}, false
 	}
 
+	// Git reports these paths from the top level of its working tree and
+	// lists a commit from root. With root below the top level the first must
+	// be rewritten in the terms of the second. A path that cannot be placed
+	// under root fails the capture: read from root it would look like a
+	// deleted file, and the identity would be the one of the commit whatever
+	// the working tree holds. A status without entries has nothing to place.
+	entries := ParseStatus(status.Stdout)
+	if len(entries) > 0 {
+		prefix, known := RootPrefix(ctx, runner, root)
+		if !known {
+			return captureResult{}, false
+		}
+		placed, ok := placeStatus(entries, prefix)
+		if !ok {
+			return captureResult{}, false
+		}
+		entries = placed
+	}
+
 	blobs := Manifest{}
 	if lsTree, err := Git(ctx, runner, root, "ls-tree", "-r", revision); err == nil && lsTree.ExitCode == 0 {
 		seedListing(blobs, lsTree.Stdout)
@@ -222,22 +241,22 @@ func captureParts(ctx context.Context, runner shell.Runner, root, revision strin
 		for path, entry := range blobs {
 			result.listed[path] = entry
 		}
-		result.untracked = untrackedPaths(status.Stdout)
+		result.untracked = untrackedPaths(entries)
 	}
 
-	if !applyOverlay(ctx, runner, root, status.Stdout, blobs) {
+	if !applyOverlay(ctx, runner, root, entries, blobs) {
 		return captureResult{}, false
 	}
 	result.manifest = blobs
 	return result, true
 }
 
-// untrackedPaths reads the paths git reports as untracked from NUL-separated
-// porcelain output, through the parser the overlay uses: the source field of
-// a rename or a copy is never an entry of its own.
-func untrackedPaths(porcelain string) map[string]bool {
+// untrackedPaths returns the paths git reports as untracked, from the entries
+// the overlay reads: the source field of a rename or a copy is never an entry
+// of its own.
+func untrackedPaths(entries []StatusEntry) map[string]bool {
 	untracked := map[string]bool{}
-	for _, entry := range ParseStatus(porcelain) {
+	for _, entry := range entries {
 		if entry.Code == "??" && !isWaldenPath(entry.Path) {
 			untracked[entry.Path] = true
 		}
@@ -318,13 +337,13 @@ func seedListing(blobs map[string]string, listing string) {
 }
 
 // applyOverlay overrides the blob map with the current content of every
-// dirty or untracked path from NUL-separated porcelain output, using git
-// hash-object so the representation matches committed entries. Deleted
-// paths leave the map, and so does the source of a rename. Regular files are
-// hashed in chunked batches — one git spawn per file made a 400-file dirty
-// tree cost seconds per status.
-func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain string, blobs map[string]string) bool {
-	pending := []string{}  // repo-relative paths, hashed in batches
+// dirty or untracked path among the status entries, whose paths are relative
+// to root, using git hash-object so the representation matches committed
+// entries. Deleted paths leave the map, and so does the source of a rename.
+// Regular files are hashed in chunked batches — one git spawn per file made a
+// 400-file dirty tree cost seconds per status.
+func applyOverlay(ctx context.Context, runner shell.Runner, root string, entries []StatusEntry, blobs map[string]string) bool {
+	pending := []string{}  // paths relative to root, hashed in batches
 	hashArgs := []string{} // the argv actually passed for each pending path
 	modes := []string{}    // canonical git mode per pending path
 	cleanups := []string{}
@@ -335,7 +354,7 @@ func applyOverlay(ctx context.Context, runner shell.Runner, root, porcelain stri
 		}
 	}()
 
-	for _, entry := range ParseStatus(porcelain) {
+	for _, entry := range entries {
 		if entry.Renamed() {
 			// A rename took its source out of the working tree, so the entry
 			// the commit's listing seeded for it leaves the manifest. Left
