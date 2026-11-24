@@ -185,7 +185,11 @@ func bindPortfolio(ctx context.Context, root, commit string, selected []string) 
 		binding.State, binding.Detail = "unavailable", "no existing captured commit"
 		return binding
 	}
-	listing, err := evidence.Git(ctx, gitRunner, root, "ls-tree", "-z", "-d", commit+":.walden/specs")
+	// "./" makes git resolve the directory from root, wherever root lies in
+	// the repository. Below the top level ls-tree also filters the tree it is
+	// given by the position of the working directory, and prints nothing for
+	// a tree that is not the top one: --full-tree turns that filter off.
+	listing, err := evidence.Git(ctx, gitRunner, root, "ls-tree", "--full-tree", "-z", "-d", commit+":./.walden/specs")
 	if err != nil || listing.ExitCode != 0 {
 		binding.State, binding.Detail = "unavailable", "committed portfolio directory is absent or unreadable"
 		return binding

@@ -49,7 +49,10 @@ func recordGateGit(t *testing.T, fn func()) *recordingGateGit {
 // TestReleaseCheckGitSequence fixes the git subcommands of one verdict and
 // their order, on a committed tree and on a tree with a changed file. It was
 // written against the gate as it stood before its identity capture and its
-// derivation were given names, and it passes unchanged after.
+// derivation were given names, and it passed unchanged after. The sequence
+// on a committed tree is still that one. The sequence on a changed tree has
+// grown since: a status that holds a path is followed by the question that
+// places it under the root.
 func TestReleaseCheckGitSequence(t *testing.T) {
 	root := isolatedGateRepo(t)
 	completeGateTask(t, root, "1.1")
@@ -73,9 +76,13 @@ func TestReleaseCheckGitSequence(t *testing.T) {
 		t.Errorf("git subcommands of a verdict on a committed tree = %v, want %v", got, committed)
 	}
 
-	// A changed file is hashed after the listing of the commit.
+	// A changed file is hashed after the listing of the commit. Before the
+	// listing the capture asks git where the root lies, to place the path the
+	// status reports: the second rev-parse. The worktree criterion asks the
+	// same after its own status, to tell the .walden/ of the root from the
+	// rest: the third. The last one is HEAD again.
 	write(t, root, "main.go", "package main // changed\n")
-	changed := []string{"rev-parse", "status", "ls-tree", "hash-object", "status", "rev-parse"}
+	changed := []string{"rev-parse", "status", "rev-parse", "ls-tree", "hash-object", "status", "rev-parse", "rev-parse"}
 	if got := verdict(); !reflect.DeepEqual(got, changed) {
 		t.Errorf("git subcommands of a verdict on a changed tree = %v, want %v", got, changed)
 	}

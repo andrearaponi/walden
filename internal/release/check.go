@@ -361,14 +361,26 @@ func certifyFeature(ctx context.Context, root string, snapshot featureSnapshot, 
 // .walden/ itself warns by default — a freshly refreshed ledger legitimately
 // precedes its own commit — and is promoted to blockers by the caller under
 // strict. Unusable git is reported; the caller fails the run closed.
+//
+// The status is the one of the whole repository and git names its paths from
+// the top level, as the blockers do. The .walden/ that only warns is the one
+// of this root, wherever the root lies in the repository: a status that holds
+// a path is followed by the question that says where. When git does not
+// answer it, no path can be told to lie under the root, and every path
+// blocks.
 func worktreeCriterion(ctx context.Context, root string) (blockers, waldenDirty []string, skipped bool) {
 	status, err := evidence.Git(ctx, gitRunner, root, "status", "--porcelain", "-z")
 	if err != nil || status.ExitCode != 0 {
 		return nil, nil, true
 	}
 
-	for _, path := range porcelainPathList(status.Stdout) {
-		if path == ".walden" || strings.HasPrefix(path, ".walden/") {
+	paths := porcelainPathList(status.Stdout)
+	prefix, known := "", false
+	if len(paths) > 0 {
+		prefix, known = evidence.RootPrefix(ctx, gitRunner, root)
+	}
+	for _, path := range paths {
+		if known && underRootWalden(path, prefix) {
 			waldenDirty = append(waldenDirty, path)
 			continue
 		}
@@ -377,6 +389,13 @@ func worktreeCriterion(ctx context.Context, root string) (blockers, waldenDirty 
 	sort.Strings(blockers)
 	sort.Strings(waldenDirty)
 	return blockers, waldenDirty, false
+}
+
+// underRootWalden reports that path, named from the top level, is the
+// .walden directory of the root that lies at prefix, or lies below it.
+func underRootWalden(path, prefix string) bool {
+	below, under := strings.CutPrefix(path, prefix)
+	return under && (below == ".walden" || strings.HasPrefix(below, ".walden/"))
 }
 
 // porcelainPathList extracts worktree paths from NUL-separated porcelain
