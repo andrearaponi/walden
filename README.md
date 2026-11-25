@@ -7,6 +7,29 @@
 
 Walden proves that your code meets its spec, and shows what is no longer proven when either one changes. It is an open-source, deterministic CLI that takes a feature from intention to certified release through reviewed documents, executable proofs, and durable evidence.
 
+This is `walden trace` on the [example in this repository](examples/todo-app-demo), after a typo broke one of its three commands. Each row is one statement of the spec, the proof step that covers it and whether that proof still stands.
+
+<!-- trace:after-change -->
+
+| Statement | Named by | Proof step | Evidence | Command |
+| --- | --- | --- | --- | --- |
+| `R1.AC1` | 1 | 1 step 1 | verified | `sh tests/test_todo.sh add` |
+| `R1.AC2` | 1 | 1 step 2 | verified | `sh tests/test_todo.sh add_creates_file` |
+| `R2.AC1` | 2 | 2 step 1 | verified | `sh tests/test_todo.sh list` |
+| `R2.AC2` | 2 | 2 step 2 | verified | `sh tests/test_todo.sh list_empty` |
+| `R3.AC1` | 3 | 3 step 1 | failed | `sh tests/test_todo.sh complete` |
+| `R3.AC2` | 3 | 3 step 2 | failed | `sh tests/test_todo.sh complete_out_of_range` |
+| `C1` | 1 | 1 step 2 | verified | `sh tests/test_todo.sh add_creates_file` |
+
+Holes: 2 (0 unnamed, 0 uncovered, 2 not-standing)
+
+- `R3.AC1`: 3 step 1 is failed
+- `R3.AC2`: 3 step 2 is failed
+
+<!-- /trace:after-change -->
+
+Before the typo every row read `verified`. The pull request that added the command carries [its own trace](https://github.com/andrearaponi/walden/pull/87).
+
 <p align="center">
   <img src="site/walden-og.jpg" alt="Walden — Intention before code. Proof before completion." />
 </p>

@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Changed
+
+- **The shipped example proves each criterion on its own, and the README shows its trace.** The plan of `examples/todo-app-demo` has one proof step for each acceptance criterion, and each step names the criterion it covers: `walden trace todo-app` reads complete once the tasks are done, where it used to list six criteria without a proof. The wrapper `scripts/verify.sh` is gone, and each step runs one test of `tests/test_todo.sh` by name. The guide of the example leads from a clone to that trace, through a typo that breaks one command, and back. Under its opening paragraph the README shows the trace after the typo, and a test fails when the page or the guide shows what `walden trace` does not print.
+
 ## [0.16.1] - 2026-11-24
 
 ### Fixed

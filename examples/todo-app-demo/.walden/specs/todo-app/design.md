@@ -1,8 +1,9 @@
 ---
+walden_schema_version: v1alpha1
 status: approved
-approved_at: 2026-07-10T17:57:14Z
-last_modified: 2026-07-10T17:57:14Z
-approved_fingerprint: sha256:fd389da52505fb2fe9898bc4aafd5ecb8efc74abca0a8cd5bceba1ce745a550e
+approved_at: 2026-11-25T16:15:06Z
+last_modified: 2026-11-25T16:15:06Z
+approved_fingerprint: sha256:e90643745dda28c570552f3a7fcaf0a6c8eaffe2b991a371b62639628812f476
 source_requirements_approved_at: 2026-07-10T17:57:14Z
 source_requirements_fingerprint: sha256:a3da471ec0241fe0027c1b3be7ad775dc8c5f6caa1d51ebb9070d26b51ca0530
 ---
@@ -68,19 +69,18 @@ Each line is `STATUS|DESCRIPTION` where STATUS is `TODO` or `DONE`.
 
 ## Testing Strategy
 
-- Shell-based tests in `tests/test_todo.sh` that exercise each subcommand.
-- Verification wrapper in `scripts/verify.sh` for task proof execution.
+- Shell tests in `tests/test_todo.sh`, one for each acceptance criterion. Each runs in an empty temporary directory and can be run alone by name.
 
 ## Verification Plan
 
-- Requirement proof: each subcommand is tested by at least one test case.
-- Test evidence: `scripts/verify.sh` runs targeted tests per task.
+- Requirement proof: each acceptance criterion has a test of its own, and each proof step of the plan runs one test and names the criterion it covers.
+- Test evidence: a proof step passes when its test prints `PASS:` followed by its name.
 
 ## Requirement Coverage
 
 | Requirement | Covered By |
 | --- | --- |
-| `R1` | add subcommand, test_add |
-| `R2` | list subcommand, test_list |
-| `R3` | complete subcommand, test_complete |
+| `R1` | add subcommand, test_add and test_add_creates_file |
+| `R2` | list subcommand, test_list and test_list_empty |
+| `R3` | complete subcommand, test_complete and test_complete_out_of_range |
 | `NFR1` | POSIX-only implementation |

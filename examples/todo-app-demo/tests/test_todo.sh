@@ -1,98 +1,83 @@
 #!/bin/sh
+# Usage: tests/test_todo.sh [test-name]
+# Runs one test by name, or every test. Each test runs in an empty temporary
+# directory and proves one acceptance criterion; a test that passes prints
+# "PASS: <name>".
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TODO="$PROJECT_DIR/src/todo.sh"
-PASS=0
-FAIL=0
 
-setup() {
-    TEST_DIR=$(mktemp -d)
-    cd "$TEST_DIR"
+fail() {
+    echo "FAIL: $1"
+    exit 1
 }
 
-teardown() {
-    cd "$PROJECT_DIR"
-    rm -rf "$TEST_DIR"
-}
-
-assert_contains() {
-    if echo "$1" | grep -q "$2"; then
-        PASS=$((PASS + 1))
-    else
-        echo "FAIL: expected output to contain '$2', got: $1"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-assert_exit_code() {
-    if [ "$1" -eq "$2" ]; then
-        PASS=$((PASS + 1))
-    else
-        echo "FAIL: expected exit code $2, got $1"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-# Test: add creates item
+# R1.AC1: add appends the item to the todo file and confirms it
 test_add() {
-    setup
-    output=$(sh "$TODO" add "Buy groceries")
-    assert_contains "$output" "Added"
-    assert_contains "$(cat todos.txt)" "TODO|Buy groceries"
-    teardown
+    sh "$TODO" add "Buy groceries" > /dev/null
+    output=$(sh "$TODO" add "Write tests")
+    [ "$output" = "Added: Write tests" ] || fail "add printed: $output"
+    [ "$(sed -n 2p todos.txt)" = "TODO|Write tests" ] || fail "second line of the file: $(sed -n 2p todos.txt)"
 }
 
-# Test: list shows items
+# R1.AC2: add creates the todo file when it does not exist
+test_add_creates_file() {
+    [ ! -e todos.txt ] || fail "todos.txt exists before the first add"
+    sh "$TODO" add "First item" > /dev/null
+    [ "$(cat todos.txt)" = "TODO|First item" ] || fail "the file holds: $(cat todos.txt)"
+}
+
+# R2.AC1: list shows every item with its status and index
 test_list() {
-    setup
     sh "$TODO" add "Task one" > /dev/null
     sh "$TODO" add "Task two" > /dev/null
-    output=$(sh "$TODO" list)
-    assert_contains "$output" "1."
-    assert_contains "$output" "Task one"
-    assert_contains "$output" "2."
-    teardown
+    expected="1. [TODO] Task one
+2. [TODO] Task two"
+    [ "$(sh "$TODO" list)" = "$expected" ] || fail "list printed: $(sh "$TODO" list)"
 }
 
-# Test: list empty
+# R2.AC2: list says so when there is no item
 test_list_empty() {
-    setup
-    output=$(sh "$TODO" list)
-    assert_contains "$output" "No items"
-    teardown
+    [ "$(sh "$TODO" list)" = "No items." ] || fail "list printed: $(sh "$TODO" list)"
 }
 
-# Test: complete marks item done
+# R3.AC1: complete marks the item at that index as done
 test_complete() {
-    setup
-    sh "$TODO" add "Finish demo" > /dev/null
-    sh "$TODO" complete 1 > /dev/null
-    output=$(sh "$TODO" list)
-    assert_contains "$output" "DONE"
-    teardown
+    sh "$TODO" add "Task one" > /dev/null
+    sh "$TODO" add "Task two" > /dev/null
+    sh "$TODO" complete 2 > /dev/null
+    expected="1. [TODO] Task one
+2. [DONE] Task two"
+    [ "$(sh "$TODO" list)" = "$expected" ] || fail "list printed: $(sh "$TODO" list)"
 }
 
-# Test: complete out of range
+# R3.AC2: complete reports an index that is out of range
 test_complete_out_of_range() {
-    setup
     sh "$TODO" add "Only item" > /dev/null
-    exit_code=0
-    sh "$TODO" complete 5 > /dev/null 2>&1 || exit_code=$?
-    assert_exit_code "$exit_code" 1
-    teardown
+    status=0
+    output=$(sh "$TODO" complete 5 2>&1) || status=$?
+    [ "$status" -eq 1 ] || fail "exit status $status"
+    [ "$output" = "Error: index out of range" ] || fail "complete printed: $output"
 }
 
-# Run all tests
-test_add
-test_list
-test_list_empty
-test_complete
-test_complete_out_of_range
+run() {
+    dir=$(mktemp -d)
+    status=0
+    ( cd "$dir" && "test_$1" ) || status=$?
+    rm -rf "$dir"
+    [ "$status" -eq 0 ] || exit "$status"
+    echo "PASS: $1"
+}
 
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
+ALL="add add_creates_file list list_empty complete complete_out_of_range"
+
+if [ $# -eq 0 ]; then
+    for name in $ALL; do run "$name"; done
+    exit 0
 fi
+
+case " $ALL " in
+    *" $1 "*) run "$1" ;;
+    *) echo "Unknown test: $1"; echo "Tests: $ALL"; exit 2 ;;
+esac
